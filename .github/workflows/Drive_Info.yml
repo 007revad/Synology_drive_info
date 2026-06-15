@@ -1,0 +1,185 @@
+name: Build n Release Drive Info Package
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-spk:
+    name: Build Package
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ['kvmx64']
+        #arch: ['noarch']
+        #dsm: ['7.0','7.1','7.2','7.3']
+        dsm: ['7.0']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get release tag
+        id: get_latest_tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "new_tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            # Get most recent release including pre-releases
+            latest_tag=$(curl -s "https://api.github.com/repos/007revad/Synology_drive_info/releases?per_page=1" \
+              | jq -r '.[0].tag_name // empty')
+            if [ -z "$latest_tag" ]; then
+              echo "ERROR: Could not determine release tag" >&2
+              exit 1
+            fi
+            echo "new_tag=$latest_tag" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Determine DSM suffix
+        id: dsm_suffix
+        run: |
+          # Count how many DSM versions are in the matrix
+          dsm_list='${{ toJSON(matrix.dsm) }}'
+          count=$(echo "$dsm_list" | jq 'if type == "array" then length else 1 end')
+          current="${{ matrix.dsm }}"
+          if [ "$count" -eq 1 ] && [ "$current" = "7.0" ]; then
+            echo "suffix=DSM-7.x" >> $GITHUB_OUTPUT
+          else
+            echo "suffix=DSM-${current}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if SPKs already exist in release
+        id: check_assets
+        run: |
+          existing=$(curl -s "https://api.github.com/repos/007revad/Synology_drive_info/releases/tags/${{ steps.get_latest_tag.outputs.new_tag }}" \
+            | jq -r '.assets[].name' | grep -c '\.spk' || true)
+          echo "spk_count=$existing" >> $GITHUB_OUTPUT
+
+      - name: Synology Package Builder Github Action
+        if: steps.check_assets.outputs.spk_count == '0'
+        #uses: tomgrv/synology-package-builder@v1.3.0
+        uses: 007revad/synology-package-builder@main
+        with:
+          dsm: ${{ matrix.dsm }}
+          arch: ${{ matrix.arch }}
+          output: ./dist
+
+      - name: Remove debug spk and rename package
+        if: steps.check_assets.outputs.spk_count == '0'
+        run: |
+          ls -l ./dist
+          rm ./dist/*_debug.spk
+          for f in ./dist/*.spk; do
+            mv "$f" "./dist/Synology_drive_info-x86_64-${{ steps.get_latest_tag.outputs.new_tag }}-${{ steps.dsm_suffix.outputs.suffix }}.spk"
+          done
+          ls -l ./dist
+
+      - name: Create noarch package
+        if: steps.check_assets.outputs.spk_count == '0'
+        run: |
+          for f in ./dist/Synology_drive_info-x86_64-*.spk; do
+            noarch="${f/x86_64/noarch}"
+            tmpdir=$(mktemp -d)
+            tar -xf "$f" -C "$tmpdir"
+            sed -i 's/arch="x86_64"/arch="noarch"/' "$tmpdir/INFO"
+            tar -cf "$noarch" -C "$tmpdir" $(ls "$tmpdir")
+            rm -rf "$tmpdir"
+          done
+          ls -l ./dist
+
+      - name: Upload Package
+        if: steps.check_assets.outputs.spk_count == '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Synology_drive_info-${{ steps.dsm_suffix.outputs.suffix }}
+          path: ./dist/*.spk
+
+      - name: Release
+        if: steps.check_assets.outputs.spk_count == '0'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_latest_tag.outputs.new_tag }}
+          make_latest: false
+          fail_on_unmatched_files: false
+          files: |
+            ./dist/*.spk
+
+  notify-spkrepo:
+    runs-on: ubuntu-latest
+    needs: [build-spk]
+    if: github.event_name == 'release' && github.event.action == 'published'
+    steps:
+      - name: Checkout this repo (for synology/PACKAGE_ICON.PNG and package.json)
+        uses: actions/checkout@v4
+
+      - name: Checkout 007revad.github.io (for thumbnails/)
+        uses: actions/checkout@v4
+        with:
+          repository: 007revad/007revad.github.io
+          token: ${{ secrets.SYNC_TOKEN }}
+          path: _github_io
+
+      - name: Install ImageMagick
+        run: sudo apt-get install -y --no-install-recommends imagemagick
+
+      - name: Resize icon and push thumbnail
+        run: |
+          set -euo pipefail
+
+          # Read package ID from package.json
+          # package.json may be at the repo root or under synology/ depending on the repo
+          if [ -f "synology/package.json" ]; then
+            PKG_JSON="synology/package.json"
+          elif [ -f "package.json" ]; then
+            PKG_JSON="package.json"
+          else
+            echo "ERROR: package.json not found" >&2
+            exit 1
+          fi
+
+          PKG_NAME=$(jq -r '.package' "${PKG_JSON}")
+          DEST="_github_io/spkrepo/thumbnails/${PKG_NAME}_120.png"
+
+          # Resize 256x256 PACKAGE_ICON.PNG → 120x120 PNG
+          mkdir -p "_github_io/spkrepo/thumbnails"
+          /usr/bin/convert synology/PACKAGE_ICON.PNG \
+            -resize 120x120 \
+            -gravity center \
+            -extent 120x120 \
+            "${DEST}"
+
+          # Commit and push if the thumbnail changed (or is new)
+          cd _github_io
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "spkrepo/thumbnails/${PKG_NAME}_120.png"
+          if git diff --cached --quiet; then
+            echo "Thumbnail unchanged — skipping commit."
+          else
+            git commit -m "chore: update spkrepo thumbnail for ${PKG_NAME} [skip ci]"
+            git push
+          fi
+
+      - name: Trigger spkrepo index rebuild
+        run: |
+          curl -fsSL \
+            -X POST \
+            -H "Authorization: Bearer ${{ secrets.SYNC_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            https://api.github.com/repos/007revad/007revad.github.io/dispatches \
+            --data '{
+              "event_type": "spk-release",
+              "client_payload": {
+                "repo":    "${{ github.repository }}",
+                "tag":     "${{ github.event.release.tag_name }}"
+              }
+            }'

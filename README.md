@@ -9,7 +9,7 @@
 
 ### Description
 
-Description goes here
+Show drive device id, DSM number, model and serial number for all drives in your Synology NAS
 
 ### Download the script
 
