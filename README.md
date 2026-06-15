@@ -9,6 +9,8 @@
 
 ### Description
 
+WORK In PROGRESS...
+
 Show drive device id, DSM number, model and serial number for all drives in your Synology NAS
 
 ### How to install the package
