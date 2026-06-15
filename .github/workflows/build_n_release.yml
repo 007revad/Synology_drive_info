@@ -1,4 +1,4 @@
-name: Build n Release Zip
+infoname: Build n Release Zip
 
 on:
   release:
@@ -33,7 +33,7 @@ jobs:
         run: |
           zip_name="${{ github.event.repository.name }}_script_${{ steps.get_tag.outputs.tag }}.zip"
           echo "name=$zip_name" >> $GITHUB_OUTPUT
-          zip "$zip_name" TEMPLATE.sh
+          zip "$zip_name" drive_info.sh
 
       - name: Upload zip to release
         uses: softprops/action-gh-release@v2
