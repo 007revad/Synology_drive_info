@@ -1,6 +1,6 @@
 [{
     "step_title": "Permission setup required",
     "items": [{
-        "desc": "Package Center will say the package failed to start when first installed. After installation you must grant the package the required permissions, if you haven't already.<br><br>See the <a target=\"_blank\" href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\">Set package permissions</a> for details.<br><br>Then refresh Package Center and start the package."
+        "desc": "After installation you must grant the package the required permissions, if you haven't already.<br><br>See the <a target=\"_blank\" href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\">Set package permissions</a> for details.<br>If you have previously set this package's permissions you can skip this."
     }]
 }]
