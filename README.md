@@ -35,7 +35,7 @@ There are 2 ways to install the package:
 
 <br>
 
-<p align="center">Temporay screenshot sample</p>
+<!--- <p align="center">Screenshot 2</p> -->
 <p align="center"><img src="/images/window.png"></p>
 
 <!--- <br> --->
