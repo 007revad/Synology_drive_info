@@ -52,7 +52,7 @@ if ! sudo -n -l "$SCRIPT" >/dev/null 2>&1; then
 <p>This package needs elevated permissions to read drive information.</p>
 <p>Connect to your NAS via SSH and run:</p>
 <pre>sudo -i
-echo "drive_info ALL=(root) NOPASSWD: $SCRIPT" \\
+echo "drive_info ALL=(ALL) NOPASSWD: $SCRIPT" \\
     &gt; $SUDOERS_FILE
 chmod 0440 $SUDOERS_FILE</pre>
 <p>Then close and reopen this window.</p>
