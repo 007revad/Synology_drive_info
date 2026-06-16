@@ -88,8 +88,8 @@ for d in /sys/block/*; do
     esac
 done
 
-# HDDs and SSDs
-if [[ "${#drives[@]}" -gt 0 ]]; then
+# HDDs, SSDs and NVMe drives combined into one table
+if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]]; then
     w_id=2
     w_num=6
     w_model=5
@@ -108,25 +108,6 @@ if [[ "${#drives[@]}" -gt 0 ]]; then
         (( ${#serial}    > w_serial )) && w_serial=${#serial}
     done
 
-    sep_len=$(( w_id + 2 + w_num + 2 + w_model + 2 + w_serial ))
-    echo ""
-    printf '%*s\n' "$sep_len" '' | tr ' ' '-'
-    printf "%-${w_id}s  %-${w_num}s  %-${w_model}s  %-${w_serial}s\n" "ID" "Number" "Model" "Serial"
-    printf '%*s\n' "$sep_len" '' | tr ' ' '-'
-    for i in "${!ids[@]}"; do
-        printf "%-${w_id}s  %-${w_num}s  %-${w_model}s  %-${w_serial}s\n" \
-            "${ids[$i]}" "${nums[$i]}" "${models[$i]}" "${serials[$i]}"
-    done
-fi
-
-# M.2 drives
-if [[ "${#nvmes[@]}" -gt 0 ]]; then
-    w_id=2
-    w_num=6
-    w_model=5
-    w_serial=6
-
-    unset ids nums models serials
     for drive in "${nvmes[@]}"; do
         get_nvme_num
         model=$(cat "/sys/block/$drive/device/model" | xargs)

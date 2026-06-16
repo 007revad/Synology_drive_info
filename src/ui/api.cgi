@@ -21,8 +21,12 @@ pre  { background: #f4f4f4; border: 1px solid #ddd; border-radius: 4px;
        white-space: pre-wrap; word-break: break-all;
        box-sizing: border-box; max-width: 100%; }
 table { border-collapse: collapse; width: 100%;
-        box-sizing: border-box;
-        font-family: 'Courier New', monospace; font-size: 12px; }
+        box-sizing: border-box; table-layout: fixed;
+        font-family: Arial, sans-serif; font-size: 8px; }
+col.id     { width: 70px; }
+col.num    { width: 160px; }
+col.model  { width: 220px; }
+col.serial { width: auto; }
 th { text-align: left; padding: 5px 14px 5px 5px;
      border-bottom: 2px solid #ccc; color: #555;
      font-family: Arial, sans-serif; font-size: 12px; }
@@ -99,7 +103,7 @@ while IFS= read -r line; do
     if [[ "$trimmed" =~ ^-+$ ]]; then
         if [[ $in_table -eq 0 ]]; then
             in_table=1
-            echo '<table>'
+            echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="serial"></colgroup>'
         fi
         continue
     fi
