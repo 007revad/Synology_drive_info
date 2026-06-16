@@ -30,7 +30,7 @@ There are 2 ways to install the package:
 
 ### Screenshots
 
-<p align="center">Temporay screenshot sample</p>
+<!--- <p align="center">Screenshot 1</p> --->
 <p align="center"><img src="/images/installed.png"></p>
 
 <br>
