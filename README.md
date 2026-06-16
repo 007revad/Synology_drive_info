@@ -21,6 +21,8 @@ There are 2 ways to install the package:
 1. Add [007revad Synology Package Source](https://github.com/007revad/Synology_package_source) to package Center.
 2. Click on the Community section in Package Center and install the package.
 
+<p align="center"><img src="/images/pkg_center.png"></p>
+
 **Or download the package and install it manually**
 1. Download the latest version .spk file from https://github.com/007revad/Synology_drive_info/releases and save it to your Synology.
 2. In Package Center click on Manual Install.
