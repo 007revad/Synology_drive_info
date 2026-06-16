@@ -1,5 +1,6 @@
 v1.0.7
 - Changed font in table content.
+- Fixed steps to setting the permission.
 
 v1.0.6
 - First release.
