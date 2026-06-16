@@ -3,7 +3,7 @@
 PKG_NAME="drive_info"
 PKG_ROOT="/var/packages/${PKG_NAME}"
 TARGET_DIR="${PKG_ROOT}/target"
-SCRIPT="${TARGET_DIR}/scripts/drive_info.sh"
+SCRIPT="${TARGET_DIR}/ui/bin/drive_info.sh"
 SUDOERS_FILE="/etc/sudoers.d/${PKG_NAME}"
 
 echo "Content-Type: text/html; charset=utf-8"
@@ -13,12 +13,15 @@ echo ""
 cat << 'STYLE'
 <style>
 body { font-family: Arial, sans-serif; font-size: 13px; color: #333;
-       margin: 16px; background: transparent; }
+       margin: 16px; margin-right: 14px; background: transparent;
+       overflow-y: auto; }
 h2   { margin-top: 0; font-size: 15px; color: #333; }
 pre  { background: #f4f4f4; border: 1px solid #ddd; border-radius: 4px;
        padding: 12px; font-size: 12px; line-height: 1.6;
-       white-space: pre-wrap; word-break: break-all; }
+       white-space: pre-wrap; word-break: break-all;
+       box-sizing: border-box; max-width: 100%; }
 table { border-collapse: collapse; width: 100%;
+        box-sizing: border-box;
         font-family: 'Courier New', monospace; font-size: 12px; }
 th { text-align: left; padding: 5px 14px 5px 5px;
      border-bottom: 2px solid #ccc; color: #555;
@@ -37,8 +40,9 @@ if [[ ! -f "$SCRIPT" ]]; then
     exit 0
 fi
 
-# Check sudoers file exists and references the script
-if [[ ! -f "$SUDOERS_FILE" ]] || ! grep -q "$SCRIPT" "$SUDOERS_FILE" 2>/dev/null; then
+# Check sudo permission is granted (sudoers.d files aren't readable by
+# the drive_info user, so ask sudo directly rather than grepping the file)
+if ! sudo -n -l "$SCRIPT" >/dev/null 2>&1; then
     cat << NOPERMS
 <h2 style="color:#c00;">Permissions not configured</h2>
 <p>This package needs elevated permissions to read drive information.</p>

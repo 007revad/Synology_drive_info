@@ -6,7 +6,7 @@ There are 2 ways you can set the required permissions for the package.
 
 ```
 sudo -i
-echo "drive_info ALL=(drive_info) NOPASSWD: /var/packages/drive_info/target/bin/drive_info.sh" > /etc/sudoers.d/drive_info
+echo "drive_info ALL=(drive_info) NOPASSWD: /var/packages/drive_info/target/ui/bin/drive_info.sh" > /etc/sudoers.d/drive_info
 chmod 0440 /etc/sudoers.d/drive_info
 cat /etc/sudoers.d/drive_info
 ```
@@ -23,7 +23,7 @@ cat /etc/sudoers.d/drive_info
     ```
     pkg=drive_info
     file=/etc/sudoers.d/drive_info
-    script=/var/packages/drive_info/target/bin/drive_info.sh
+    script=/var/packages/drive_info/target/ui/bin/drive_info.sh
     echo "$pkg ALL=($pkg) NOPASSWD: $script" > "$file"
     chmod 0440 "$file"
     cat "$file"

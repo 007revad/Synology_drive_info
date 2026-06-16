@@ -11,7 +11,7 @@ rm -f "$UI_DIR/ui"         # self-referencing symlink
 rm -f "$TEXTS_DIR/strings" # strings file template
 
 # Make scripts and CGI executable
-chmod 755 "$TARGET_DIR/bin/drive_info.sh"
+chmod 755 "$UI_DIR/bin/drive_info.sh"
 chmod 755 "$UI_DIR/api.cgi"
 
 exit 0

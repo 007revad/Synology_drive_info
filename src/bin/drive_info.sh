@@ -11,15 +11,38 @@ if [[ $( whoami ) != "root" ]]; then
     exit 1  # Not running as root
 fi
 
-Yellow='\e[0;33m'   # ${Yellow}
-Cyan='\e[0;36m'     # ${Cyan}
-Off='\e[0m'         # ${Off}
-
 get_drive_num(){ 
-    # Get Drive number
+    drive_num=""
     disk_id=""
-    disk_id=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk id' | awk '{print $NF}')
-    drive_num="Drive $disk_id"
+    disk_cnr=""
+    eunit=""
+    # Get Drive number
+    disk_id=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk id:' | awk '{print $NF}')
+    disk_cnr=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk cnr:' | awk '{print $NF}')
+
+    # Get eunit model and port number
+    # Only device tree models have syno_slot_mapping so we use different method
+    # /tmp/eunitinfo_2 example contents:
+    #  EUnitModel=DX213-2
+    #  EUnitDisks=/dev/sdja,/dev/sdjb
+    for f in /tmp/eunitinfo_*; do
+        if [[ -f "$f" ]]; then
+            if grep -q "/dev/$drive" "$f"; then
+                eunit="$(get_key_value "$f" EUnitModel)"
+            fi
+        fi
+    done
+
+    if [[ $disk_cnr -eq "4" ]]; then
+        drive_num="USB Drive  "
+    elif [[ $eunit ]]; then
+        drive_num="Drive $disk_id ($eunit)  "
+    elif synodisk --enum -t sys | grep -q "/dev/$drive"; then
+        # HD6500
+        drive_num="System Drive $disk_id  "
+    else
+        drive_num="Drive $disk_id  "
+    fi
 }
 
 get_nvme_num(){ 
@@ -36,30 +59,6 @@ get_nvme_num(){
         cardslot=""
     fi
     drive_num="M.2 Drive $pcislot$cardslot"
-}
-
-show_drive_model(){ 
-    # Get drive model
-    # $drive is sata1 or sda or usb1 etc
-    model=$(cat "/sys/block/$drive/device/model")
-    model=$(printf "%s" "$model" | xargs)  # trim leading and trailing white space
-
-    # Get drive serial number
-    if echo "$drive" | grep nvme >/dev/null ; then
-        serial=$(cat "/sys/block/$drive/device/serial")
-    else
-        serial=$(cat "/sys/block/$drive/device/syno_disk_serial")
-    fi
-    serial=$(printf "%s" "$serial" | xargs)  # trim leading and trailing white space
-
-    # Get drive serial number with smartctl for USB drives
-#    if [[ -z "$serial" && "${drive:0:4}" != "nvme" ]]; then
-    if [[ -z "$serial" ]]; then
-        serial=$(smartctl -i -d sat /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
-    fi
-
-    # Show drive model and serial
-    printf "%s\t%s\t%s\t%s\n" "$drive" "$drive_num" "$model" "$serial"
 }
 
 # Add drives to drives array
@@ -86,15 +85,8 @@ for d in /sys/block/*; do
                 drives+=("$(basename -- "${d}")")
             fi
         ;;
-        #usb*)
-        #    if [[ $d =~ usb[0-9]?[0-9]?$ ]]; then
-        #        drives+=("$(basename -- "${d}")")
-        #    fi
-        #;;
     esac
 done
-
-if [[ -z "$errtotal" ]]; then errtotal=0 ; fi
 
 # HDDs and SSDs
 if [[ "${#drives[@]}" -gt 0 ]]; then
@@ -122,7 +114,7 @@ if [[ "${#drives[@]}" -gt 0 ]]; then
     printf "%-${w_id}s  %-${w_num}s  %-${w_model}s  %-${w_serial}s\n" "ID" "Number" "Model" "Serial"
     printf '%*s\n' "$sep_len" '' | tr ' ' '-'
     for i in "${!ids[@]}"; do
-        printf "%-${w_id}s  ${Cyan}%-${w_num}s${Off}  %-${w_model}s  ${Yellow}%-${w_serial}s${Off}\n" \
+        printf "%-${w_id}s  %-${w_num}s  %-${w_model}s  %-${w_serial}s\n" \
             "${ids[$i]}" "${nums[$i]}" "${models[$i]}" "${serials[$i]}"
     done
 fi
@@ -134,6 +126,7 @@ if [[ "${#nvmes[@]}" -gt 0 ]]; then
     w_model=5
     w_serial=6
 
+    unset ids nums models serials
     for drive in "${nvmes[@]}"; do
         get_nvme_num
         model=$(cat "/sys/block/$drive/device/model" | xargs)
@@ -153,10 +146,9 @@ if [[ "${#nvmes[@]}" -gt 0 ]]; then
     printf "%-${w_id}s  %-${w_num}s  %-${w_model}s  %-${w_serial}s\n" "ID" "Number" "Model" "Serial"
     printf '%*s\n' "$sep_len" '' | tr ' ' '-'
     for i in "${!ids[@]}"; do
-        printf "%-${w_id}s  ${Cyan}%-${w_num}s${Off}  %-${w_model}s  ${Yellow}%-${w_serial}s${Off}\n" \
+        printf "%-${w_id}s  %-${w_num}s  %-${w_model}s  %-${w_serial}s\n" \
             "${ids[$i]}" "${nums[$i]}" "${models[$i]}" "${serials[$i]}"
     done
 fi
 
 echo ""
-
