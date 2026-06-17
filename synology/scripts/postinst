@@ -3,15 +3,17 @@
 PKG_NAME=$(basename "$SYNOPKG_PKGDEST")
 TARGET_DIR="/var/packages/$PKG_NAME/target"
 UI_DIR="$TARGET_DIR/ui"
+MODULES_DIR="$TARGET_DIR/ui/modules"
 TEXTS_DIR="$TARGET_DIR/ui/texts"
 
 # Remove spurious files injected by the package builder
 rm -f "$UI_DIR/Makefile"
 rm -f "$UI_DIR/ui"         # self-referencing symlink
-rm -f "$TEXTS_DIR/strings" # strings file template
+#rm -f "$TEXTS_DIR/strings" # strings file template
 
 # Make scripts and CGI executable
 chmod 755 "$UI_DIR/bin/drive_info.sh"
 chmod 755 "$UI_DIR/api.cgi"
+chmod 755 "$UI_DIR/modules/get_text.sh"
 
 exit 0

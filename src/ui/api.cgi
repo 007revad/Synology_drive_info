@@ -6,6 +6,9 @@ TARGET_DIR="${PKG_ROOT}/target"
 SCRIPT="${TARGET_DIR}/ui/bin/drive_info.sh"
 SUDOERS_FILE="/etc/sudoers.d/${PKG_NAME}"
 
+# shellcheck source=ui/modules/get_text.sh
+source "${TARGET_DIR}/ui/modules/get_text.sh"
+
 echo "Content-Type: text/html; charset=utf-8"
 echo ""
 
@@ -94,7 +97,7 @@ if [[ $EXIT_CODE -ne 0 ]]; then
 fi
 
 # Parse and render the plain-text table output as HTML
-echo "<h2>Drive Information</h2>"
+echo "<h2>$(txt volume volume_disk_information "Drive Information")</h2>"
 
 in_table=0
 headers=()

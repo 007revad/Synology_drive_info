@@ -11,7 +11,21 @@ if [[ $( whoami ) != "root" ]]; then
     exit 1  # Not running as root
 fi
 
+# Load translated strings if running from within the installed package.
+# modules/get_text.sh and the texts/ folder won't exist if this script
+# is run standalone (e.g. downloaded directly from GitHub), in which
+# case fall back to printing the English defaults below.
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+get_text_module="$(dirname "${script_dir}")/modules/get_text.sh"
+if [[ -f "${get_text_module}" ]]; then
+    source "${get_text_module}"
+else
+    txt() { echo "${3}"; }  # txt SECTION KEY DEFAULT -> just print DEFAULT
+fi
+
 get_drive_num(){ 
+    local label
+    label="$(txt volume volume_disk "Drive")"
     drive_num=""
     disk_id=""
     disk_cnr=""
@@ -34,19 +48,21 @@ get_drive_num(){
     done
 
     if [[ $disk_cnr -eq "4" ]]; then
-        drive_num="USB Drive  "
+        drive_num="USB $label"
     elif [[ $eunit ]]; then
-        drive_num="Drive $disk_id ($eunit)  "
+        drive_num="$label $disk_id ($eunit)"
     elif synodisk --enum -t sys | grep -q "/dev/$drive"; then
         # HD6500
-        drive_num="System Drive $disk_id  "
+        drive_num="DSM $label $disk_id"
     else
-        drive_num="Drive $disk_id  "
+        drive_num="$label $disk_id"
     fi
 }
 
 get_nvme_num(){ 
     # Get M.2 Drive number
+    local label
+    label="$(txt volume volume_m2_device "M.2 Drive")"
     pcislot=""
     cardslot=""
     if nvme=$(synonvme --get-location "/dev/$drive"); then
@@ -58,7 +74,7 @@ get_nvme_num(){
         pcislot="$(basename -- "$drive")"
         cardslot=""
     fi
-    drive_num="M.2 Drive $pcislot$cardslot"
+    drive_num="$label $pcislot$cardslot"
 
     # Get PCIe M.2 card model (if the drive is in a PCIe M.2 card, not onboard)
     m2_card="$(synonvme --m2-card-model-get /dev/"$drive")"
@@ -96,10 +112,15 @@ done
 
 # HDDs, SSDs and NVMe drives combined into one table
 if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]]; then
-    w_id=2
-    w_num=6
-    w_model=5
-    w_serial=6
+    hdr_id="$(txt smart smart_id "ID")"
+    hdr_num="$(txt volume volume_disk_number "Drive Number")"
+    hdr_model="$(txt volume volume_diskmodel "Model")"
+    hdr_serial="$(txt smart smart_disk_serial_title "Serial Number")"
+
+    w_id=${#hdr_id}
+    w_num=${#hdr_num}
+    w_model=${#hdr_model}
+    w_serial=${#hdr_serial}
 
     for drive in "${drives[@]}"; do
         get_drive_num
@@ -130,7 +151,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]]; then
     sep_len=$(( w_id + 2 + w_num + 2 + w_model + 2 + w_serial ))
     echo ""
     printf '%*s\n' "$sep_len" '' | tr ' ' '-'
-    printf "%-${w_id}s  %-${w_num}s  %-${w_model}s  %-${w_serial}s\n" "ID" "Number" "Model" "Serial"
+    printf "%-${w_id}s  %-${w_num}s  %-${w_model}s  %-${w_serial}s\n" "${hdr_id}" "${hdr_num}" "${hdr_model}" "${hdr_serial}"
     printf '%*s\n' "$sep_len" '' | tr ' ' '-'
     for i in "${!ids[@]}"; do
         printf "%-${w_id}s  %-${w_num}s  %-${w_model}s  %-${w_serial}s\n" \

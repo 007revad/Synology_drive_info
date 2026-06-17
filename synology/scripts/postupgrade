@@ -9,6 +9,6 @@ VAR_DIR="/var/packages/$PKG_NAME/var"
 # Remove spurious files injected by the package builder
 rm -f  "$UI_DIR/Makefile"
 rm -f  "$UI_DIR/ui"  # self-referencing symlink
-rm -f  "$TEXTS_DIR/strings"  # strings file template
+#rm -f  "$TEXTS_DIR/strings"  # strings file template
 
 exit 0

@@ -1,3 +1,6 @@
+v1.0.9
+- Added support for the languages supported by DSM.
+
 v1.0.8
 - Added PCIe M.2 card model to M.2 drives that are in a PCIe card.
 - Adjusted column widths and added nowrap.
