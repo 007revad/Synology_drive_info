@@ -1,0 +1,6 @@
+[{
+    "step_title": "Je vyžadováno nastavení oprávnění",
+    "items": [{
+        "desc": "Po instalaci musíte balíčku udělit požadovaná oprávnění, pokud jste to ještě neudělali.<br><br>Podrobnosti naleznete v části <a target=\"_blank\" href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\">Nastavení oprávnění balíčku</a>.<br><br>Pokud jste oprávnění tohoto balíčku již dříve nastavili, můžete tento krok přeskočit."
+    }]
+}]

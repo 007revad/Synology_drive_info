@@ -1604,3 +1604,14 @@ write_cache_desc	=	"K vytvoření mezipaměti s tolerancí poruch použijte al
 write_cache_desc_note	=	"If you choose this cache mode please do not remove the SSD cache from your _DISKSTATION_ unless the cache has been removed through Storage Manager."
 write_cache_option	=	"Mezipaměť pro čtení-zápis"
 
+
+[errors]
+err_script_missing	=	"Soubor drive_info.sh nebyl nalezen. Zkuste balíček přeinstalovat."
+err_noperms_title	=	"Oprávnění nejsou nastavena"
+err_noperms_desc	=	"Tento balíček potřebuje rozšířená oprávnění pro čtení informací o discích."
+err_noperms_ssh	=	"Připojte se k NAS přes SSH a spusťte:"
+err_noperms_reopen	=	"Poté zavřete a znovu otevřete toto okno."
+err_sudofail_title	=	"Oprávnění nejsou nastavena správně"
+err_sudofail_desc	=	"Položka v sudoers existuje, ale příkaz sudo selhal. Zkontrolujte, zda je položka správná:"
+err_sudofail_must_contain	=	"Měla by obsahovat přesně:"
+err_see_details	=	"Úplné podrobnosti naleznete v <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a>."

@@ -1,0 +1,6 @@
+[{
+    "step_title": "需要设置权限",
+    "items": [{
+        "desc": "安装后，如果尚未授予该套件所需的权限，您必须进行授权。<br><br>详情请参阅<a target=\"_blank\" href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\">设置套件权限</a>。<br><br>如果您之前已经设置过此套件的权限，可以跳过此步骤。"
+    }]
+}]

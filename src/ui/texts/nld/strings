@@ -1604,3 +1604,14 @@ write_cache_desc	=	"Gebruik minstens {0} SSD’s van hetzelfde schijftype om een
 write_cache_desc_note	=	"If you choose this cache mode please do not remove the SSD cache from your _DISKSTATION_ unless the cache has been removed through Storage Manager."
 write_cache_option	=	"Lees-schrijfcache"
 
+
+[errors]
+err_script_missing	=	"drive_info.sh niet gevonden. Probeer het pakket opnieuw te installeren."
+err_noperms_title	=	"Machtigingen niet geconfigureerd"
+err_noperms_desc	=	"Dit pakket heeft verhoogde machtigingen nodig om schijfgegevens te kunnen lezen."
+err_noperms_ssh	=	"Maak via SSH verbinding met uw NAS en voer uit:"
+err_noperms_reopen	=	"Sluit dit venster vervolgens en open het opnieuw."
+err_sudofail_title	=	"Machtigingen niet correct geconfigureerd"
+err_sudofail_desc	=	"De sudoers-invoer bestaat, maar sudo is mislukt. Controleer of de invoer correct is:"
+err_sudofail_must_contain	=	"Deze moet exact het volgende bevatten:"
+err_see_details	=	"Zie <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a> voor alle details."

@@ -1604,3 +1604,14 @@ write_cache_desc	=	"Bruk minst {0} SSD-er av samme disktype for å lage en hurti
 write_cache_desc_note	=	"If you choose this cache mode please do not remove the SSD cache from your _DISKSTATION_ unless the cache has been removed through Storage Manager."
 write_cache_option	=	"Lese-skrivebuffer"
 
+
+[errors]
+err_script_missing	=	"drive_info.sh ble ikke funnet. Prøv å installere pakken på nytt."
+err_noperms_title	=	"Tillatelser er ikke konfigurert"
+err_noperms_desc	=	"Denne pakken krever utvidede tillatelser for å lese diskinformasjon."
+err_noperms_ssh	=	"Koble til NAS-en via SSH og kjør:"
+err_noperms_reopen	=	"Lukk deretter dette vinduet og åpne det på nytt."
+err_sudofail_title	=	"Tillatelser er ikke konfigurert riktig"
+err_sudofail_desc	=	"Sudoers-oppføringen finnes, men sudo mislyktes. Kontroller at oppføringen er riktig:"
+err_sudofail_must_contain	=	"Den bør inneholde nøyaktig:"
+err_see_details	=	"Se <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a> for fullstendige detaljer."

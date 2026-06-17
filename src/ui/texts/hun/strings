@@ -1604,3 +1604,14 @@ write_cache_desc	=	"Hibatűrést biztosító gyorsítótár létrehozásához le
 write_cache_desc_note	=	"If you choose this cache mode please do not remove the SSD cache from your _DISKSTATION_ unless the cache has been removed through Storage Manager."
 write_cache_option	=	"Olvasási-írási gyorsítótár"
 
+
+[errors]
+err_script_missing	=	"A drive_info.sh nem található. Próbálja meg újratelepíteni a csomagot."
+err_noperms_title	=	"A jogosultságok nincsenek beállítva"
+err_noperms_desc	=	"Ehhez a csomaghoz emelt szintű jogosultságok szükségesek a meghajtó-információk olvasásához."
+err_noperms_ssh	=	"Csatlakozzon a NAS-hoz SSH-n keresztül, és futtassa:"
+err_noperms_reopen	=	"Ezután zárja be, majd nyissa meg újra ezt az ablakot."
+err_sudofail_title	=	"A jogosultságok nincsenek megfelelően beállítva"
+err_sudofail_desc	=	"A sudoers bejegyzés létezik, de a sudo meghiúsult. Ellenőrizze, hogy a bejegyzés helyes:"
+err_sudofail_must_contain	=	"Pontosan ezt kell tartalmaznia:"
+err_see_details	=	"A teljes részletekért lásd: <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a>."

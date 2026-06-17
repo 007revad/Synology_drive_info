@@ -1,0 +1,6 @@
+[{
+    "step_title": "Berechtigungseinrichtung erforderlich",
+    "items": [{
+        "desc": "Nach der Installation müssen Sie dem Paket die erforderlichen Berechtigungen erteilen, falls noch nicht geschehen.<br><br>Weitere Informationen finden Sie unter <a target=\"_blank\" href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\">Paketberechtigungen festlegen</a>.<br><br>Wenn Sie die Berechtigungen dieses Pakets bereits zuvor festgelegt haben, können Sie diesen Schritt überspringen."
+    }]
+}]

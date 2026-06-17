@@ -1,0 +1,6 @@
+[{
+    "step_title": "Jogosultságok beállítása szükséges",
+    "items": [{
+        "desc": "A telepítés után meg kell adnia a csomag számára a szükséges jogosultságokat, amennyiben ezt még nem tette meg.<br><br>A részletekért lásd: <a target=\"_blank\" href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\">Csomag jogosultságainak beállítása</a>.<br><br>Ha korábban már beállította ennek a csomagnak a jogosultságait, ezt a lépést kihagyhatja."
+    }]
+}]

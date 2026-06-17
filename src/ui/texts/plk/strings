@@ -1604,3 +1604,14 @@ write_cache_desc	=	"Użyj co najmniej {0} dysków SSD tego samego typu, aby utwo
 write_cache_desc_note	=	"If you choose this cache mode please do not remove the SSD cache from your _DISKSTATION_ unless the cache has been removed through Storage Manager."
 write_cache_option	=	"Pamięć podręczna do odczytu i zapisu"
 
+
+[errors]
+err_script_missing	=	"Nie znaleziono drive_info.sh. Spróbuj ponownie zainstalować pakiet."
+err_noperms_title	=	"Uprawnienia nie są skonfigurowane"
+err_noperms_desc	=	"Ten pakiet wymaga podwyższonych uprawnień, aby odczytać informacje o dyskach."
+err_noperms_ssh	=	"Połącz się z urządzeniem NAS przez SSH i uruchom:"
+err_noperms_reopen	=	"Następnie zamknij i ponownie otwórz to okno."
+err_sudofail_title	=	"Uprawnienia są skonfigurowane niepoprawnie"
+err_sudofail_desc	=	"Wpis w sudoers istnieje, ale sudo nie powiodło się. Sprawdź, czy wpis jest poprawny:"
+err_sudofail_must_contain	=	"Powinien zawierać dokładnie:"
+err_see_details	=	"Pełne informacje znajdziesz w <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a>."

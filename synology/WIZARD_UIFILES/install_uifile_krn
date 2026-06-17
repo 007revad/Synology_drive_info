@@ -1,0 +1,6 @@
+[{
+    "step_title": "권한 설정이 필요합니다",
+    "items": [{
+        "desc": "설치 후 아직 권한을 부여하지 않았다면 패키지에 필요한 권한을 부여해야 합니다.<br><br>자세한 내용은 <a target=\"_blank\" href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\">패키지 권한 설정</a>을 참고하세요.<br><br>이전에 이미 이 패키지의 권한을 설정했다면 이 단계를 건너뛸 수 있습니다."
+    }]
+}]

@@ -1603,3 +1603,14 @@ wizard_repair_check_single_cache_abnormal_single	=	"Dieser SSD-Cache enthält ei
 write_cache_desc	=	"Verwenden Sie mindestens {0} SSDs desselben Typs für einen Cache mit Fehlertoleranz. Der Lese/Schreib-Cache schreibt zunächst Daten auf die SSDs, um die Leistung beim direkten Lesen/Schreiben zu verbessern und den Datenzugriff zu beschleunigen."
 write_cache_desc_note	=	"If you choose this cache mode please do not remove the SSD cache from your _DISKSTATION_ unless the cache has been removed through Storage Manager."
 write_cache_option	=	"Lese/Schreib-Cache"
+
+[errors]
+err_script_missing	=	"drive_info.sh wurde nicht gefunden. Versuchen Sie, das Paket neu zu installieren."
+err_noperms_title	=	"Berechtigungen nicht eingerichtet"
+err_noperms_desc	=	"Dieses Paket benötigt erweiterte Berechtigungen, um Laufwerksinformationen zu lesen."
+err_noperms_ssh	=	"Verbinden Sie sich per SSH mit Ihrem NAS und führen Sie aus:"
+err_noperms_reopen	=	"Schließen Sie dann dieses Fenster und öffnen Sie es erneut."
+err_sudofail_title	=	"Berechtigungen nicht korrekt eingerichtet"
+err_sudofail_desc	=	"Der sudoers-Eintrag existiert, aber sudo ist fehlgeschlagen. Überprüfen Sie, ob der Eintrag korrekt ist:"
+err_sudofail_must_contain	=	"Er sollte genau Folgendes enthalten:"
+err_see_details	=	"Weitere Informationen finden Sie unter <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a>."

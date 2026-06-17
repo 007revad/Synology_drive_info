@@ -1,0 +1,6 @@
+[{
+    "step_title": "権限の設定が必要です",
+    "items": [{
+        "desc": "インストール後、まだ設定していない場合は、パッケージに必要な権限を付与する必要があります。<br><br>詳細については<a target=\"_blank\" href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\">パッケージの権限設定</a>をご覧ください。<br><br>このパッケージの権限を以前に設定済みの場合は、これをスキップできます。"
+    }]
+}]

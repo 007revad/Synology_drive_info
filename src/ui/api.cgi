@@ -47,7 +47,7 @@ STYLE
 
 # Check script exists
 if [[ ! -f "$SCRIPT" ]]; then
-    echo '<p class="err">drive_info.sh not found. Try reinstalling the package.</p>'
+    echo "<p class=\"err\">$(txt errors err_script_missing "drive_info.sh not found. Try reinstalling the package.")</p>"
     exit 0
 fi
 
@@ -55,16 +55,15 @@ fi
 # the drive_info user, so ask sudo directly rather than grepping the file)
 if ! sudo -n -l "$SCRIPT" >/dev/null 2>&1; then
     cat << NOPERMS
-<h2 style="color:#c00;">Permissions not configured</h2>
-<p>This package needs elevated permissions to read drive information.</p>
-<p>Connect to your NAS via SSH and run:</p>
+<h2 style="color:#c00;">$(txt errors err_noperms_title "Permissions not configured")</h2>
+<p>$(txt errors err_noperms_desc "This package needs elevated permissions to read drive information.")</p>
+<p>$(txt errors err_noperms_ssh "Connect to your NAS via SSH and run:")</p>
 <pre>sudo -i
 echo "drive_info ALL=(root) NOPASSWD: $SCRIPT" \\
     &gt; $SUDOERS_FILE
 chmod 0440 $SUDOERS_FILE</pre>
-<p>Then close and reopen this window.</p>
-<p>See <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md"
-   target="_blank">set_package_permissions.md</a> for full details.</p>
+<p>$(txt errors err_noperms_reopen "Then close and reopen this window.")</p>
+<p>$(txt errors err_see_details "See <a href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\" target=\"_blank\">set_package_permissions.md</a> for full details.")</p>
 NOPERMS
     exit 0
 fi
@@ -79,13 +78,12 @@ rm -f "$STDERR_TMP"
 # Check if sudo itself failed
 if echo "$STDERR_OUT" | grep -qi "not in the sudoers\|sudoers file\|not allowed\|password is required"; then
     cat << SUDOFAIL
-<h2 style="color:#c00;">Permissions not configured correctly</h2>
-<p>The sudoers entry exists but sudo failed. Check the entry is correct:</p>
+<h2 style="color:#c00;">$(txt errors err_sudofail_title "Permissions not configured correctly")</h2>
+<p>$(txt errors err_sudofail_desc "The sudoers entry exists but sudo failed. Check the entry is correct:")</p>
 <pre>cat $SUDOERS_FILE</pre>
-<p>It should contain exactly:</p>
+<p>$(txt errors err_sudofail_must_contain "It should contain exactly:")</p>
 <pre>drive_info ALL=(root) NOPASSWD: $SCRIPT</pre>
-<p>See <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md"
-   target="_blank">set_package_permissions.md</a> for full details.</p>
+<p>$(txt errors err_see_details "See <a href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\" target=\"_blank\">set_package_permissions.md</a> for full details.")</p>
 SUDOFAIL
     exit 0
 fi

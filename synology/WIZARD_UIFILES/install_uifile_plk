@@ -1,0 +1,6 @@
+[{
+    "step_title": "Wymagane jest skonfigurowanie uprawnień",
+    "items": [{
+        "desc": "Po instalacji musisz przyznać pakietowi wymagane uprawnienia, jeśli jeszcze tego nie zrobiłeś.<br><br>Szczegóły znajdziesz w <a target=\"_blank\" href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\">Ustawianie uprawnień pakietu</a>.<br><br>Jeśli wcześniej już skonfigurowałeś uprawnienia tego pakietu, możesz to pominąć."
+    }]
+}]

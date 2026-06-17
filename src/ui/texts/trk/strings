@@ -1604,3 +1604,14 @@ write_cache_desc	=	"Bir hata toleransı önbelleği oluşturmak için aynı sür
 write_cache_desc_note	=	"If you choose this cache mode please do not remove the SSD cache from your _DISKSTATION_ unless the cache has been removed through Storage Manager."
 write_cache_option	=	"Okuma-yazma önbelleği"
 
+
+[errors]
+err_script_missing	=	"drive_info.sh bulunamadı. Paketi yeniden yüklemeyi deneyin."
+err_noperms_title	=	"İzinler yapılandırılmamış"
+err_noperms_desc	=	"Bu paketin sürücü bilgilerini okuyabilmesi için yükseltilmiş izinlere ihtiyacı var."
+err_noperms_ssh	=	"NAS'ınıza SSH üzerinden bağlanın ve şunu çalıştırın:"
+err_noperms_reopen	=	"Ardından bu pencereyi kapatıp yeniden açın."
+err_sudofail_title	=	"İzinler doğru yapılandırılmamış"
+err_sudofail_desc	=	"sudoers girişi mevcut ancak sudo başarısız oldu. Girişin doğru olduğundan emin olun:"
+err_sudofail_must_contain	=	"Tam olarak şunu içermelidir:"
+err_see_details	=	"Tüm ayrıntılar için <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a> sayfasına bakın."

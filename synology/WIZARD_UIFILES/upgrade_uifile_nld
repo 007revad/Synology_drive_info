@@ -1,0 +1,6 @@
+[{
+    "step_title": "Instellen van machtigingen vereist",
+    "items": [{
+        "desc": "Na de installatie moet u het pakket de vereiste machtigingen verlenen, als u dat nog niet heeft gedaan.<br><br>Zie <a target=\"_blank\" href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\">Pakketmachtigingen instellen</a> voor meer informatie.<br><br>Als u de machtigingen van dit pakket al eerder heeft ingesteld, kunt u dit overslaan."
+    }]
+}]

@@ -1604,3 +1604,14 @@ write_cache_desc	=	"Använd minst {0} SSD-diskar av samma typ för att skapa ett
 write_cache_desc_note	=	"If you choose this cache mode please do not remove the SSD cache from your _DISKSTATION_ unless the cache has been removed through Storage Manager."
 write_cache_option	=	"Läs-skriv-cache"
 
+
+[errors]
+err_script_missing	=	"drive_info.sh hittades inte. Försök installera om paketet."
+err_noperms_title	=	"Behörigheter är inte konfigurerade"
+err_noperms_desc	=	"Det här paketet kräver utökade behörigheter för att kunna läsa diskinformation."
+err_noperms_ssh	=	"Anslut till din NAS via SSH och kör:"
+err_noperms_reopen	=	"Stäng sedan fönstret och öppna det igen."
+err_sudofail_title	=	"Behörigheter är inte korrekt konfigurerade"
+err_sudofail_desc	=	"Sudoers-posten finns, men sudo misslyckades. Kontrollera att posten är korrekt:"
+err_sudofail_must_contain	=	"Den bör innehålla exakt:"
+err_see_details	=	"Se <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a> för fullständiga detaljer."

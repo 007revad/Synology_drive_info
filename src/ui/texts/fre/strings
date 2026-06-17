@@ -1604,3 +1604,14 @@ write_cache_desc	=	"Utilisez au moins {0} SSD appartenant au même type de disq
 write_cache_desc_note	=	"If you choose this cache mode please do not remove the SSD cache from your _DISKSTATION_ unless the cache has been removed through Storage Manager."
 write_cache_option	=	"Cache en lecture/écriture"
 
+
+[errors]
+err_script_missing	=	"drive_info.sh introuvable. Essayez de réinstaller le paquet."
+err_noperms_title	=	"Autorisations non configurées"
+err_noperms_desc	=	"Ce paquet nécessite des autorisations élevées pour lire les informations des disques."
+err_noperms_ssh	=	"Connectez-vous à votre NAS via SSH et exécutez :"
+err_noperms_reopen	=	"Puis fermez et rouvrez cette fenêtre."
+err_sudofail_title	=	"Autorisations mal configurées"
+err_sudofail_desc	=	"L'entrée sudoers existe, mais sudo a échoué. Vérifiez que l'entrée est correcte :"
+err_sudofail_must_contain	=	"Elle doit contenir exactement :"
+err_see_details	=	"Consultez <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a> pour tous les détails."

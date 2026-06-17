@@ -1,0 +1,6 @@
+[{
+    "step_title": "İzin ayarlaması gerekiyor",
+    "items": [{
+        "desc": "Kurulumdan sonra, henüz yapmadıysanız pakete gerekli izinleri vermelisiniz.<br><br>Ayrıntılar için <a target=\"_blank\" href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\">Paket izinlerini ayarlama</a> sayfasına bakın.<br><br>Bu paketin izinlerini daha önce ayarladıysanız bu adımı atlayabilirsiniz."
+    }]
+}]
