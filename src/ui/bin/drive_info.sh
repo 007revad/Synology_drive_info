@@ -25,11 +25,12 @@ fi
 
 get_drive_num(){ 
     local label
-    label="$(txt volume volume_disk "Drive")"
+    label="$(txt common drive "Drive")"
     drive_num=""
     disk_id=""
     disk_cnr=""
     eunit=""
+    location=""
     # Get Drive number
     disk_id=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk id:' | awk '{print $NF}')
     disk_cnr=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk cnr:' | awk '{print $NF}')
@@ -50,7 +51,9 @@ get_drive_num(){
     if [[ $disk_cnr -eq "4" ]]; then
         drive_num="USB $label"
     elif [[ $eunit ]]; then
-        drive_num="$label $disk_id ($eunit)"
+        #drive_num="$label $disk_id ($eunit)"
+        drive_num="$label $disk_id"
+        location="$eunit"
     elif synodisk --enum -t sys | grep -q "/dev/$drive"; then
         # HD6500
         drive_num="DSM $label $disk_id"
@@ -62,9 +65,10 @@ get_drive_num(){
 get_nvme_num(){ 
     # Get M.2 Drive number
     local label
-    label="$(txt volume volume_m2_device "M.2 Drive")"
+    label="$(txt common m2_drive "M.2 Drive")"
     pcislot=""
     cardslot=""
+    location=""
     if nvme=$(synonvme --get-location "/dev/$drive"); then
         if [[ ! $nvme =~ "PCI Slot: 0" ]]; then
             pcislot="$(echo "$nvme" | cut -d"," -f2 | awk '{print $NF}')-"
@@ -79,7 +83,9 @@ get_nvme_num(){
     # Get PCIe M.2 card model (if the drive is in a PCIe M.2 card, not onboard)
     m2_card="$(synonvme --m2-card-model-get /dev/"$drive")"
     if ! echo "$m2_card" | grep -q 'Not M.2 adapter card'; then
-        drive_num="$drive_num ($m2_card)"
+        #drive_num="$drive_num ($m2_card)"
+        drive_num="$drive_num"
+        location="$m2_card"
     fi
 }
 
@@ -112,13 +118,15 @@ done
 
 # HDDs, SSDs and NVMe drives combined into one table
 if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]]; then
-    hdr_id="$(txt smart smart_id "ID")"
-    hdr_num="$(txt volume volume_disk_number "Drive Number")"
-    hdr_model="$(txt volume volume_diskmodel "Model")"
-    hdr_serial="$(txt smart smart_disk_serial_title "Serial Number")"
+    hdr_id="$(txt common id "ID")"
+    hdr_num="$(txt common drive_id "Drive ID")"
+    hdr_location="$(txt common location "Location")"
+    hdr_model="$(txt common model "Model")"
+    hdr_serial="$(txt common serial_number "Serial Number")"
 
     w_id=${#hdr_id}
     w_num=${#hdr_num}
+    w_location=${#hdr_location}
     w_model=${#hdr_model}
     w_serial=${#hdr_serial}
 
@@ -128,11 +136,12 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]]; then
         serial=$(cat "/sys/block/$drive/device/syno_disk_serial" | xargs)
         [[ -z "$serial" ]] && serial=$(smartctl -i -d sat /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
 
-        ids+=("$drive"); nums+=("$drive_num"); models+=("$model"); serials+=("$serial")
-        (( ${#drive}     > w_id     )) && w_id=${#drive}
-        (( ${#drive_num} > w_num    )) && w_num=${#drive_num}
-        (( ${#model}     > w_model  )) && w_model=${#model}
-        (( ${#serial}    > w_serial )) && w_serial=${#serial}
+        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location");  models+=("$model"); serials+=("$serial")
+        (( ${#drive}     > w_id       )) && w_id=${#drive}
+        (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
+        (( ${#location}  > w_location )) && w_location=${#location}
+        (( ${#model}     > w_model    )) && w_model=${#model}
+        (( ${#serial}    > w_serial   )) && w_serial=${#serial}
     done
 
     for drive in "${nvmes[@]}"; do
@@ -141,21 +150,22 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]]; then
         serial=$(cat "/sys/block/$drive/device/serial" | xargs)
         [[ -z "$serial" ]] && serial=$(smartctl -i -d sat /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
 
-        ids+=("$drive"); nums+=("$drive_num"); models+=("$model"); serials+=("$serial")
-        (( ${#drive}     > w_id     )) && w_id=${#drive}
-        (( ${#drive_num} > w_num    )) && w_num=${#drive_num}
-        (( ${#model}     > w_model  )) && w_model=${#model}
-        (( ${#serial}    > w_serial )) && w_serial=${#serial}
+        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); serials+=("$serial")
+        (( ${#drive}     > w_id       )) && w_id=${#drive}
+        (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
+        (( ${#location}  > w_location )) && w_location=${#location}
+        (( ${#model}     > w_model    )) && w_model=${#model}
+        (( ${#serial}    > w_serial   )) && w_serial=${#serial}
     done
 
-    sep_len=$(( w_id + 2 + w_num + 2 + w_model + 2 + w_serial ))
+    sep_len=$(( w_id + 2 + w_num + 2 + w_location + 2 + w_model + 2 + w_serial ))
     echo ""
     printf '%*s\n' "$sep_len" '' | tr ' ' '-'
-    printf "%-${w_id}s  %-${w_num}s  %-${w_model}s  %-${w_serial}s\n" "${hdr_id}" "${hdr_num}" "${hdr_model}" "${hdr_serial}"
+    printf "%-${w_id}s  %-${w_num}s  %-${w_location}s  %-${w_model}s  %-${w_serial}s\n" "${hdr_id}" "${hdr_num}" "${hdr_location}" "${hdr_model}" "${hdr_serial}"
     printf '%*s\n' "$sep_len" '' | tr ' ' '-'
     for i in "${!ids[@]}"; do
-        printf "%-${w_id}s  %-${w_num}s  %-${w_model}s  %-${w_serial}s\n" \
-            "${ids[$i]}" "${nums[$i]}" "${models[$i]}" "${serials[$i]}"
+        printf "%-${w_id}s  %-${w_num}s  %-${w_location}s  %-${w_model}s  %-${w_serial}s\n" \
+            "${ids[$i]}" "${nums[$i]}" "${locations[$i]}" "${models[$i]}" "${serials[$i]}"
     done
 fi
 

@@ -95,7 +95,7 @@ if [[ $EXIT_CODE -ne 0 ]]; then
 fi
 
 # Parse and render the plain-text table output as HTML
-echo "<h2>$(txt volume volume_disk_information "Drive Information")</h2>"
+echo "<h2>$(txt common drive_information "Drive Information")</h2>"
 
 in_table=0
 headers=()
@@ -118,7 +118,7 @@ while IFS= read -r line; do
         IFS=$'\n' read -r -d '' -a headers <<< "$(echo "$trimmed" | grep -oP '\S.*?(?=  |\s*$)')" || true
         col_count=${#headers[@]}
         echo "<thead><tr>"
-        col_classes=("id" "num" "model" "serial")
+        col_classes=("id" "num" "location" "model" "serial")
         for idx in "${!headers[@]}"; do
             echo "<th class=\"${col_classes[$idx]:-}\">$(echo "${headers[$idx]}" | sed 's/</\&lt;/g;s/>/\&gt;/g')</th>"
         done
@@ -138,8 +138,10 @@ while IFS= read -r line; do
             elif [[ $c -eq 1 ]]; then
                 echo "<td class=\"num\">$val</td>"
             elif [[ $c -eq 2 ]]; then
-                echo "<td class=\"model\">$val</td>"
+                echo "<td class=\"location\">$val</td>"
             elif [[ $c -eq 3 ]]; then
+                echo "<td class=\"model\">$val</td>"
+            elif [[ $c -eq 4 ]]; then
                 echo "<td class=\"serial\">$val</td>"
             else
                 echo "<td>$val</td>"

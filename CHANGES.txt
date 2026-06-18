@@ -1,3 +1,7 @@
+v1.0.12
+- Moved expansion unit and M.2 PCIe cards to their own column.
+- Improved language translations.
+
 v1.0.11
 - Added language support for the install/upgrade ui permissions steps pages.
 - Added language support for error messages.
