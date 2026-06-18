@@ -1,4 +1,6 @@
 v1.0.13
+- Moved expansion unit and M.2 PCIe cards to their own column.
+- Improved language translations.
 - Improved column spacing.
 - Bug fix for drive model and serial in wrong columns for drives with no location.
   - i.e. Drives not in an expansion unit or M.2 PCIe card.
