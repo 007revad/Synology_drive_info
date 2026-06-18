@@ -1,3 +1,7 @@
+v1.0.13
+- Improved column spacing.
+- Bug fix for drive model and serial in wrong columns for drives with no location.
+
 v1.0.12
 - Moved expansion unit and M.2 PCIe cards to their own column.
 - Improved language translations.

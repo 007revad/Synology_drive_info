@@ -26,14 +26,16 @@ pre  { background: #f4f4f4; border: 1px solid #ddd; border-radius: 4px;
 table { border-collapse: collapse; width: 100%;
         box-sizing: border-box; table-layout: auto;
         font-family: Arial, sans-serif; font-size: 12px; }
-col.id     { width: 12%; min-width: 65px; }
-col.num    { width: 27%; min-width: 170px; }
-col.model  { width: 27%; min-width: 140px; }
-col.serial { width: auto; min-width: 110px; }
-th.id, td.id         { white-space: nowrap; }
-th.num, td.num       { white-space: nowrap; }
-th.model, td.model   { white-space: nowrap; }
-th.serial, td.serial { white-space: nowrap; }
+col.id       { width: 11%; min-width: 65px; }
+col.num      { width: 15%; min-width: 75px; }
+col.location { width: 13%; min-width: 50px; }
+col.model    { width: 26%; min-width: 140px; }
+col.serial   { width: auto; min-width: 110px; }
+th.id, td.id             { white-space: nowrap; }
+th.num, td.num           { white-space: nowrap; }
+th.location, td.location { white-space: nowrap; }
+th.model, td.model       { white-space: nowrap; }
+th.serial, td.serial     { white-space: nowrap; }
 th { text-align: left; padding: 5px 14px 5px 5px;
      border-bottom: 2px solid #ccc; color: #555;
      font-family: Arial, sans-serif; font-size: 12px; }
@@ -108,7 +110,7 @@ while IFS= read -r line; do
     if [[ "$trimmed" =~ ^-+$ ]]; then
         if [[ $in_table -eq 0 ]]; then
             in_table=1
-            echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="serial"></colgroup>'
+            echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="serial"></colgroup>'
         fi
         continue
     fi
@@ -117,6 +119,19 @@ while IFS= read -r line; do
         # Header row — split on 2+ spaces
         IFS=$'\n' read -r -d '' -a headers <<< "$(echo "$trimmed" | grep -oP '\S.*?(?=  |\s*$)')" || true
         col_count=${#headers[@]}
+
+        # Record each header's start position so data rows (which can have
+        # blank cells, e.g. an empty Location) can be sliced by position
+        # instead of by matching non-whitespace runs.
+        col_starts=()
+        pos=0
+        for h in "${headers[@]}"; do
+            rest="${line:$pos}"
+            prefix="${rest%%"$h"*}"
+            col_starts+=("$(( pos + ${#prefix} ))")
+            pos=$(( pos + ${#prefix} + ${#h} ))
+        done
+
         echo "<thead><tr>"
         col_classes=("id" "num" "location" "model" "serial")
         for idx in "${!headers[@]}"; do
@@ -127,11 +142,18 @@ while IFS= read -r line; do
     fi
 
     if [[ $in_table -eq 1 ]] && [[ ${#headers[@]} -gt 0 ]] && [[ -n "$trimmed" ]]; then
-        # Data row
-        IFS=$'\n' read -r -d '' -a cells <<< "$(echo "$trimmed" | grep -oP '\S.*?(?=  |\s*$)')" || true
+        # Data row — slice by the column positions recorded from the header,
+        # since a whitespace-based split can't represent a blank cell.
         echo "<tr>"
         for (( c=0; c<col_count; c++ )); do
-            val="${cells[$c]:-}"
+            start="${col_starts[$c]}"
+            if (( c + 1 < col_count )); then
+                len=$(( col_starts[c+1] - start - 2 ))  # -2 for the column gap
+            else
+                len=$(( ${#line} - start ))
+            fi
+            val="${line:$start:$len}"
+            val="${val%"${val##*[![:space:]]}"}"  # trim trailing padding
             val="$(echo "$val" | sed 's/</\&lt;/g;s/>/\&gt;/g')"
             if [[ $c -eq 0 ]]; then
                 echo "<td class=\"id\">$val</td>"
