@@ -18,4 +18,13 @@ m2_drive	=	M.2-Laufwerk
 model	=	Modell
 id	=	ID
 serial_number	=	Seriennummer
-
+system_drive	=	Systemlaufwerk
+system_drive_slot	=	Einschub für Systemlaufwerk
+status_normal	=	Normal
+status_healthy	=	In Ordnung
+status_warning	=	Warnung
+status_critical	=	Kritisch
+status_failing	=	Schwer fehlerhaft
+status_unknown	=	Unbekannt
+status_disabled	=	Deaktiviert
+status	=	Status

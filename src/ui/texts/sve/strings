@@ -17,4 +17,13 @@ m2_drive	=	M.2-disk
 model	=	Modell
 id	=	ID
 serial_number	=	Serienummer
-
+system_drive	=	Systemdisk
+system_drive_slot	=	Plats för systemdisk
+status_normal	=	Normal
+status_healthy	=	Felfri
+status_warning	=	Varning
+status_critical	=	Kritisk
+status_failing	=	Misslyckas
+status_unknown	=	Okänd
+status_disabled	=	Avaktiverad
+status	=	Status

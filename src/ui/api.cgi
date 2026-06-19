@@ -15,7 +15,7 @@ echo ""
 # Shared CSS
 cat << 'STYLE'
 <style>
-body { font-family: Arial, sans-serif; font-size: 13px; color: #333;
+body { font-family: Verdana, Arial, sans-serif; font-size: 13px; color: #333;
        margin: 16px; margin-right: 14px; background: transparent;
        overflow-y: auto; }
 h2   { margin-top: 0; font-size: 15px; color: #333; }
@@ -25,23 +25,29 @@ pre  { background: #f4f4f4; border: 1px solid #ddd; border-radius: 4px;
        box-sizing: border-box; max-width: 100%; }
 table { border-collapse: collapse; width: 100%;
         box-sizing: border-box; table-layout: auto;
-        font-family: Arial, sans-serif; font-size: 12px; }
+        font-family: Verdana, Arial, sans-serif; font-size: 13px; }
 col.id       { width: 11%; min-width: 65px; }
 col.num      { width: 15%; min-width: 75px; }
 col.location { width: 13%; min-width: 50px; }
 col.model    { width: 26%; min-width: 140px; }
-col.serial   { width: auto; min-width: 110px; }
+col.serial   { width: 20%; min-width: 75px; }
+col.status   { width: auto; min-width: 110px; }
 th.id, td.id             { white-space: nowrap; }
 th.num, td.num           { white-space: nowrap; }
 th.location, td.location { white-space: nowrap; }
 th.model, td.model       { white-space: nowrap; }
 th.serial, td.serial     { white-space: nowrap; }
+th.status, td.status     { white-space: nowrap; }
 th { text-align: left; padding: 5px 14px 5px 5px;
      border-bottom: 2px solid #ccc; color: #555;
-     font-family: Arial, sans-serif; font-size: 12px; }
+     font-family: Verdana, Arial, sans-serif; font-size: 13px; }
 td { padding: 5px 14px 5px 5px; border-bottom: 1px solid #eee; }
-td.num    { color: #0073c0; font-weight: bold; }
+td.num    { color: #057FEB; }
 td.serial { color: #b5800a; }
+td.status-healthy  { color: #1CA600; }
+td.status-warning  { color: #FF7F00; }
+td.status-critical { color: #E64040; }
+td.status-failing  { color: #E64040; }
 .err    { color: #c00; }
 a { color: #0073c0; }
 </style>
@@ -70,12 +76,40 @@ NOPERMS
     exit 0
 fi
 
+
+# Show spinner immediately, then run script and replace with results
+cat << 'SPINNER'
+<div id="loading">
+  <img src="/webman/3rdparty/drive_info/images/wait_triangle_blue_40p.gif" alt="" width="40" height="40">
+  <span>Loading drive information…</span>
+</div>
+<div id="result" style="display:none;"></div>
+<script>
+function showResult(html) {
+    document.getElementById('loading').style.display = 'none';
+    var r = document.getElementById('result');
+    r.innerHTML = html;
+    r.style.display = '';
+}
+</script>
+SPINNER
+
+# Flush the spinner to the browser immediately
+# (CGI stdout is line-buffered; printing a large enough chunk forces it out)
+dd if=/dev/zero bs=4096 count=1 2>/dev/null | tr '\0' ' '
+
+
 # Run the script as root via sudo
 STDERR_TMP=$(mktemp)
 OUTPUT=$(sudo "${SCRIPT}" 2>"$STDERR_TMP")
 EXIT_CODE=$?
 STDERR_OUT=$(cat "$STDERR_TMP")
 rm -f "$STDERR_TMP"
+
+
+# Clear spinner and Loading drive information… from iframe
+echo '<script>document.getElementById("loading").style.display="none";</script>'
+
 
 # Check if sudo itself failed
 if echo "$STDERR_OUT" | grep -qi "not in the sudoers\|sudoers file\|not allowed\|password is required"; then
@@ -110,7 +144,7 @@ while IFS= read -r line; do
     if [[ "$trimmed" =~ ^-+$ ]]; then
         if [[ $in_table -eq 0 ]]; then
             in_table=1
-            echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="serial"></colgroup>'
+            echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="serial"><col class="status"></colgroup>'
         fi
         continue
     fi
@@ -133,7 +167,7 @@ while IFS= read -r line; do
         done
 
         echo "<thead><tr>"
-        col_classes=("id" "num" "location" "model" "serial")
+        col_classes=("id" "num" "location" "model" "serial" "status")
         for idx in "${!headers[@]}"; do
             echo "<th class=\"${col_classes[$idx]:-}\">$(echo "${headers[$idx]}" | sed 's/</\&lt;/g;s/>/\&gt;/g')</th>"
         done
@@ -165,6 +199,15 @@ while IFS= read -r line; do
                 echo "<td class=\"model\">$val</td>"
             elif [[ $c -eq 4 ]]; then
                 echo "<td class=\"serial\">$val</td>"
+            elif [[ $c -eq 5 ]]; then
+                case "$val" in
+                    healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
+                    warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
+                    critical::*) css_class="status-critical"; val="${val#critical::}" ;;
+                    failing::*)  css_class="status-failing";  val="${val#failing::}"  ;;
+                    *)           css_class="status"                                   ;;
+                esac
+                echo "<td class=\"$css_class\">$val</td>"
             else
                 echo "<td>$val</td>"
             fi

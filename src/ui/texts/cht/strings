@@ -18,4 +18,13 @@ m2_drive	=	M.2 硬碟
 model	=	型號
 id	=	編號
 serial_number	=	序號
-
+system_drive	=	系統硬碟
+system_drive_slot	=	系統硬碟插槽
+status_normal	=	正常
+status_healthy	=	良好
+status_warning	=	警告
+status_critical	=	嚴重
+status_failing	=	故障
+status_unknown	=	未知
+status_disabled	=	已停用
+status	=	狀態

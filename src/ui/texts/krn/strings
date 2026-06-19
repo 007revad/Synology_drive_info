@@ -18,4 +18,13 @@ m2_drive	=	M.2 드라이브
 model	=	모델
 id	=	ID
 serial_number	=	일련 번호
-
+system_drive	=	시스템 드라이브
+system_drive_slot	=	시스템 드라이브 슬롯
+status_normal	=	보통
+status_healthy	=	정상
+status_warning	=	경고
+status_critical	=	중대
+status_failing	=	실패
+status_unknown	=	알 수 없음
+status_disabled	=	사용 안함
+status	=	상태

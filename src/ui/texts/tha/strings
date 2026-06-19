@@ -18,4 +18,13 @@ m2_drive	=	ไดรฟ์ M.2
 model	=	รุ่น
 id	=	ID
 serial_number	=	หมายเลขผลิตภัณฑ์
-
+system_drive	=	ไดรฟ์ระบบ
+system_drive_slot	=	สล็อตไดรฟ์ระบบ
+status_normal	=	ปกติ
+status_healthy	=	สมบูรณ์
+status_warning	=	คำเตือน
+status_critical	=	วิกฤต
+status_failing	=	ล้มเหลว
+status_unknown	=	ไม่ทราบ
+status_disabled	=	ปิดใช้งานอยู่
+status	=	สถานะ

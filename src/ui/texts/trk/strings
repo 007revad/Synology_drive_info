@@ -18,4 +18,13 @@ m2_drive	=	M.2 Sürücü
 model	=	Model
 id	=	ID
 serial_number	=	Seri Numarası
-
+system_drive	=	Sistem Sürücüsü
+system_drive_slot	=	Sistem Sürücüsü Yuvası
+status_normal	=	Normal
+status_healthy	=	Sağlıklı
+status_warning	=	Uyarı
+status_critical	=	Kritik
+status_failing	=	Arızalanıyor
+status_unknown	=	Bilinmeyen
+status_disabled	=	Etkisiz
+status	=	Status

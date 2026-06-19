@@ -18,4 +18,13 @@ m2_drive	=	Disque M.2
 model	=	Modèle
 id	=	ID
 serial_number	=	Numéro de série
-
+system_drive	=	Disque système
+system_drive_slot	=	Emplacement de disque du système
+status_normal	=	Normal
+status_healthy	=	Sain
+status_warning	=	Avertissement
+status_critical	=	Critique
+status_failing	=	Panne
+status_unknown	=	Inconnu
+status_disabled	=	Désactivé
+status	=	Statut

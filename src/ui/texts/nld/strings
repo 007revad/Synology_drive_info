@@ -18,4 +18,13 @@ m2_drive	=	M.2-schijf
 model	=	Model
 id	=	ID
 serial_number	=	Serienummer
-
+system_drive	=	Systeemschijf
+system_drive_slot	=	Systeemschijfsleuf
+status_normal	=	Normaal
+status_healthy	=	Gezond
+status_warning	=	Waarschuwing
+status_critical	=	Van groot belang
+status_failing	=	Mislukt
+status_unknown	=	Onbekend
+status_disabled	=	Uitgeschakeld
+status	=	Status

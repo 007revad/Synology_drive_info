@@ -18,4 +18,13 @@ m2_drive	=	Disk M.2
 model	=	Model
 id	=	ID
 serial_number	=	Sériové číslo
-
+system_drive	=	Systémový disk
+system_drive_slot	=	Slot systémového disku
+status_normal	=	Normální
+status_healthy	=	V pořádku
+status_warning	=	Upozornění
+status_critical	=	Naléhavé
+status_failing	=	Chyba
+status_unknown	=	Neznámý
+status_disabled	=	Zakázáno
+status	=	Stav

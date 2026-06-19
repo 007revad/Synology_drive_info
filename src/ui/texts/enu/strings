@@ -18,4 +18,13 @@ m2_drive	=	M.2 Drive
 model	=	Model
 id	=	ID
 serial_number	=	Serial Number
-
+system_drive	=	System Drive
+system_drive_slot	=	System Drive Slot
+status_normal	=	Normal
+status_healthy	=	Healthy
+status_warning	=	Warning
+status_critical	=	Critical
+status_failing	=	Failing
+status_unknown	=	Unknown
+status_disabled	=	Disabled
+status	=	Status

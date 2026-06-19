@@ -18,4 +18,13 @@ m2_drive	=	M.2 ドライブ
 model	=	モデル
 id	=	ID
 serial_number	=	シリアル番号
-
+system_drive	=	システムドライブ
+system_drive_slot	=	システム ドライブ スロット
+status_normal	=	通常
+status_healthy	=	正常
+status_warning	=	警告
+status_critical	=	重大
+status_failing	=	失敗
+status_unknown	=	不明
+status_disabled	=	無効
+status	=	ステータス

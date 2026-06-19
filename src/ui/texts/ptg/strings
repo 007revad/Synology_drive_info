@@ -18,4 +18,13 @@ m2_drive	=	Unidade M.2
 model	=	Modelo
 id	=	ID
 serial_number	=	Número de série
-
+system_drive	=	Unidade do sistema
+system_drive_slot	=	Encaixe da unidade do sistema
+status_normal	=	Normal
+status_healthy	=	Em bom estado
+status_warning	=	Atenção
+status_critical	=	Crítico
+status_failing	=	A falhar
+status_unknown	=	Desconhecido
+status_disabled	=	Desactivado
+status	=	Status

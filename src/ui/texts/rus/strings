@@ -18,4 +18,13 @@ m2_drive	=	Диск M.2
 model	=	Модель
 id	=	ID
 serial_number	=	Серийный номер
-
+system_drive	=	Системный диск
+system_drive_slot	=	Слот для системного диска
+status_normal	=	Нормальный
+status_healthy	=	Исправно
+status_warning	=	Предупреждение
+status_critical	=	Критическое
+status_failing	=	Неисправный
+status_unknown	=	Неизвестно
+status_disabled	=	Отключено
+status	=	Статус

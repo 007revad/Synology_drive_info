@@ -1,5 +1,13 @@
+v1.0.14
+- Added health status column.
+- Added "System Drive" to location column for HD6500 system drive.
+- Added a spinner and "Loading drive information…" text.
+  - Getting each drive's health status takes around 0.5 seconds per drive.
+- Changed font family, size and colors to better match DSM.
+- Made the window's default size wider.
+
 v1.0.13
-- Moved expansion unit and M.2 PCIe cards to their own column.
+- Moved expansion unit and M.2 PCIe cards to their own "Location" column.
 - Improved language translations.
 - Improved column spacing.
 - Bug fix for drive model and serial in wrong columns for drives with no location.

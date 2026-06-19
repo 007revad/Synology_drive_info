@@ -5,10 +5,21 @@
 # Github: https://github.com/007revad/Synology_drive_info
 #---------------------------------------------------------
 
+if [[ -d /var/packages/drive_info/var ]]; then
+    log="yes"
+    #logfile=/var/packages/drive_info/var/drive_info_debug.log
+    logfile=/var/packages/drive_info/target/var/drive_info_debug.log
+fi
+
 # Check script is running as root
 if [[ $( whoami ) != "root" ]]; then
     echo -e "\nERROR This script must be run as sudo or root!\n"
     exit 1  # Not running as root
+fi
+
+# Check if script is running in an interactive shell
+if [[ -t 1 ]]; then
+    echo "Running in an interactive shell (user terminal)."
 fi
 
 # Load translated strings if running from within the installed package.
@@ -56,7 +67,8 @@ get_drive_num(){
         location="$eunit"
     elif synodisk --enum -t sys | grep -q "/dev/$drive"; then
         # HD6500
-        drive_num="DSM $label $disk_id"
+        drive_num="$label $disk_id"
+        location="$(txt common system_drive "System Drive")"
     else
         drive_num="$label $disk_id"
     fi
@@ -86,6 +98,42 @@ get_nvme_num(){
         #drive_num="$drive_num ($m2_card)"
         drive_num="$drive_num"
         location="$m2_card"
+    fi
+}
+
+get_drive_health(){ 
+    local health_status
+    status=""
+    health_status=$(synowebapi -s --exec api="SYNO.Storage.CGI.Smart" method="get_health_info" version="1" device="\"/dev/$drive\"" \
+        | jq -r '.data.healthInfo.overview.drive_status_key')
+    case "$health_status" in
+        normal|healthy)
+            status="healthy::$(txt common status_healthy "Healthy")"
+            ;;
+        unc)
+            status="warning::$(txt common status_warning "Warning")"  # Uncorrectable read errors
+            ;;
+        warning)
+            status="warning::$(txt common status_warning "Warning")"
+            ;;
+        critical)
+            status="critical::$(txt common status_critical "Critical")"
+            ;;
+        failing)
+            status="failing::$(txt common status_failing "Failing")"
+            ;;
+        disabled)
+            status="$(txt common status_disabled "Disabled")"
+            ;;
+        unknown)
+            status="$(txt common status_unknown "Unknown")"
+            ;;
+        *)
+            status="Unknown ($health_status)"
+            ;;
+    esac
+    if [[ -t 1 ]]; then         # Running in terminal
+        status="${status#*::}"  # Remove 'healthy::' etc
     fi
 }
 
@@ -123,49 +171,56 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]]; then
     hdr_location="$(txt common location "Location")"
     hdr_model="$(txt common model "Model")"
     hdr_serial="$(txt common serial_number "Serial Number")"
+    hdr_status="$(txt common status "Status")"
 
     w_id=${#hdr_id}
     w_num=${#hdr_num}
     w_location=${#hdr_location}
     w_model=${#hdr_model}
     w_serial=${#hdr_serial}
+    w_status=${#hdr_status}
 
     for drive in "${drives[@]}"; do
         get_drive_num
+        get_drive_health
         model=$(cat "/sys/block/$drive/device/model" | xargs)
         serial=$(cat "/sys/block/$drive/device/syno_disk_serial" | xargs)
         [[ -z "$serial" ]] && serial=$(smartctl -i -d sat /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
 
-        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location");  models+=("$model"); serials+=("$serial")
+        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location");  models+=("$model"); serials+=("$serial"); statuses+=("$status")
         (( ${#drive}     > w_id       )) && w_id=${#drive}
         (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
         (( ${#location}  > w_location )) && w_location=${#location}
         (( ${#model}     > w_model    )) && w_model=${#model}
         (( ${#serial}    > w_serial   )) && w_serial=${#serial}
+        (( ${#status}    > w_status   )) && w_status=${#status}
     done
 
     for drive in "${nvmes[@]}"; do
         get_nvme_num
+        get_drive_health
         model=$(cat "/sys/block/$drive/device/model" | xargs)
         serial=$(cat "/sys/block/$drive/device/serial" | xargs)
         [[ -z "$serial" ]] && serial=$(smartctl -i -d sat /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
 
-        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); serials+=("$serial")
+        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); serials+=("$serial"); statuses+=("$status")
         (( ${#drive}     > w_id       )) && w_id=${#drive}
         (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
         (( ${#location}  > w_location )) && w_location=${#location}
         (( ${#model}     > w_model    )) && w_model=${#model}
         (( ${#serial}    > w_serial   )) && w_serial=${#serial}
+        (( ${#status}    > w_status   )) && w_status=${#status}
     done
 
-    sep_len=$(( w_id + 2 + w_num + 2 + w_location + 2 + w_model + 2 + w_serial ))
+    sep_len=$(( w_id + 2 + w_num + 2 + w_location + 2 + w_model + 2 + w_serial + 2 + w_status ))
     echo ""
     printf '%*s\n' "$sep_len" '' | tr ' ' '-'
-    printf "%-${w_id}s  %-${w_num}s  %-${w_location}s  %-${w_model}s  %-${w_serial}s\n" "${hdr_id}" "${hdr_num}" "${hdr_location}" "${hdr_model}" "${hdr_serial}"
+    printf "%-${w_id}s  %-${w_num}s  %-${w_location}s  %-${w_model}s  %-${w_serial}s  %-${w_status}s\n" \
+        "${hdr_id}" "${hdr_num}" "${hdr_location}" "${hdr_model}" "${hdr_serial}" "${hdr_status}"
     printf '%*s\n' "$sep_len" '' | tr ' ' '-'
     for i in "${!ids[@]}"; do
-        printf "%-${w_id}s  %-${w_num}s  %-${w_location}s  %-${w_model}s  %-${w_serial}s\n" \
-            "${ids[$i]}" "${nums[$i]}" "${locations[$i]}" "${models[$i]}" "${serials[$i]}"
+        printf "%-${w_id}s  %-${w_num}s  %-${w_location}s  %-${w_model}s  %-${w_serial}s  %-${w_status}s\n" \
+            "${ids[$i]}" "${nums[$i]}" "${locations[$i]}" "${models[$i]}" "${serials[$i]}" "${statuses[$i]}"
     done
 fi
 

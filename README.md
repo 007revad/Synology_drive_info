@@ -32,14 +32,15 @@ There are 2 ways to install the package:
 ### Screenshots
 
 <!--- <p align="center">Screenshot 1</p> --->
-<p align="center"><img src="/images/installed.png"></p>
+<p align="center"><kbd><img src="/images/installed.png"></kbd></p>
 
 <br>
 
 <!--- <p align="center">Screenshot 2</p> -->
-<p align="center"><img src="/images/window.png"></p>
+<p align="center"><kbd><img src="/images/window.png"></kbd></p>
 
 <br>
 
-<!--- <p align="center">Screenshot 2</p> -->
-<p align="center"><img src="/images/window2.png"></p>
+<!--- <p align="center">Screenshot 3</p> -->
+<!--- <p align="center"><img src="/images/window2.png"></p> --->
+<p align="center"><kbd><img src="/images/window3.png"></kbd></p>

@@ -19,4 +19,13 @@ m2_drive	=	M.2 硬盘
 model	=	型号
 id	=	编号
 serial_number	=	序列号
-
+system_drive	=	系统硬盘
+system_drive_slot	=	系统硬盘插槽
+status_normal	=	正常
+status_healthy	=	良好
+status_warning	=	警告
+status_critical	=	严重
+status_failing	=	故障
+status_unknown	=	未知
+status_disabled	=	已停用
+status	=	状态

@@ -18,4 +18,13 @@ m2_drive	=	M.2 meghajtó
 model	=	Modell
 id	=	ID
 serial_number	=	Sorozatszám
-
+system_drive	=	Rendszermeghajtó
+system_drive_slot	=	Rendszermeghajtó foglalata
+status_normal	=	Normál
+status_healthy	=	Hibátlan
+status_warning	=	Figyelmeztetés
+status_critical	=	Kritikus
+status_failing	=	Hibákat produkál
+status_unknown	=	Ismeretlen
+status_disabled	=	Le van tiltva
+status	=	Állapot
