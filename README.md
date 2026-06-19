@@ -36,11 +36,11 @@ There are 2 ways to install the package:
 
 <br>
 
-<!--- <p align="center">Screenshot 2</p> -->
-<p align="center"><kbd><img src="/images/window.png"></kbd></p>
-
-<br>
-
 <!--- <p align="center">Screenshot 3</p> -->
 <!--- <p align="center"><kbd><img src="/images/window2.png"></kbd></p> --->
 <p align="center"><kbd><img src="/images/window3.png"></kbd></p>
+
+<br>
+
+<!--- <p align="center">Screenshot 2</p> -->
+<p align="center"><kbd><img src="/images/window.png"></kbd></p>
