@@ -49,5 +49,5 @@ There are 2 ways to install the package:
 
 <br>
 
-<p align="center">DSM 6</p> -->
+<p align="center">DSM 6</p>
 <p align="center"><kbd><img src="/images/window_dsm6.png"></kbd></p>
