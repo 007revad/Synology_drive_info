@@ -1,3 +1,6 @@
+v1.0.16
+- Bug fix for DSM 6 showing the wrong description when hovering your mouse over the desktop icon.
+
 v1.0.15
 - Added translations of "Loading..." text for non English speakers.
 - Added support for DSM 6.

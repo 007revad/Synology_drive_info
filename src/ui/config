@@ -3,7 +3,7 @@
     "SYNO.SDS._ThirdParty.App.drive_info": {
       "type": "app",
       "title": "Drive Info",
-      "desc": "DSM notification strings for scheduled 007revad scripts",
+      "desc": "Show drive device id, DSM number, model and serial number for all drives in your Synology NAS",
       "icon": "images/icon_{0}.png",
       "appWindow": "SYNO.SDS.drive_info.MainWindow",
       "allowMultiInstance": false,
