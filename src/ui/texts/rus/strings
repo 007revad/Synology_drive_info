@@ -28,3 +28,4 @@ status_failing	=	Неисправный
 status_unknown	=	Неизвестно
 status_disabled	=	Отключено
 status	=	Статус
+loading	=	Загрузка...

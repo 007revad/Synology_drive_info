@@ -28,3 +28,4 @@ status_failing	=	Chyba
 status_unknown	=	Neznámý
 status_disabled	=	Zakázáno
 status	=	Stav
+loading	=	Načítání...

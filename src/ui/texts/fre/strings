@@ -28,3 +28,4 @@ status_failing	=	Panne
 status_unknown	=	Inconnu
 status_disabled	=	Désactivé
 status	=	Statut
+loading	=	Chargement...

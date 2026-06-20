@@ -1,3 +1,12 @@
+v1.0.15
+- Added translations of "Loading..." text for non English speakers.
+- Added support for DSM 6 - download the "DSM-6.x.spk.
+- Now hides Location column if: 
+  - No drives are in an expansion unit.
+  - No M.2 drives are in a E10M20-T1, M2D20, M2D18 or M2D17 PCIe card.
+  - It's not a HD6500 with a dedicated system drive.
+- Bug fix for getting SAS drives' serial number via smartctl if `cat "/sys/block/$drive/device/syno_disk_serial"` failed.
+
 v1.0.14
 - Added health status column.
 - Added "System Drive" to location column for HD6500 system drive.

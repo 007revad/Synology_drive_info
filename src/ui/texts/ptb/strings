@@ -28,3 +28,4 @@ status_failing	=	Com falha
 status_unknown	=	Desconhecido
 status_disabled	=	Desativado
 status	=	Status
+loading	=	Carregando...

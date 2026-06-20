@@ -28,3 +28,4 @@ status_failing	=	Errore
 status_unknown	=	Sconosciuto
 status_disabled	=	Disabilitato
 status	=	Stato
+loading	=	Caricamento...

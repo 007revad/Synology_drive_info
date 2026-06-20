@@ -78,10 +78,12 @@ fi
 
 
 # Show spinner immediately, then run script and replace with results
-cat << 'SPINNER'
+loading=$(txt common loading "Loading...")
+cat << SPINNER
 <div id="loading">
   <img src="/webman/3rdparty/drive_info/images/wait_triangle_blue_40p.gif" alt="" width="40" height="40">
-  <span>Loading drive information…</span>
+  <span>$loading</span>
+  
 </div>
 <div id="result" style="display:none;"></div>
 <script>
@@ -137,6 +139,59 @@ in_table=0
 headers=()
 col_count=0
 
+# Pre-scan: check whether the Location column (always index 2) has any
+# non-empty value across the whole output, so the column can be hidden
+# entirely if it's empty for every drive row.
+HAS_LOCATION=0
+scan_in_table=0
+scan_headers=()
+scan_col_starts=()
+scan_col_count=0
+while IFS= read -r line; do
+    trimmed="${line#"${line%%[![:space:]]*}"}"  # ltrim
+
+    if [[ "$trimmed" =~ ^-+$ ]]; then
+        scan_in_table=1
+        continue
+    fi
+
+    if [[ $scan_in_table -eq 1 ]] && [[ ${#scan_headers[@]} -eq 0 ]] && [[ -n "$trimmed" ]]; then
+        IFS=$'\n' read -r -d '' -a scan_headers <<< "$(echo "$trimmed" | grep -oP '\S.*?(?=  |\s*$)')" || true
+        scan_col_count=${#scan_headers[@]}
+        scan_col_starts=()
+        pos=0
+        for h in "${scan_headers[@]}"; do
+            rest="${line:$pos}"
+            prefix="${rest%%"$h"*}"
+            scan_col_starts+=("$(( pos + ${#prefix} ))")
+            pos=$(( pos + ${#prefix} + ${#h} ))
+        done
+        continue
+    fi
+
+    if [[ $scan_in_table -eq 1 ]] && [[ ${#scan_headers[@]} -gt 0 ]] && [[ -n "$trimmed" ]] && (( scan_col_count > 2 )); then
+        start="${scan_col_starts[2]}"
+        if (( 3 < scan_col_count )); then
+            len=$(( scan_col_starts[3] - start - 2 ))
+        else
+            len=$(( ${#line} - start ))
+        fi
+        val="${line:$start:$len}"
+        val="${val%"${val##*[![:space:]]}"}"  # trim trailing padding
+        if [[ -n "$val" ]]; then
+            HAS_LOCATION=1
+            break
+        fi
+        continue
+    fi
+
+    if [[ $scan_in_table -eq 1 ]] && [[ ${#scan_headers[@]} -gt 0 ]] && [[ -z "$trimmed" ]]; then
+        scan_in_table=0
+        scan_headers=()
+        continue
+    fi
+done <<< "$OUTPUT"
+
 while IFS= read -r line; do
     trimmed="${line#"${line%%[![:space:]]*}"}"  # ltrim
 
@@ -144,7 +199,11 @@ while IFS= read -r line; do
     if [[ "$trimmed" =~ ^-+$ ]]; then
         if [[ $in_table -eq 0 ]]; then
             in_table=1
-            echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="serial"><col class="status"></colgroup>'
+            if [[ $HAS_LOCATION -eq 1 ]]; then
+                echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="serial"><col class="status"></colgroup>'
+            else
+                echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="serial"><col class="status"></colgroup>'
+            fi
         fi
         continue
     fi
@@ -169,7 +228,9 @@ while IFS= read -r line; do
         echo "<thead><tr>"
         col_classes=("id" "num" "location" "model" "serial" "status")
         for idx in "${!headers[@]}"; do
-            echo "<th class=\"${col_classes[$idx]:-}\">$(echo "${headers[$idx]}" | sed 's/</\&lt;/g;s/>/\&gt;/g')</th>"
+            cls="${col_classes[$idx]:-}"
+            [[ "$cls" == "location" && $HAS_LOCATION -eq 0 ]] && continue
+            echo "<th class=\"$cls\">$(echo "${headers[$idx]}" | sed 's/</\&lt;/g;s/>/\&gt;/g')</th>"
         done
         echo "</tr></thead><tbody>"
         continue
@@ -194,6 +255,7 @@ while IFS= read -r line; do
             elif [[ $c -eq 1 ]]; then
                 echo "<td class=\"num\">$val</td>"
             elif [[ $c -eq 2 ]]; then
+                [[ $HAS_LOCATION -eq 0 ]] && continue
                 echo "<td class=\"location\">$val</td>"
             elif [[ $c -eq 3 ]]; then
                 echo "<td class=\"model\">$val</td>"

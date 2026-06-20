@@ -22,6 +22,9 @@ if [[ -t 1 ]]; then
     echo "Running in an interactive shell (user terminal)."
 fi
 
+# Get DSM major version
+dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
+
 # Load translated strings if running from within the installed package.
 # modules/get_text.sh and the texts/ folder won't exist if this script
 # is run standalone (e.g. downloaded directly from GitHub), in which
@@ -137,6 +140,66 @@ get_drive_health(){
     fi
 }
 
+# DSM 6's SYNO.Storage.CGI.Smart webapi is non-functional (returns error 104 unconditionally
+# regardless of params/version/runner) and so the health status is instead read directly
+# from synostoraged's live cache at /run/synostorage/disks/<dev>/{smart,adv_status}
+get_drive_health6(){ 
+    local cache_dir="/run/synostorage/disks/${drive}"
+    local smart adv_status health_status
+    status=""
+
+    if [[ ! -d "$cache_dir" ]]; then
+        status="unknown::$(txt common status_unknown "Unknown")"
+    else
+        smart=$(<"${cache_dir}/smart")
+        adv_status=$(<"${cache_dir}/adv_status")
+
+        if [[ "$adv_status" == "failing" ]]; then
+            health_status="failing"
+        elif [[ "$smart" == "fail" || "$adv_status" == "critical" ]]; then
+            health_status="critical"
+        elif [[ "$adv_status" == "warning" ]]; then
+            health_status="warning"
+        else
+            health_status="healthy"
+        fi
+
+        case "$health_status" in
+            healthy)
+                status="healthy::$(txt common status_healthy "Healthy")"
+                ;;
+            warning)
+                status="warning::$(txt common status_warning "Warning")"
+                ;;
+            critical)
+                status="critical::$(txt common status_critical "Critical")"
+                ;;
+            failing)
+                status="failing::$(txt common status_failing "Failing")"
+                ;;
+        esac
+    fi
+
+    if [[ -t 1 ]]; then         # Running in terminal
+        status="${status#*::}"  # Remove 'healthy::' etc
+    fi
+}
+
+detect_dtype(){ 
+    # Default to SAT
+    local dtype="sat"
+
+    # If SAS appears at least once, treat as SCSI
+    if [ "$("$smartctl" -i /dev/"$drive" 2>/dev/null | grep -c SAS)" -gt 0 ]; then
+        dtype="scsi"
+    # Else if SATA appears at least once, treat as SAT
+    elif [ "$("$smartctl" -i /dev/"$drive" 2>/dev/null | grep -c SATA)" -gt 0 ]; then
+        dtype="sat"
+    fi
+
+    echo "$dtype"
+}
+
 # Add drives to drives array
 for d in /sys/block/*; do
     # $d is /sys/block/sata1 etc
@@ -182,10 +245,18 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]]; then
 
     for drive in "${drives[@]}"; do
         get_drive_num
-        get_drive_health
+        if [[ "$dsm" -le "6" ]]; then
+            get_drive_health6
+        else
+            get_drive_health
+        fi
         model=$(cat "/sys/block/$drive/device/model" | xargs)
         serial=$(cat "/sys/block/$drive/device/syno_disk_serial" | xargs)
-        [[ -z "$serial" ]] && serial=$(smartctl -i -d sat /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
+        if [[ -z "$serial" ]]; then
+            # Decide device type (sat/scsi) via detect_dtype()
+            drive_type=$(detect_dtype)
+            serial=$(smartctl -i -d "$drive_type" /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
+        fi
 
         ids+=("$drive"); nums+=("$drive_num"); locations+=("$location");  models+=("$model"); serials+=("$serial"); statuses+=("$status")
         (( ${#drive}     > w_id       )) && w_id=${#drive}
@@ -198,7 +269,11 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]]; then
 
     for drive in "${nvmes[@]}"; do
         get_nvme_num
-        get_drive_health
+        if [[ "$dsm" -le "6" ]]; then
+            get_drive_health6
+        else
+            get_drive_health
+        fi
         model=$(cat "/sys/block/$drive/device/model" | xargs)
         serial=$(cat "/sys/block/$drive/device/serial" | xargs)
         [[ -z "$serial" ]] && serial=$(smartctl -i -d sat /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)

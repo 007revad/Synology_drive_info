@@ -28,3 +28,4 @@ status_failing	=	Failing
 status_unknown	=	Unknown
 status_disabled	=	Disabled
 status	=	Status
+loading	=	Loading...

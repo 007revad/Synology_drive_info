@@ -27,3 +27,4 @@ status_failing	=	Misslyckas
 status_unknown	=	Okänd
 status_disabled	=	Avaktiverad
 status	=	Status
+loading	=	Laddar...

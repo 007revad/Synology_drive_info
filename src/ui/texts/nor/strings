@@ -28,3 +28,4 @@ status_failing	=	Sviktende
 status_unknown	=	Ukjent
 status_disabled	=	Deaktivert
 status	=	Status
+loading	=	Laster...

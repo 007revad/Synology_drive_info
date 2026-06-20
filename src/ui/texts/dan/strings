@@ -28,3 +28,4 @@ status_failing	=	Fejler
 status_unknown	=	Ukendt
 status_disabled	=	Deaktiveret
 status	=	Status
+loading	=	Indlæser...

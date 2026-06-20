@@ -28,3 +28,4 @@ status_failing	=	Mislukt
 status_unknown	=	Onbekend
 status_disabled	=	Uitgeschakeld
 status	=	Status
+loading	=	Bezig met laden…

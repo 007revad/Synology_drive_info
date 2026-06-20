@@ -28,3 +28,4 @@ status_failing	=	Hibákat produkál
 status_unknown	=	Ismeretlen
 status_disabled	=	Le van tiltva
 status	=	Állapot
+loading	=	Betöltés...

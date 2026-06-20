@@ -29,3 +29,4 @@ status_failing	=	故障
 status_unknown	=	未知
 status_disabled	=	已停用
 status	=	状态
+loading	=	加载中...

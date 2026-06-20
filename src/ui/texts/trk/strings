@@ -28,3 +28,4 @@ status_failing	=	Arızalanıyor
 status_unknown	=	Bilinmeyen
 status_disabled	=	Etkisiz
 status	=	Status
+loading	=	Yükleniyor...
