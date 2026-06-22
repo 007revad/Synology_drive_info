@@ -1,3 +1,8 @@
+v1.0.18
+- Improved sorting of drives when NAS has more than 9 drives.
+- Updated to show PCIe M.2 card model if M.2 SATA drive is in M2D18 or M2D17.
+- Changed to list M.2 SATA drives after HDDs, 2.5" SSDs and NVMes.
+
 v1.0.17
 - Bug fix for v1.0.16 DSM 6 package having minimum DSM version 7.0.
 

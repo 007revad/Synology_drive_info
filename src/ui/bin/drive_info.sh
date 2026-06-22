@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #--------------------------------------------------------
-# Show Synology Drive number, model and serial number
+# Show Synology Drive number, model and serial number etc
 #
 # Github: https://github.com/007revad/Synology_drive_info
 #---------------------------------------------------------
@@ -74,6 +74,14 @@ get_drive_num(){
         location="$(txt common system_drive "System Drive")"
     else
         drive_num="$label $disk_id"
+    fi
+
+    # Get PCIe M.2 card model (if the drive is an M.2 SATA drive in a PCIe M.2 card)
+    if [[ "$drive" =~ nvc ]]; then
+        m2_card="$(synonvme --m2-card-model-get /dev/"$drive")"
+        if ! echo "$m2_card" | grep -q 'Not M.2 adapter card'; then
+            location="$m2_card"
+        fi
     fi
 }
 
@@ -221,14 +229,19 @@ for d in /sys/block/*; do
         ;;
         nvc*)  # M.2 SATA drives (in PCIe card only?)
             if [[ $d =~ nvc[0-9][0-9]?$ ]]; then
-                drives+=("$(basename -- "${d}")")
+                nvcs+=("$(basename -- "${d}")")
             fi
         ;;
     esac
 done
 
+# Sort drives array numerically/version-aware
+IFS=$'\n' drives=($(printf '%s\n' "${drives[@]}" | sort -V))
+IFS=$'\n' nvmes=($(printf '%s\n' "${nvmes[@]}" | sort -V))
+IFS=$'\n' nvcs=($(printf '%s\n' "${nvcs[@]}" | sort -V))
+
 # HDDs, SSDs and NVMe drives combined into one table
-if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]]; then
+if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] || [[ "${#nvcs[@]}" -gt 0 ]]; then
     hdr_id="$(txt common id "ID")"
     hdr_num="$(txt common drive_id "Drive ID")"
     hdr_location="$(txt common location "Location")"
@@ -279,6 +292,26 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]]; then
         [[ -z "$serial" ]] && serial=$(smartctl -i -d sat /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
 
         ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); serials+=("$serial"); statuses+=("$status")
+        (( ${#drive}     > w_id       )) && w_id=${#drive}
+        (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
+        (( ${#location}  > w_location )) && w_location=${#location}
+        (( ${#model}     > w_model    )) && w_model=${#model}
+        (( ${#serial}    > w_serial   )) && w_serial=${#serial}
+        (( ${#status}    > w_status   )) && w_status=${#status}
+    done
+
+    for drive in "${nvcs[@]}"; do
+        get_drive_num
+        if [[ "$dsm" -le "6" ]]; then
+            get_drive_health6
+        else
+            get_drive_health
+        fi
+        model=$(cat "/sys/block/$drive/device/model" | xargs)
+        serial=$(cat "/sys/block/$drive/device/syno_disk_serial" | xargs)
+        [[ -z "$serial" ]] && serial=$(smartctl -i -d sat /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
+
+        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location");  models+=("$model"); serials+=("$serial"); statuses+=("$status")
         (( ${#drive}     > w_id       )) && w_id=${#drive}
         (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
         (( ${#location}  > w_location )) && w_location=${#location}
