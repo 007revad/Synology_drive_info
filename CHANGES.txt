@@ -1,5 +1,5 @@
 v2.0.21
-- Bug fix other loacl Synology NAS having 2 headings.
+- Bug fix other local Synology NAS having 2 headings.
 
 v2.0.20
 - Changed to show the hostname, IP address and model of the Synology that Drive Info is running on instead of "Drive Information".
