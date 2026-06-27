@@ -1,12 +1,14 @@
 v2.0.20
 - Changed to show the hostname, IP address and model of the Synology that Drive Info is running on instead of "Drive Information".
 - Changed to not show the Permissions ui page during upgrades.
-- Changed to show the remote Synology's hostnames in black instead of gray, and a slightly larger font.
+- Changed to show the remote Synology's hostnames in black instead of gray.
+- Changed to show the IP address and model in black instead of gray, and a slightly larger font.
 - Bug fix for showing English text when DSM's "Display Language" is set to "Browser default".
 - Bug fix for DSM 7.1.1 showing the drives' health as "Unknown (null)".
 - Bug fix for showing drive health "Unknown (data_detected)" instead of "Detected".
 - Bug fix for showing drive health "Unknown (disknotsupported)" instead of "Not supported".
-- Bug fix for some models showing pv10-j or -j after the model name.
+- Bug fix for some models showing pv10-j after the + in the model name.
+- Bug fix for some models showing -j instead of the + in the model name.
 
 v2.0.19
 - Can now show you the drive information for all local Synology NAS.

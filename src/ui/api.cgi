@@ -47,9 +47,9 @@ if [[ "$_action" == "info" ]]; then
         _model=$(cat /proc/sys/kernel/syno_hw_version 2>/dev/null || echo "")
         # Check for dodgy characters after model number
         if [[ ${_model,,} =~ 'pv10-j'$ ]]; then  # GitHub issue #10
-            _model=${_model%??????}+              # replace last 6 chars with +
+            _model=${_model%??????}+             # replace last 6 chars with +
         elif [[ ${_model} =~ '-j'$ ]]; then  # GitHub issue #2
-            _model=${_model%??}               # remove last 2 chars
+            _model=${_model%??}              # remove last 2 chars
         fi
     fi
     if [[ -z "$_model" ]]; then
