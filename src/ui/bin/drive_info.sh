@@ -362,3 +362,111 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] || [[ "${#nvcs[@]}"
 fi
 
 echo ""
+
+# Volume information table
+get_volume_info(){
+    local storage_json
+    storage_json=$(synowebapi -s --exec api=SYNO.Storage.CGI.Storage method=load_info version=1 2>/dev/null)
+    if [[ -z "$storage_json" ]] || ! echo "$storage_json" | jq -e '.success' >/dev/null 2>&1; then
+        return 1
+    fi
+
+    # Build pool num_id lookup: pool id -> num_id
+    # e.g. reuse_1 -> 1, reuse_2 -> 2
+    declare -A pool_num
+    while IFS='|' read -r pool_id pool_num_id; do
+        pool_num["$pool_id"]="$pool_num_id"
+    done < <(echo "$storage_json" | jq -r '.data.storagePools[] | "\(.id)|\(.num_id)"')
+
+    local hdr_vol hdr_pool hdr_size hdr_pct hdr_status
+    hdr_vol="$(txt common volume "Volume")"
+    hdr_pool="$(txt common storage_pool "Storage Pool")"
+    hdr_size="$(txt common volume_size "Volume Size")"
+    hdr_pct="$(txt common volume_used "Used")"
+    hdr_status="$(txt common status "Status")"
+
+    local w_vol w_pool w_size w_pct w_status
+    w_vol=${#hdr_vol}
+    w_pool=${#hdr_pool}
+    w_size=${#hdr_size}
+    w_pct=${#hdr_pct}
+    w_status=${#hdr_status}
+
+    local vol_nums=() vol_pools=() vol_sizes=() vol_pcts=() vol_statuses=()
+
+    local label_vol label_pool
+    label_vol="$(txt common volume "Volume")"
+    label_pool="$(txt common storage_pool "Storage Pool")"
+
+    while IFS='|' read -r num_id pool_path total used vol_status; do
+        # Volume name
+        vol_label="$label_vol $num_id"
+
+        # Storage Pool label
+        pool_label="$label_pool ${pool_num[$pool_path]}"
+
+        # Format total size (auto TiB/GiB/MiB)
+        local size_str
+        size_str=$(awk -v b="$total" 'BEGIN {
+            tib = b / (1024^4)
+            gib = b / (1024^3)
+            mib = b / (1024^2)
+            if (tib >= 1)      { printf "%.1f TiB", tib }
+            else if (gib >= 1) { printf "%.1f GiB", gib }
+            else               { printf "%.1f MiB", mib }
+        }')
+
+        # Percentage used
+        local pct_str
+        pct_str=$(awk -v u="$used" -v t="$total" 'BEGIN {
+            if (t > 0) { printf "%d%%", (u / t * 100) }
+            else       { print "0%" }
+        }')
+
+        # Status
+        local status_str
+        case "$vol_status" in
+            normal)     status_str="healthy::$(txt common status_healthy "Healthy")" ;;
+            degrade)    status_str="critical::$(txt common status_degraded "Degraded")" ;;
+            crashed)    status_str="critical::$(txt common status_crashed "Crashed")" ;;
+            repairing)  status_str="warning::$(txt common status_repairing "Repairing")" ;;
+            rebuilding) status_str="warning::$(txt common status_rebuilding "Rebuilding")" ;;
+            read_only)  status_str="warning::$(txt common status_read_only "Read-only")" ;;
+            *)          status_str="$vol_status" ;;
+        esac
+        if [[ -t 1 ]]; then
+            status_str="${status_str#*::}"
+        fi
+
+        vol_nums+=("$vol_label")
+        vol_pools+=("$pool_label")
+        vol_sizes+=("$size_str")
+        vol_pcts+=("$pct_str")
+        vol_statuses+=("$status_str")
+
+        (( ${#vol_label}   > w_vol    )) && w_vol=${#vol_label}
+        (( ${#pool_label}  > w_pool   )) && w_pool=${#pool_label}
+        (( ${#size_str}    > w_size   )) && w_size=${#size_str}
+        (( ${#pct_str}     > w_pct    )) && w_pct=${#pct_str}
+        (( ${#status_str}  > w_status )) && w_status=${#status_str}
+
+    done < <(echo "$storage_json" | jq -r '[.data.volumes[]] | sort_by(.num_id) | .[] | "\(.num_id)|\(.pool_path)|\(.size.total)|\(.size.used)|\(.summary_status // .status)"')
+
+    if [[ "${#vol_nums[@]}" -gt 0 ]]; then
+        local sep_len
+        sep_len=$(( w_vol + 2 + w_pool + 2 + w_size + 2 + w_pct + 2 + w_status ))
+        echo ""
+        printf '%*s\n' "$sep_len" '' | tr ' ' '-'
+        printf "%-${w_vol}s  %-${w_pool}s  %-${w_size}s  %-${w_pct}s  %-${w_status}s\n" \
+            "$hdr_vol" "$hdr_pool" "$hdr_size" "$hdr_pct" "$hdr_status"
+        printf '%*s\n' "$sep_len" '' | tr ' ' '-'
+        for i in "${!vol_nums[@]}"; do
+            printf "%-${w_vol}s  %-${w_pool}s  %-${w_size}s  %-${w_pct}s  %-${w_status}s\n" \
+                "${vol_nums[$i]}" "${vol_pools[$i]}" "${vol_sizes[$i]}" "${vol_pcts[$i]}" "${vol_statuses[$i]}"
+        done
+    fi
+}
+
+get_volume_info
+
+echo ""

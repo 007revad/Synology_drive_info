@@ -32,6 +32,10 @@ status	=	状态
 status_data_detected	=	已检测到
 status_unsupported	=	不支持
 loading	=	加载中...
+volume	=	存储空间
+storage_pool	=	存储池
+volume_used	=	已用
+volume_size	=	"卷大小"
 
 [settings]
 settings	=	设置
@@ -50,3 +54,4 @@ discovering	=	正在发现 NAS...
 manual_nas_list	=	其他 NAS
 login_port	=	登录端口
 cancel	=	取消
+show_volume_info	=	"显示卷信息"

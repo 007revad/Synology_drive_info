@@ -31,6 +31,10 @@ status	=	Stav
 status_data_detected	=	Zjištěno
 status_unsupported	=	Nepodporováno
 loading	=	Načítání...
+volume	=	Svazek
+storage_pool	=	Fond úložiště
+volume_used	=	Využito
+volume_size	=	"Velikost svazku"
 
 [settings]
 settings	=	Nastavení
@@ -49,3 +53,4 @@ discovering	=	Hledání NAS...
 manual_nas_list	=	Další NAS
 login_port	=	Port pro přihlášení
 cancel	=	Storno
+show_volume_info	=	"Zobrazit informace o svazku"

@@ -31,6 +31,10 @@ status	=	Status
 status_data_detected	=	Algılandı
 status_unsupported	=	Desteklenmez
 loading	=	Yükleniyor...
+volume	=	Birim
+storage_pool	=	Depolama Havuzu
+volume_used	=	Kullanılan
+volume_size	=	"Birim Boyutu"
 
 [settings]
 settings	=	Ayarlar
@@ -49,3 +53,4 @@ discovering	=	NAS aranıyor...
 manual_nas_list	=	Ek NAS
 login_port	=	Oturum açma bağlantı noktası
 cancel	=	İptal
+show_volume_info	=	"Birim bilgilerini göster"

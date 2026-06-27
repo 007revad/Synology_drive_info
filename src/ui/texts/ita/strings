@@ -31,6 +31,10 @@ status	=	Stato
 status_data_detected	=	Rilevato
 status_unsupported	=	Non supportato
 loading	=	Caricamento...
+volume	=	Volume
+storage_pool	=	Storage Pool
+volume_used	=	Utilizzato
+volume_size	=	"Dimensione volume"
 
 [settings]
 settings	=	Impostazioni
@@ -49,3 +53,4 @@ discovering	=	Ricerca NAS in corso...
 manual_nas_list	=	NAS aggiuntivi
 login_port	=	Porta di accesso
 cancel	=	Annulla
+show_volume_info	=	"Mostra informazioni sul volume"

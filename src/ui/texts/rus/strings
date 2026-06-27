@@ -31,6 +31,10 @@ status	=	Статус
 status_data_detected	=	Обнаружено
 status_unsupported	=	Не поддерживается
 loading	=	Загрузка...
+volume	=	Том
+storage_pool	=	Пул ресурсов хранения
+volume_used	=	Использовано
+volume_size	=	"Размер тома"
 
 [settings]
 settings	=	Настройки
@@ -49,3 +53,4 @@ discovering	=	Поиск NAS...
 manual_nas_list	=	Дополнительные NAS
 login_port	=	Порт входа в систему
 cancel	=	Отмена
+show_volume_info	=	"Показать сведения о томе"

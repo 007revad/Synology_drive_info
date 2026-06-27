@@ -31,6 +31,10 @@ status	=	狀態
 status_data_detected	=	已偵測到
 status_unsupported	=	不支援
 loading	=	載入中...
+volume	=	儲存空間
+storage_pool	=	儲存集區
+volume_used	=	已使用
+volume_size	=	"磁碟區大小"
 
 [settings]
 settings	=	設定
@@ -49,3 +53,4 @@ discovering	=	正在探索 NAS...
 manual_nas_list	=	其他 NAS
 login_port	=	登入連接埠
 cancel	=	取消
+show_volume_info	=	"顯示磁碟區資訊"

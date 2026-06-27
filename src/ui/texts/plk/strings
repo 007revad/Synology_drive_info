@@ -31,6 +31,10 @@ status	=	Status
 status_data_detected	=	Wykryte
 status_unsupported	=	Nie obsługiwane
 loading	=	Ładowanie…
+volume	=	Wolumen
+storage_pool	=	Pula pamięci
+volume_used	=	Używane
+volume_size	=	"Rozmiar woluminu"
 
 [settings]
 settings	=	Ustawienia
@@ -49,3 +53,4 @@ discovering	=	Wykrywanie NAS...
 manual_nas_list	=	Dodatkowe NAS
 login_port	=	Port logowania
 cancel	=	Anuluj
+show_volume_info	=	"Pokaż informacje o woluminie"

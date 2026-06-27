@@ -104,11 +104,13 @@ if [[ "$_action" == "get_settings" ]]; then
     printf '\r\n'
 
     _discover_nas=$(synogetkeyvalue "$SETTINGS_CONF" discover_nas 2>/dev/null || echo "false")
+    _show_volume_info=$(synogetkeyvalue "$SETTINGS_CONF" show_volume_info 2>/dev/null || echo "true")
     _manual_count=$(synogetkeyvalue "$SETTINGS_CONF" manual_nas_count 2>/dev/null || echo "0")
     [[ -z "$_discover_nas" ]] && _discover_nas="false"
+    [[ -z "$_show_volume_info" ]] && _show_volume_info="true"
     [[ -z "$_manual_count" ]] && _manual_count="0"
 
-    printf '{"discover_nas":%s,"manual_nas":[' "$_discover_nas"
+    printf '{"discover_nas":%s,"show_volume_info":%s,"manual_nas":[' "$_discover_nas" "$_show_volume_info"
     _first=1
     for (( i=1; i<=_manual_count; i++ )); do
         _entry=$(synogetkeyvalue "$SETTINGS_CONF" "manual_nas${i}" 2>/dev/null)
@@ -151,6 +153,20 @@ if [[ "$_action" == "save_settings" ]]; then
     _cur_discover=$(synogetkeyvalue "$SETTINGS_CONF" discover_nas 2>/dev/null || echo "")
     if [[ "$_cur_discover" != "$_discover_nas" ]]; then
         synosetkeyvalue "$SETTINGS_CONF" discover_nas "$_discover_nas"
+        _changed=true
+    fi
+
+    # Parse show_volume_info
+    _show_volume_info="true"
+    if [[ "${QUERY_STRING:-}" =~ (^|&)show_volume_info=([^&]*) ]]; then
+        _val="${BASH_REMATCH[2]}"
+        [[ "$_val" == "false" ]] && _show_volume_info="false"
+    fi
+
+    # Only write show_volume_info if value changed
+    _cur_show_volume=$(synogetkeyvalue "$SETTINGS_CONF" show_volume_info 2>/dev/null || echo "")
+    if [[ "$_cur_show_volume" != "$_show_volume_info" ]]; then
+        synosetkeyvalue "$SETTINGS_CONF" show_volume_info "$_show_volume_info"
         _changed=true
     fi
 
@@ -256,8 +272,10 @@ printf '\r\n'
 
 # Read settings
 _discover_nas=$(synogetkeyvalue "$SETTINGS_CONF" discover_nas 2>/dev/null || echo "false")
+_show_volume_info=$(synogetkeyvalue "$SETTINGS_CONF" show_volume_info 2>/dev/null || echo "true")
 _manual_count=$(synogetkeyvalue "$SETTINGS_CONF" manual_nas_count 2>/dev/null || echo "0")
 [[ -z "$_discover_nas" ]] && _discover_nas="false"
+[[ -z "$_show_volume_info" ]] && _show_volume_info="true"
 [[ -z "$_manual_count" ]] && _manual_count="0"
 
 # Build manual NAS JSON array for JS
@@ -299,6 +317,8 @@ _txt_slot=$(txt common drive_id "Drive ID")
 _txt_model=$(txt common model "Model")
 _txt_serial=$(txt common serial_number "Serial Number")
 _txt_status=$(txt common status "Status")
+_txt_volume=$(txt common volume "Volume")
+_txt_show_volume_info=$(txt settings show_volume_info "Show volume information")
 
 cat << STYLE
 <style>
@@ -334,6 +354,16 @@ td.status-healthy  { color: #1CA600; }
 td.status-warning  { color: #FF7F00; }
 td.status-critical { color: #E64040; }
 td.status-failing  { color: #E64040; }
+.vol-table-wrapper { margin-top: 8px; }
+col.vol-name   { width: 12%; min-width: 80px; }
+col.vol-pool   { width: 18%; min-width: 110px; }
+col.vol-size   { width: 12%; min-width: 80px; }
+col.vol-used   { width: 10%; min-width: 60px; }
+td.vol-name    { color: #057FEB; white-space: nowrap; }
+td.vol-pool    { white-space: nowrap; }
+td.vol-size    { white-space: nowrap; }
+td.vol-used    { white-space: nowrap; }
+th.vol-name, th.vol-pool, th.vol-size, th.vol-used { white-space: nowrap; }
 .err { color: #c00; }
 a    { color: #0073c0; }
 /* Top bar - shared by both views */
@@ -346,6 +376,7 @@ a    { color: #0073c0; }
 .icon-btn:disabled img { content: url('/webman/3rdparty/drive_info/images/bt_gear_disabled.png'); }
 /* Remote NAS sections */
 .remote-section { margin-top: 20px; }
+#ha-passive-container { margin-top: 20px; }
 .remote-section h2 { color: #333; }
 .remote-err { color: #999; font-size: 12px; font-style: italic; }
 /* Settings panel */
@@ -355,6 +386,7 @@ a    { color: #0073c0; }
                  padding-bottom: 4px; padding-left: 10px; }
 .toggle-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
 #discover-row { padding-left: 8px; }
+#volume-info-row { padding-left: 8px; }
 .toggle { position: relative; display: inline-block; width: 40px; height: 22px; }
 .toggle input { opacity: 0; width: 0; height: 0; }
 .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0;
@@ -521,6 +553,7 @@ fi
 echo "<h2>${_local_hostname}${_local_subtitle}</h2>"
 
 in_table=0
+table_type=""   # "drive" or "volume"
 headers=()
 col_count=0
 
@@ -539,6 +572,10 @@ while IFS= read -r line; do
     if [[ $scan_in_table -eq 1 ]] && [[ ${#scan_headers[@]} -eq 0 ]] && [[ -n "$trimmed" ]]; then
         IFS=$'\n' read -r -d '' -a scan_headers <<< "$(echo "$trimmed" | grep -oP '\S.*?(?=  |\s*$)')" || true
         scan_col_count=${#scan_headers[@]}
+        # Only check Location for drive tables (first header is not "Volume")
+        if [[ "${scan_headers[0]}" == "$_txt_volume" ]]; then
+            scan_in_table=0; scan_headers=(); continue
+        fi
         scan_col_starts=()
         pos=0
         for h in "${scan_headers[@]}"; do
@@ -571,27 +608,20 @@ done <<< "$OUTPUT"
 while IFS= read -r line; do
     trimmed="${line#"${line%%[![:space:]]*}"}"
 
-    # Separator line
+    # Separator line — starts a new table
     if [[ "$trimmed" =~ ^-+$ ]]; then
         if [[ $in_table -eq 0 ]]; then
             in_table=1
-            if [[ $HAS_LOCATION -eq 1 ]]; then
-                echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="serial"><col class="status"></colgroup>'
-            else
-                echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="serial"><col class="status"></colgroup>'
-            fi
+            table_type=""  # determined when we read the header row
         fi
         continue
     fi
 
+    # Header row
     if [[ $in_table -eq 1 ]] && [[ ${#headers[@]} -eq 0 ]] && [[ -n "$trimmed" ]]; then
-        # Header row — split on 2+ spaces
         IFS=$'\n' read -r -d '' -a headers <<< "$(echo "$trimmed" | grep -oP '\S.*?(?=  |\s*$)')" || true
         col_count=${#headers[@]}
 
-        # Record each header's start position so data rows (which can have
-        # blank cells, e.g. an empty Location) can be sliced by position
-        # instead of by matching non-whitespace runs.
         col_starts=()
         pos=0
         for h in "${headers[@]}"; do
@@ -601,67 +631,124 @@ while IFS= read -r line; do
             pos=$(( pos + ${#prefix} + ${#h} ))
         done
 
+        # Detect table type by first header
+        if [[ "${headers[0]}" == "$_txt_volume" ]]; then
+            table_type="volume"
+            if [[ "$_show_volume_info" != "true" ]]; then
+                # Skip volume table entirely
+                in_table=0; table_type=""; headers=(); continue
+            fi
+            echo '<div class="vol-table-wrapper"><table class="vol-table"><colgroup><col class="vol-name"><col class="vol-pool"><col class="vol-size"><col class="vol-used"><col class="status"></colgroup>'
+        else
+            table_type="drive"
+            if [[ $HAS_LOCATION -eq 1 ]]; then
+                echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="serial"><col class="status"></colgroup>'
+            else
+                echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="serial"><col class="status"></colgroup>'
+            fi
+        fi
+
         echo "<thead><tr>"
-        col_classes=("id" "num" "location" "model" "serial" "status")
-        for idx in "${!headers[@]}"; do
-            cls="${col_classes[$idx]:-}"
-            [[ "$cls" == "location" && $HAS_LOCATION -eq 0 ]] && continue
-            echo "<th class=\"$cls\">$(echo "${headers[$idx]}" | sed 's/</\&lt;/g;s/>/\&gt;/g')</th>"
-        done
+        if [[ "$table_type" == "volume" ]]; then
+            vol_classes=("vol-name" "vol-pool" "vol-size" "vol-used" "status")
+            for idx in "${!headers[@]}"; do
+                cls="${vol_classes[$idx]:-}"
+                echo "<th class=\"$cls\">$(echo "${headers[$idx]}" | sed 's/</\&lt;/g;s/>/\&gt;/g')</th>"
+            done
+        else
+            col_classes=("id" "num" "location" "model" "serial" "status")
+            for idx in "${!headers[@]}"; do
+                cls="${col_classes[$idx]:-}"
+                [[ "$cls" == "location" && $HAS_LOCATION -eq 0 ]] && continue
+                echo "<th class=\"$cls\">$(echo "${headers[$idx]}" | sed 's/</\&lt;/g;s/>/\&gt;/g')</th>"
+            done
+        fi
         echo "</tr></thead><tbody>"
         continue
     fi
 
+    # Data row
     if [[ $in_table -eq 1 ]] && [[ ${#headers[@]} -gt 0 ]] && [[ -n "$trimmed" ]]; then
-        # Data row — slice by the column positions recorded from the header,
-        # since a whitespace-based split can't represent a blank cell.
         echo "<tr>"
         for (( c=0; c<col_count; c++ )); do
             start="${col_starts[$c]}"
             if (( c + 1 < col_count )); then
-                len=$(( col_starts[c+1] - start - 2 ))  # -2 for the column gap
+                len=$(( col_starts[c+1] - start - 2 ))
             else
                 len=$(( ${#line} - start ))
             fi
             val="${line:$start:$len}"
-            val="${val%"${val##*[![:space:]]}"}"  # trim trailing padding
+            val="${val%"${val##*[![:space:]]}"}"
             val="$(echo "$val" | sed 's/</\&lt;/g;s/>/\&gt;/g')"
-            if [[ $c -eq 0 ]]; then
-                echo "<td class=\"id\">$val</td>"
-            elif [[ $c -eq 1 ]]; then
-                echo "<td class=\"num\">$val</td>"
-            elif [[ $c -eq 2 ]]; then
-                [[ $HAS_LOCATION -eq 0 ]] && continue
-                echo "<td class=\"location\">$val</td>"
-            elif [[ $c -eq 3 ]]; then
-                echo "<td class=\"model\">$val</td>"
-            elif [[ $c -eq 4 ]]; then
-                echo "<td class=\"serial\">$val</td>"
-            elif [[ $c -eq 5 ]]; then
-                case "$val" in
-                    healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
-                    warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
-                    critical::*) css_class="status-critical"; val="${val#critical::}" ;;
-                    failing::*)  css_class="status-failing";  val="${val#failing::}"  ;;
-                    *)           css_class="status"                                   ;;
+
+            if [[ "$table_type" == "volume" ]]; then
+                case $c in
+                    0) echo "<td class=\"vol-name\">$val</td>" ;;
+                    1) echo "<td class=\"vol-pool\">$val</td>" ;;
+                    2) echo "<td class=\"vol-size\">$val</td>" ;;
+                    3) echo "<td class=\"vol-used\">$val</td>" ;;
+                    4)
+                        case "$val" in
+                            healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
+                            warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
+                            critical::*) css_class="status-critical"; val="${val#critical::}" ;;
+                            failing::*)  css_class="status-failing";  val="${val#failing::}"  ;;
+                            *)           css_class="status"                                   ;;
+                        esac
+                        echo "<td class=\"$css_class\">$val</td>"
+                        ;;
+                    *) echo "<td>$val</td>" ;;
                 esac
-                echo "<td class=\"$css_class\">$val</td>"
             else
-                echo "<td>$val</td>"
+                if [[ $c -eq 0 ]]; then
+                    echo "<td class=\"id\">$val</td>"
+                elif [[ $c -eq 1 ]]; then
+                    echo "<td class=\"num\">$val</td>"
+                elif [[ $c -eq 2 ]]; then
+                    [[ $HAS_LOCATION -eq 0 ]] && continue
+                    echo "<td class=\"location\">$val</td>"
+                elif [[ $c -eq 3 ]]; then
+                    echo "<td class=\"model\">$val</td>"
+                elif [[ $c -eq 4 ]]; then
+                    echo "<td class=\"serial\">$val</td>"
+                elif [[ $c -eq 5 ]]; then
+                    case "$val" in
+                        healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
+                        warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
+                        critical::*) css_class="status-critical"; val="${val#critical::}" ;;
+                        failing::*)  css_class="status-failing";  val="${val#failing::}"  ;;
+                        *)           css_class="status"                                   ;;
+                    esac
+                    echo "<td class=\"$css_class\">$val</td>"
+                else
+                    echo "<td>$val</td>"
+                fi
             fi
         done
         echo "</tr>"
         continue
     fi
 
+    # Blank line ends table
     if [[ $in_table -eq 1 ]] && [[ ${#headers[@]} -gt 0 ]] && [[ -z "$trimmed" ]]; then
-        # Blank line ends table section
-        echo "</tbody></table><br>"
-        in_table=0; headers=(); continue
+        if [[ "$table_type" == "volume" ]]; then
+            echo "</tbody></table></div>"
+        elif [[ "$table_type" == "drive" ]] && [[ "$_show_volume_info" == "true" ]]; then
+            echo "</tbody></table>"
+        else
+            echo "</tbody></table><br>"
+        fi
+        in_table=0; table_type=""; headers=(); continue
     fi
 done <<< "$OUTPUT"
 
-[[ $in_table -eq 1 ]] && echo "</tbody></table>"
+if [[ $in_table -eq 1 ]]; then
+    if [[ "$table_type" == "volume" ]]; then
+        echo "</tbody></table></div>"
+    else
+        echo "</tbody></table>"
+    fi
+fi
 
 # Remote NAS container - populated by JS after page load
 echo '<div id="remote-nas-container"></div>'
@@ -686,6 +773,13 @@ cat << SETTINGSHTML
         <span class="toggle-slider"></span>
       </label>
       <span>${_txt_discover}</span>
+    </div>
+    <div class="toggle-row" id="volume-info-row">
+      <label class="toggle">
+        <input type="checkbox" id="show_volume_info" $([ "$_show_volume_info" = "true" ] && echo "checked")>
+        <span class="toggle-slider"></span>
+      </label>
+      <span>${_txt_show_volume_info}</span>
     </div>
   </div>
 
@@ -817,7 +911,9 @@ function saveSettings() {
     }
 
     var discover = document.getElementById('discover_nas').checked ? 'true' : 'false';
+    var showVolumeInfo = document.getElementById('show_volume_info').checked ? 'true' : 'false';
     var qs = 'action=save_settings&discover_nas=' + discover +
+             '&show_volume_info=' + showVolumeInfo +
              '&manual_nas_count=' + valid.length;
     for (var j = 0; j < valid.length; j++) {
         qs += '&manual_nas' + (j + 1) + '=' + encodeURIComponent(valid[j]);

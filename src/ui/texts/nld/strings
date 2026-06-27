@@ -31,6 +31,10 @@ status	=	Status
 status_data_detected	=	Gedetecteerd
 status_unsupported	=	Niet ondersteund
 loading	=	Bezig met laden…
+volume	=	Volume
+storage_pool	=	Opslagpool
+volume_used	=	Gebruikt
+volume_size	=	"Volumegrootte"
 
 [settings]
 settings	=	Instellingen
@@ -49,3 +53,4 @@ discovering	=	NAS zoeken...
 manual_nas_list	=	Extra NAS
 login_port	=	Inlogpoort
 cancel	=	Annuleren
+show_volume_info	=	"Volume-informatie weergeven"

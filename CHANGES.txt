@@ -1,3 +1,7 @@
+v2.0.22
+- Added Volume information and status.
+  - Defaults to enabled but can be disabled in the settings.
+
 v2.0.21
 - Bug fix other local Synology NAS having 2 headings.
 

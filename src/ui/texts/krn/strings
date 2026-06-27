@@ -31,6 +31,10 @@ status	=	상태
 status_data_detected	=	감지됨
 status_unsupported	=	지원 안 됨
 loading	=	로드 중…
+volume	=	볼륨
+storage_pool	=	스토리지 풀
+volume_used	=	사용된 공간
+volume_size	=	"볼륨 크기"
 
 [settings]
 settings	=	설정
@@ -49,3 +53,4 @@ discovering	=	NAS 검색 중...
 manual_nas_list	=	추가 NAS
 login_port	=	로그인 포트
 cancel	=	취소
+show_volume_info	=	"볼륨 정보 표시"

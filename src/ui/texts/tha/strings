@@ -31,6 +31,10 @@ status	=	สถานะ
 status_data_detected	=	ตรวจพบแล้ว
 status_unsupported	=	ไม่รองรับ
 loading	=	กำลังโหลด...
+volume	=	วอลุ่ม
+storage_pool	=	พูลการจัดเก็บข้อมูล
+volume_used	=	ใช้แล้ว
+volume_size	=	"ขนาดโวลุ่ม"
 
 [settings]
 settings	=	การตั้งค่า
@@ -49,3 +53,4 @@ discovering	=	กำลังค้นหา NAS...
 manual_nas_list	=	NAS เพิ่มเติม
 login_port	=	พอร์ตการลงชื่อเข้าใช้
 cancel	=	ยกเลิก
+show_volume_info	=	"แสดงข้อมูลโวลุ่ม"

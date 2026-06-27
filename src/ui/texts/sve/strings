@@ -30,6 +30,10 @@ status	=	Status
 status_data_detected	=	Identifierad
 status_unsupported	=	Stöds ej
 loading	=	Laddar...
+volume	=	Volym
+storage_pool	=	Lagringspool
+volume_used	=	Använt
+volume_size	=	"Volymstorlek"
 
 [settings]
 settings	=	Inställningar
@@ -48,3 +52,4 @@ discovering	=	Söker efter NAS...
 manual_nas_list	=	Ytterligare NAS
 login_port	=	Inloggningsport
 cancel	=	Avbryt
+show_volume_info	=	"Visa volyminformation"

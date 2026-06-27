@@ -31,6 +31,10 @@ status	=	Status
 status_data_detected	=	Registreret
 status_unsupported	=	Ikke-understøttet
 loading	=	Indlæser...
+volume	=	Diskenhed
+storage_pool	=	Lagerpulje
+volume_used	=	Brugt
+volume_size	=	"Volumestørrelse"
 
 [settings]
 settings	=	Indstillinger
@@ -49,3 +53,4 @@ discovering	=	Søger efter NAS...
 manual_nas_list	=	Yderligere NAS
 login_port	=	Login-port.
 cancel	=	Annuller
+show_volume_info	=	"Vis volumeoplysninger"

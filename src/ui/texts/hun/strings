@@ -31,6 +31,10 @@ status	=	Állapot
 status_data_detected	=	Észlelve
 status_unsupported	=	Nem támogatott
 loading	=	Betöltés...
+volume	=	Kötet
+storage_pool	=	Tárolókészlet
+volume_used	=	Használt
+volume_size	=	"Kötet mérete"
 
 [settings]
 settings	=	Beállítások
@@ -49,3 +53,4 @@ discovering	=	NAS keresése...
 manual_nas_list	=	További NAS
 login_port	=	Bejelentkezési port
 cancel	=	Mégse
+show_volume_info	=	"Kötetinformációk megjelenítése"
