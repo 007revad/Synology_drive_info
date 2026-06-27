@@ -1,6 +1,0 @@
-[{
-    "step_title": "Configurazione delle autorizzazioni richiesta",
-    "items": [{
-        "desc": "Dopo l'installazione è necessario concedere al pacchetto le autorizzazioni richieste, se non l'hai già fatto.<br><br>Per i dettagli, consulta <a target=\"_blank\" href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\">Configurazione delle autorizzazioni del pacchetto</a>.<br><br>Se hai già configurato le autorizzazioni di questo pacchetto in precedenza, puoi saltare questo passaggio."
-    }]
-}]

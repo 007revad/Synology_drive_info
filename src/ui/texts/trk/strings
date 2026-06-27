@@ -28,6 +28,8 @@ status_failing	=	Arızalanıyor
 status_unknown	=	Bilinmeyen
 status_disabled	=	Etkisiz
 status	=	Status
+status_data_detected	=	Algılandı
+status_unsupported	=	Desteklenmez
 loading	=	Yükleniyor...
 
 [settings]

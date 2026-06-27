@@ -27,6 +27,8 @@ status_failing	=	Misslyckas
 status_unknown	=	Okänd
 status_disabled	=	Avaktiverad
 status	=	Status
+status_data_detected	=	Identifierad
+status_unsupported	=	Stöds ej
 loading	=	Laddar...
 
 [settings]

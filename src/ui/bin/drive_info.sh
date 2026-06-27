@@ -115,23 +115,52 @@ get_nvme_num(){
 get_drive_health(){ 
     local health_status
     status=""
-    health_status=$(synowebapi -s --exec api="SYNO.Storage.CGI.Smart" method="get_health_info" version="1" device="\"/dev/$drive\"" \
+    #health_status=$(synowebapi -s --exec api="SYNO.Storage.CGI.Smart" method="get_health_info" version="1" device="\"/dev/$drive\"" \
+    #    | jq -r '.data.healthInfo.overview.drive_status_key')
+    health_status=$(synowebapi -s --exec api="SYNO.Storage.CGI.Smart" method="get_health_info" version="1" device="\"/dev/$drive\"" 2>/dev/null \
         | jq -r '.data.healthInfo.overview.drive_status_key')
+
+    # If webapi returned nothing, fall back to DSM 6 cache method
+    if [[ -z "$health_status" ]] || [[ "$health_status" == "null" ]]; then
+        get_drive_health6
+        return
+    fi
+
     case "$health_status" in
         normal|healthy)
+            # healthy:: shows in green
             status="healthy::$(txt common status_healthy "Healthy")"
             ;;
         unc)
+            # warning:: shows in orange/yellow
             status="warning::$(txt common status_warning "Warning")"  # Uncorrectable read errors
             ;;
         warning)
+            # warning:: shows in orange/yellow
             status="warning::$(txt common status_warning "Warning")"
             ;;
         critical)
+            # critical:: shows in red
             status="critical::$(txt common status_critical "Critical")"
             ;;
         failing)
+            # failing:: shows in red
             status="failing::$(txt common status_failing "Failing")"
+            ;;
+        # TODO: confirm what drive_status_key returns for access error
+        # disk_status_access_err = "Access Error" exists in DSM strings
+        # but the actual key value is unconfirmed
+        #disk_status_access_err)
+            # warning:: shows in orange/yellow
+        #    status="warning::$(txt common status_access_error "Access Error")"
+        #    ;;
+        data_detected)
+            # critical:: shows in red
+            status="critical::$(txt common status_data_detected "Detected")"
+            ;;
+        disknotsupported)
+            # warning:: shows in orange/yellow
+            status="warning::$(txt common status_unsupported "Not supported")"
             ;;
         disabled)
             status="$(txt common status_disabled "Disabled")"

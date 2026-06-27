@@ -28,6 +28,8 @@ status_failing	=	Chyba
 status_unknown	=	Neznámý
 status_disabled	=	Zakázáno
 status	=	Stav
+status_data_detected	=	Zjištěno
+status_unsupported	=	Nepodporováno
 loading	=	Načítání...
 
 [settings]

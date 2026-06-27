@@ -20,7 +20,7 @@
 _get_text_module_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 _get_text_ui_dir="$(dirname "${_get_text_module_dir}")"
 
-gui_lang="$(get_key_value /etc/synoinfo.conf language 2>/dev/null)"
+gui_lang="$(get_key_value /etc/synoinfo.conf maillang 2>/dev/null)"
 strings_file="${_get_text_ui_dir}/texts/${gui_lang}/strings"
 [[ -f "${strings_file}" ]] || strings_file="${_get_text_ui_dir}/texts/enu/strings"
 

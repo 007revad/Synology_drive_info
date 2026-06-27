@@ -28,6 +28,8 @@ status_failing	=	Неисправный
 status_unknown	=	Неизвестно
 status_disabled	=	Отключено
 status	=	Статус
+status_data_detected	=	Обнаружено
+status_unsupported	=	Не поддерживается
 loading	=	Загрузка...
 
 [settings]

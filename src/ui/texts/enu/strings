@@ -28,6 +28,8 @@ status_failing	=	Failing
 status_unknown	=	Unknown
 status_disabled	=	Disabled
 status	=	Status
+status_data_detected	=	Detected
+status_unsupported	=	Not supported
 loading	=	Loading...
 
 [settings]

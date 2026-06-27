@@ -28,6 +28,8 @@ status_failing	=	ล้มเหลว
 status_unknown	=	ไม่ทราบ
 status_disabled	=	ปิดใช้งานอยู่
 status	=	สถานะ
+status_data_detected	=	ตรวจพบแล้ว
+status_unsupported	=	ไม่รองรับ
 loading	=	กำลังโหลด...
 
 [settings]

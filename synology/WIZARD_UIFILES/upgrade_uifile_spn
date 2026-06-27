@@ -1,6 +1,0 @@
-[{
-    "step_title": "Es necesario configurar los permisos",
-    "items": [{
-        "desc": "Después de la instalación, debe otorgar al paquete los permisos necesarios, si aún no lo ha hecho.<br><br>Consulte <a target=\"_blank\" href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\">Configurar permisos del paquete</a> para más detalles.<br><br>Si ya ha configurado anteriormente los permisos de este paquete, puede omitir este paso."
-    }]
-}]

@@ -1,6 +1,0 @@
-[{
-    "step_title": "Innstilling av tillatelser er nødvendig",
-    "items": [{
-        "desc": "Etter installasjonen må du gi pakken de nødvendige tillatelsene, hvis du ikke allerede har gjort det.<br><br>Se <a target=\"_blank\" href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\">Sett pakketillatelser</a> for detaljer.<br><br>Hvis du tidligere har angitt tillatelsene for denne pakken, kan du hoppe over dette."
-    }]
-}]

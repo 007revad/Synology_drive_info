@@ -28,6 +28,8 @@ status_failing	=	故障
 status_unknown	=	未知
 status_disabled	=	已停用
 status	=	狀態
+status_data_detected	=	已偵測到
+status_unsupported	=	不支援
 loading	=	載入中...
 
 [settings]

@@ -28,6 +28,8 @@ status_failing	=	Fejler
 status_unknown	=	Ukendt
 status_disabled	=	Deaktiveret
 status	=	Status
+status_data_detected	=	Registreret
+status_unsupported	=	Ikke-understøttet
 loading	=	Indlæser...
 
 [settings]

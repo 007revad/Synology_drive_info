@@ -28,6 +28,8 @@ status_failing	=	Mislukt
 status_unknown	=	Onbekend
 status_disabled	=	Uitgeschakeld
 status	=	Status
+status_data_detected	=	Gedetecteerd
+status_unsupported	=	Niet ondersteund
 loading	=	Bezig met laden…
 
 [settings]

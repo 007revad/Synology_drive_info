@@ -1,6 +1,0 @@
-[{
-    "step_title": "Inställning av behörigheter krävs",
-    "items": [{
-        "desc": "Efter installationen måste du ge paketet de behörigheter som krävs, om du inte redan har gjort det.<br><br>Se <a target=\"_blank\" href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\">Ange paketbehörigheter</a> för mer information.<br><br>Om du tidigare har angett behörigheterna för detta paket kan du hoppa över detta."
-    }]
-}]

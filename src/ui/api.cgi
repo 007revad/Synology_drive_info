@@ -37,9 +37,25 @@ fi
 # ---------------------------------------------------------------------------
 if [[ "$_action" == "info" ]]; then
     _hostname=$(cat /proc/sys/kernel/hostname 2>/dev/null || hostname)
-    _model=$(cat /proc/sys/kernel/syno_hw_version 2>/dev/null || echo "")
+    #_model=$(cat /proc/sys/kernel/syno_hw_version 2>/dev/null || echo "")
     _version=$(grep -m1 'productversion=' /etc.defaults/VERSION 2>/dev/null \
                 | cut -d= -f2 | tr -d '"')
+
+    _model=$(synogetkeyvalue /etc.defaults/synoinfo.conf upnpmodelname 2>/dev/null)
+    # Fallback for systems where upnpmodelname is unavailable
+    if [[ -z "$_model" && -f /proc/sys/kernel/syno_hw_version ]]; then
+        _model=$(cat /proc/sys/kernel/syno_hw_version 2>/dev/null || echo "")
+        # Check for dodgy characters after model number
+        if [[ ${_model,,} =~ 'pv10-j'$ ]]; then  # GitHub issue #10
+            _model=${_model%??????}+              # replace last 6 chars with +
+        elif [[ ${_model} =~ '-j'$ ]]; then  # GitHub issue #2
+            _model=${_model%??}               # remove last 2 chars
+        fi
+    fi
+    if [[ -z "$_model" ]]; then
+        _model="Unknown_model"
+    fi
+
     printf 'Content-Type: application/json\r\n'
     printf 'Access-Control-Allow-Origin: *\r\n'
     printf '\r\n'
@@ -330,7 +346,7 @@ a    { color: #0073c0; }
 .icon-btn:disabled img { content: url('/webman/3rdparty/drive_info/images/bt_gear_disabled.png'); }
 /* Remote NAS sections */
 .remote-section { margin-top: 20px; }
-.remote-section h2 { color: #555; }
+.remote-section h2 { color: #333; }
 .remote-err { color: #999; font-size: 12px; font-style: italic; }
 /* Settings panel */
 .section { margin-bottom: 20px; }
@@ -480,7 +496,29 @@ if [[ $EXIT_CODE -ne 0 ]]; then
 fi
 
 # Parse drive_info.sh plain-text output into HTML tables
-echo "<h2>${_txt_drive_info}</h2>"
+#echo "<h2>${_txt_drive_info}</h2>"  # Drive Information heading
+# Get local NAS identity for the heading
+_local_hostname=$(cat /proc/sys/kernel/hostname 2>/dev/null || hostname)
+_local_model=$(synogetkeyvalue /etc.defaults/synoinfo.conf upnpmodelname 2>/dev/null)
+if [[ -z "$_local_model" && -f /proc/sys/kernel/syno_hw_version ]]; then
+    _local_model=$(cat /proc/sys/kernel/syno_hw_version 2>/dev/null || echo "")
+    if [[ ${_local_model,,} =~ 'pv10-j'$ ]]; then
+        _local_model=${_local_model%??????}+
+    elif [[ ${_local_model} =~ '-j'$ ]]; then
+        _local_model=${_local_model%??}
+    fi
+fi
+[[ -z "$_local_model" ]] && _local_model=""
+
+# Get local IP - prefer the default-route interface address
+_local_ip=$(ip route get 1.1.1.1 2>/dev/null | grep -o 'src [0-9.]*' | awk '{print $2}')
+[[ -z "$_local_ip" ]] && _local_ip=$(hostname -i 2>/dev/null | awk '{print $1}')
+
+_local_subtitle=""
+if [[ -n "$_local_ip" || -n "$_local_model" ]]; then
+    _local_subtitle=" <span style=\"font-weight:normal;font-size:13px;color:#999;\"> &nbsp; ${_local_ip} &nbsp; ${_local_model}</span>"
+fi
+echo "<h2>${_local_hostname}${_local_subtitle}</h2>"
 
 in_table=0
 headers=()
@@ -961,7 +999,7 @@ function fetchOneDriveInfo(nas) {
     section.className = 'remote-section';
     section.id = 'remote-' + ip.replace(/\./g, '-');
     section.innerHTML = '<h2>' + escHtml(hostname) +
-        ' <span style="font-weight:normal;font-size:11px;color:#999;">(' + escHtml(ip) + ')</span></h2>' +
+        ' <span style="font-weight:normal;font-size:13px;color:#999;">(' + escHtml(ip) + ')</span></h2>' +
         '<div class="nas-spinner"><img src="/webman/3rdparty/drive_info/images/wait_triangle_blue_40p.gif" width="30" height="30" style="vertical-align:middle;margin-right:6px;"><span style="font-size:12px;">${_txt_loading}</span></div>';
     container.appendChild(section);
 
@@ -977,7 +1015,7 @@ function fetchOneDriveInfo(nas) {
                 if (info.hostname) {
                     section.querySelector('h2').innerHTML =
                         escHtml(info.hostname) +
-                        ' <span style="font-weight:normal;font-size:11px;color:#999;"> &nbsp; ' +
+                        ' <span style="font-weight:normal;font-size:13px;color:#999;"> &nbsp; ' +
                         escHtml(ip) + ' &nbsp; ' + escHtml(info.model) + '</span>';
                 }
             } catch(e) {}

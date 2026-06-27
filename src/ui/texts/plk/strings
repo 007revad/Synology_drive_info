@@ -28,6 +28,8 @@ status_failing	=	Uległ awarii
 status_unknown	=	Nieznane
 status_disabled	=	Wyłączone
 status	=	Status
+status_data_detected	=	Wykryte
+status_unsupported	=	Nie obsługiwane
 loading	=	Ładowanie…
 
 [settings]

@@ -28,6 +28,8 @@ status_failing	=	Sviktende
 status_unknown	=	Ukjent
 status_disabled	=	Deaktivert
 status	=	Status
+status_data_detected	=	Oppdaget
+status_unsupported	=	Støttes ikke
 loading	=	Laster...
 
 [settings]

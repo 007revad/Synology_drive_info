@@ -28,6 +28,8 @@ status_failing	=	실패
 status_unknown	=	알 수 없음
 status_disabled	=	사용 안함
 status	=	상태
+status_data_detected	=	감지됨
+status_unsupported	=	지원 안 됨
 loading	=	로드 중…
 
 [settings]
