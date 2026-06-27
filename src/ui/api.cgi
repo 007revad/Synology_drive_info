@@ -1044,7 +1044,7 @@ function fetchDriveTable(section, url) {
             html = html.replace(/<div id="settings-panel"[\s\S]*<\/div>/gi, '');
             html = html.replace(/<div class="topbar"[\s\S]*?<\/div>/gi, '');
             html = html.replace(/<div id="main-view"[^>]*>/gi, '');
-            html = html.replace(/<h2>[^<]*<\/h2>/gi, '');
+            html = html.replace(/<h2>[\s\S]*?<\/h2>/gi, '');
             section.innerHTML += html;
         } else {
             section.innerHTML += '<p class="remote-err">HTTP ' + fxhr.status + '</p>';
