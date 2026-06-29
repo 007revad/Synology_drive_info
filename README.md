@@ -54,7 +54,7 @@ There are 2 ways to install the package:
 
 <br>
 
-<!--- <p align="center">Screenshot 3</p> -->
+<p align="center">Settings</p>
 <p align="center"><kbd><img src="/images/window_settings.png"></kbd></p>
 
 <br>
