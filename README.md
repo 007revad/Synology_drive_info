@@ -11,6 +11,8 @@
 
 DSM package to show drive device id, DSM drive number, location, model, serial number and health for all drives in your Synology NAS.
   - Helps you map device ids in logs to the correct drive in Storage Manager.
+  - Can also show drive information for other local Synology NAS.
+  - Now shows data scrubbing status, RAID rebuilding/repairing status and S.M.A.R.T. info.
 
 Available for DSM 7 and DSM 6.
 
@@ -55,9 +57,34 @@ There are 2 ways to install the package:
 <br>
 
 <p align="center">Settings</p>
-<p align="center"><kbd><img src="/images/window_settings.png"></kbd></p>
+<p align="center"><kbd><img src="/images/window_settings2.png"></kbd></p>
 
 <br>
 
 <!--- <p align="center">Screenshot 3</p> -->
 <p align="center"><kbd><img src="/images/window5.png"></kbd></p>
+
+<br>
+
+<p align="center">View S.M.A.R.T. info</p>
+<p align="center"><kbd><img src="/images/smart_link.png"></kbd></p>
+
+<br>
+
+<p align="center">Full S.M.A.R.T. info for HDD</p>
+<p align="center"><kbd><img src="/images/smart_info.png"></kbd></p>
+
+<br>
+
+<p align="center">Full S.M.A.R.T. info for NVMe</p>
+<p align="center"><kbd><img src="/images/smart_info_nvme.png"></kbd></p>
+
+<br>
+
+<p align="center">Only important S.M.A.R.T. info for HDD</p>
+<p align="center"><kbd><img src="/images/smart_info_important.png"></kbd></p>
+
+<br>
+
+<p align="center">Only important S.M.A.R.T. info for NVMe</p>
+<p align="center"><kbd><img src="/images/smart_info_nvme_important.png"></kbd></p>
