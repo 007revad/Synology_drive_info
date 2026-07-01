@@ -16,6 +16,21 @@ if [[ -t 1 ]]; then  # Running in terminal
     echo "Running in an interactive shell (user terminal)."
 fi
 
+nas_model=$(synogetkeyvalue /etc.defaults/synoinfo.conf upnpmodelname 2>/dev/null)
+# Fallback for systems where upnpmodelname is unavailable
+if [[ -z "$nas_model" && -f /proc/sys/kernel/syno_hw_version ]]; then
+    nas_model=$(cat /proc/sys/kernel/syno_hw_version 2>/dev/null || echo "")
+    # Check for dodgy characters after model number
+    if [[ ${nas_model,,} =~ 'pv10-j'$ ]]; then  # GitHub issue #10
+        nas_model=${nas_model%??????}+             # replace last 6 chars with +
+    elif [[ ${nas_model} =~ '-j'$ ]]; then  # GitHub issue #2
+        nas_model=${nas_model%??}              # remove last 2 chars
+    fi
+fi
+if [[ -z "$nas_model" ]]; then
+    nas_model="Unknown_model"
+fi
+
 # Get DSM major version
 dsm=$(get_key_value /etc.defaults/VERSION majorversion)
 
@@ -306,6 +321,7 @@ show_drive_model(){
             #echo -e "\n${Cyan}${drive_num}${Off}$vendor $model  $serial"
         else
             echo -e "\n${Cyan}${drive_num}${Off}"
+            #echo "${nas_model}"
         fi
     else
         if [[ -t 1 ]]; then  # Running in terminal
@@ -726,6 +742,7 @@ show_health(){
             if [[ -n "$strIn" ]]; then  # Don't echo blank line
                 if $(echo "$strIn" | grep -qi PASSED); then
                     if [[ $increased != "yes" ]]; then
+                        #echo "${nas_model}"
                         echo -e "SMART overall-health self-assessment test result: ${LiteGreen}PASSED${Off}"
                     fi
                 elif $(echo "$strIn" | grep -qi 'Health Status: OK'); then

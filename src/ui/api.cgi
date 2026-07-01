@@ -303,6 +303,7 @@ fi
 #---------------------------------------------------------------------------
 if [[ "$_action" == "get_smart" ]]; then
     printf 'Content-Type: text/html; charset=utf-8\r\n'
+    printf 'Access-Control-Allow-Origin: *\r\n'
     printf '\r\n'
 
     _device=""
@@ -1474,6 +1475,7 @@ function fetchOneDriveInfo(nas) {
     var section = document.createElement('div');
     section.className = 'remote-section';
     section.id = 'remote-' + ip.replace(/\./g, '-');
+    section.dataset.apiBase = url;
     section.innerHTML = '<h2>' + escHtml(hostname) +
         ' <span style="font-weight:normal;font-size:13px;color:#999;">(' + escHtml(ip) + ')</span></h2>' +
         '<div class="nas-spinner"><img src="/webman/3rdparty/drive_info/images/wait_triangle_blue_40p.gif" width="30" height="30" style="vertical-align:middle;margin-right:6px;"><span style="font-size:12px;">${_txt_loading}</span></div>';
@@ -1547,13 +1549,15 @@ function escHtml(s) {
 function showSmartPanel(btn) {
     var row = btn.closest('tr');
     var device = row.cells[0].textContent.trim();
+    var section = btn.closest('[data-api-base]');
+    var apiBase = section ? section.dataset.apiBase : 'api.cgi';
     var content = document.getElementById('smart-panel-content');
     content.innerHTML = '<div style="margin:8px 0;"><img src="/webman/3rdparty/drive_info/images/wait_triangle_blue_40p.gif" width="30" height="30" style="vertical-align:middle;margin-right:6px;"><span style="font-size:12px;">${_txt_loading}</span></div>';
     document.getElementById('smart-panel').classList.add('open');
     document.getElementById('smart-overlay').classList.add('open');
 
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', 'api.cgi?action=get_smart&device=' + encodeURIComponent(device), true);
+    xhr.open('GET', apiBase + '?action=get_smart&device=' + encodeURIComponent(device), true);
     xhr.timeout = 60000;
     xhr.onreadystatechange = function() {
         if (xhr.readyState !== 4) return;

@@ -1,8 +1,8 @@
 {
   "package": "drive_info",
   "name": "drive_info",
-  "version": "2.0.25",
-  "description": "DSM package to show drive device id, DSM drive number, location, model, serial number, health and S.M.A.R.T. values for all drives in all your Synology NAS.",
+  "version": "2.0.26",
+  "description": "DSM package to show drive device id, DSM drive number, location, model, serial number, health and S.M.A.R.T. values for all drives in all your Synology NAS",
   "target": "./src",
   "install_type": "package",
   "support_conf_folder": "yes",

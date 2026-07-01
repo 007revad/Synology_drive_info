@@ -1,3 +1,6 @@
+v2.0.26
+- Bug fix for showing, or trying to show, SMART info for drives on the Synology running Drive Info when a drive from another local Synology was selected.
+
 v2.0.25
 - Added SMART information. The text in the Status column for each drive is a link to the SMART info.
 - Added an option in the settings to only show important SMART info.
