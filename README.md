@@ -9,7 +9,7 @@
 
 ### Description
 
-DSM package to show drive device id, DSM drive number, location, model, serial number and health for all drives in your Synology NAS.
+DSM package to show drive device id, DSM drive number, location, model, serial number, health and S.M.A.R.T. values for all drives in all your Synology NAS.
   - Helps you map device ids in logs to the correct drive in Storage Manager.
   - Can also show drive information for other local Synology NAS.
   - Now shows data scrubbing status, RAID rebuilding/repairing status and S.M.A.R.T. info.
@@ -38,11 +38,11 @@ There are 2 ways to install the package:
 <!--- <p align="center">Screenshot 1</p> --->
 <p align="center"><kbd><img src="/images/installed.png"></kbd></p>
 
-<br>
+<!--- <br> --->
 
 <!--- <p align="center">Screenshot 2</p> -->
 <!--- <p align="center"><kbd><img src="/images/window2.png"></kbd></p> --->
-<p align="center"><kbd><img src="/images/window3.png"></kbd></p>
+<!--- <p align="center"><kbd><img src="/images/window3.png"></kbd></p> --->
 
 <br>
 
@@ -51,8 +51,13 @@ There are 2 ways to install the package:
 
 <br>
 
-<p align="center">DSM 6</p>
-<p align="center"><kbd><img src="/images/window_dsm6.png"></kbd></p>
+<p align="center">DSM 6 - Data Scrubbing</p>
+<p align="center"><kbd><img src="/images/window_dsm6_volume.png"></kbd></p>
+
+<!--- <br> --->
+
+<!--- <p align="center">Supports all DSM languages</p> --->
+<!--- <p align="center"><kbd><img src="/images/window_dsm6.png"></kbd></p> --->
 
 <br>
 
