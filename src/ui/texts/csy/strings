@@ -68,3 +68,5 @@ status_repairing	=	"Opravuje se"
 data_scrubbing	=	Scrubbing dat
 smart_name	=	S.M.A.R.T.
 smart_view	=	"Zobrazit S.M.A.R.T."
+temperature	=	Teplota
+usb_drive	=	"USB disk"

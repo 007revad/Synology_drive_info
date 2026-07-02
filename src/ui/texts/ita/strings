@@ -68,3 +68,5 @@ status_repairing	=	"Riparazione in corso"
 data_scrubbing	=	Pulitura dati
 smart_name	=	S.M.A.R.T.
 smart_view	=	"Visualizza S.M.A.R.T."
+temperature	=	Temperatura 
+usb_drive	=	"Unità USB"

@@ -1,7 +1,14 @@
+v2.0.28
+- Added drive temperature.
+- Added language translations to the SMART info for "Drive", "M.2 Drive", "System Drive" and "USB Drive". 
+- Bug fix for "USB Drive" not correctly translated.
+- Bug fix for USB drives SMART info.
+- Bug fix for English showing the old package description in Package Center.
+
 v2.0.27
 - Updated package's description for all languages.
 - Added missing Thai package description.
-- Bug fix for SAS drives showing a lot of "debug: command no found" errors.
+- Bug fix for SAS drives showing a lot of "debug: command not found" errors.
 
 v2.0.26
 - Bug fix for showing, or trying to show, SMART info for drives on the Synology running Drive Info when a drive from another local Synology was selected.

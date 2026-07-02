@@ -312,7 +312,7 @@ if [[ "$_action" == "get_smart" ]]; then
     fi
 
     # Validate device - must be a known Synology device name pattern
-    if [[ ! "$_device" =~ ^(sd[a-z]{1,3}|hd[a-z]{1,3}|sata[0-9]+|sas[0-9]+|nvme[0-9]+n[0-9]+|nvc[0-9]+)$ ]]; then
+    if [[ ! "$_device" =~ ^(sd[a-z]{1,3}|hd[a-z]{1,3}|sata[0-9]+|sas[0-9]+|nvme[0-9]+n[0-9]+|nvc[0-9]+|usb[0-9]+)$ ]]; then
         echo "<p class=\"err\">$(txt errors err_invalid_device "Invalid device.")</p>"
         exit 0
     fi
@@ -330,9 +330,9 @@ if [[ "$_action" == "get_smart" ]]; then
     [[ "$_smart_important" != "true" ]] && SMART_FLAGS+=("-a")
 
     if [[ "$dsm" -ge "7" ]]; then
-        SMART_OUTPUT=$(sudo "$SMART_SCRIPT" "${SMART_FLAGS[@]}" --dev="/dev/$_device" 2>&1)
+        SMART_OUTPUT=$(sudo "$SMART_SCRIPT" "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
     else
-        SMART_OUTPUT=$(bash "$SMART_SCRIPT" "${SMART_FLAGS[@]}" --dev="/dev/$_device" 2>&1)
+        SMART_OUTPUT=$(bash "$SMART_SCRIPT" "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
     fi
     _smart_rc=$?
 
@@ -414,11 +414,10 @@ if [[ "$_action" == "get_smart" ]]; then
         fi
 
         # Drive header line (cyan:: stripped already if present)
-        if [[ "$trimmed" =~ ^(Drive|M\.2\ Drive|System\ Drive|USB\ Drive) ]]; then
+        if [[ "$rclass" == "smart-cyan" ]]; then
             close_smart_table
             esc="$(echo "$trimmed" | sed 's/</\&lt;/g;s/>/\&gt;/g')"
-            cls="${rclass:-smart-cyan}"
-            echo "<div id=\"smart-panel-drive-title\" class=\"$cls\">$esc</div>"
+            echo "<div id=\"smart-panel-drive-title\" class=\"$rclass\">$esc</div>"
             continue
         fi
 
@@ -573,6 +572,8 @@ _txt_cancel=$(txt settings cancel "Cancel")
 _txt_slot=$(txt common drive_id "Drive ID")
 _txt_model=$(txt common model "Model")
 _txt_serial=$(txt common serial_number "Serial Number")
+_txt_temp="$(txt common temperature "Temperature")"
+#_txt_temp="$(txt common temperature "°C")"
 _txt_status=$(txt common status "Status")
 _txt_volume=$(txt common volume "Volume")
 _txt_smart_view=$(txt common smart_view "View S.M.A.R.T.")
@@ -600,12 +601,14 @@ col.num      { width: 15%; min-width: 75px; }
 col.location { width: 13%; min-width: 50px; }
 col.model    { width: 26%; min-width: 140px; }
 col.serial   { width: 20%; min-width: 75px; }
+col.temp     { width: 8%; min-width: 40px; }
 col.status   { width: auto; min-width: 110px; }
 th.id, td.id             { white-space: nowrap; }
 th.num, td.num           { white-space: nowrap; }
 th.location, td.location { white-space: nowrap; }
 th.model, td.model       { white-space: nowrap; }
 th.serial, td.serial     { white-space: nowrap; }
+th.temp, td.temp         { white-space: nowrap; }
 th.status, td.status     { white-space: nowrap; }
 th { text-align: left; padding: 5px 14px 5px 5px;
      border-bottom: 2px solid #ccc; color: #555;
@@ -863,6 +866,7 @@ col_count=0
 # Pre-scan to check if any Location column values are non-empty
 HAS_LOCATION=0
 scan_in_table=0
+scan_skip=0
 scan_headers=()
 scan_col_starts=()
 scan_col_count=0
@@ -872,12 +876,23 @@ while IFS= read -r line; do
         scan_in_table=1; continue
     fi
 
+    # Skip table - silently consume rows until the blank line that ends it.
+    # (Without this, the dashed separator after a skipped header would flip
+    # scan_in_table back on and the next data row would be misread as a
+    # fresh header row.)
+    if [[ $scan_in_table -eq 1 ]] && [[ $scan_skip -eq 1 ]] && [[ -n "$trimmed" ]]; then
+        continue
+    fi
+    if [[ $scan_in_table -eq 1 ]] && [[ $scan_skip -eq 1 ]] && [[ -z "$trimmed" ]]; then
+        scan_in_table=0; scan_skip=0; continue
+    fi
+
     if [[ $scan_in_table -eq 1 ]] && [[ ${#scan_headers[@]} -eq 0 ]] && [[ -n "$trimmed" ]]; then
         IFS=$'\n' read -r -d '' -a scan_headers <<< "$(echo "$trimmed" | grep -oP '\S.*?(?=  |\s*$)')" || true
         scan_col_count=${#scan_headers[@]}
         # Only check Location for drive tables (first header is not "Volume")
         if [[ "${scan_headers[0]}" == "$_txt_volume" ]]; then
-            scan_in_table=0; scan_headers=(); continue
+            scan_skip=1; scan_headers=(); continue
         fi
         scan_col_starts=()
         pos=0
@@ -953,9 +968,9 @@ while IFS= read -r line; do
         else
             table_type="drive"
             if [[ $HAS_LOCATION -eq 1 ]]; then
-                echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="serial"><col class="status"></colgroup>'
+                echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="serial"><col class="temp"><col class="status"></colgroup>'
             else
-                echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="serial"><col class="status"></colgroup>'
+                echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="serial"><col class="temp"><col class="status"></colgroup>'
             fi
         fi
 
@@ -967,7 +982,7 @@ while IFS= read -r line; do
                 echo "<th class=\"$cls\">$(echo "${headers[$idx]}" | sed 's/</\&lt;/g;s/>/\&gt;/g')</th>"
             done
         else
-            col_classes=("id" "num" "location" "model" "serial" "status")
+            col_classes=("id" "num" "location" "model" "serial" "temp" "status")
             for idx in "${!headers[@]}"; do
                 cls="${col_classes[$idx]:-}"
                 [[ "$cls" == "location" && $HAS_LOCATION -eq 0 ]] && continue
@@ -1040,6 +1055,9 @@ while IFS= read -r line; do
                 elif [[ $c -eq 4 ]]; then
                     echo "<td class=\"serial\">$val</td>"
                 elif [[ $c -eq 5 ]]; then
+                    #echo "<td class=\"temp\">${val}°C</td>"
+                    echo "<td class=\"temp\">${val}</td>"
+                elif [[ $c -eq 6 ]]; then
                     case "$val" in
                         healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
                         warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
@@ -1557,7 +1575,7 @@ function showSmartPanel(btn) {
     document.getElementById('smart-overlay').classList.add('open');
 
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', apiBase + '?action=get_smart&device=' + encodeURIComponent(device), true);
+    xhr.open('GET', apiBase + '?action=get_smart&device=' + encodeURIComponent(device) + '&lang=' + encodeURIComponent(viewer_lang), true);
     xhr.timeout = 60000;
     xhr.onreadystatechange = function() {
         if (xhr.readyState !== 4) return;

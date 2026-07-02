@@ -68,3 +68,5 @@ status_repairing	=	"กำลังซ่อมแซม"
 data_scrubbing	=	การทำความสะอาดข้อมูล
 smart_name	=	S.M.A.R.T.
 smart_view	=	"ดู S.M.A.R.T."
+temperature	=	อุณหภูมิ
+usb_drive	=	"ไดรฟ์ USB"

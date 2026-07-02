@@ -59,8 +59,8 @@ debug() {
 not_flash_drive(){ 
     # $1 is /sys/block/sata1 /sys/block/usb1 etc
     # Check if drive is flash drive (not supported by smartctl)
-    removable=$(cat "${1}/removable")
-    capability=$(cat "${1}/capability")
+    removable=$(cat "/sys/block/$(basename "$1")/removable")
+    capability=$(cat "/sys/block/$(basename "$1")/capability")
     if [[ $removable == "1" ]] && [[ $capability == "51" ]]; then
         return 1
     fi
@@ -81,44 +81,59 @@ if options="$(getopt -o abcdefghijklmnopqrstuvwxyz0123456789 -l dev:,all,increas
     while true; do
         case "${1,,}" in
             --dev)
+                # Split "--dev=/dev/sda|ger" into device path and optional language code
+                _lang=""
+                _devarg="$2"
+                if [[ "$_devarg" == *","* ]]; then
+                    _lang="${_devarg#*,}"
+                    _devarg="${_devarg%%,*}"
+                fi
+
+                # Validate language value
+                if [[ $_lang =~ ^(chs|cht|csy|dan|enu|fre|ger|hun|ita|jpn|krn|nld|nor|plk|ptb|ptg|rus|spn|sve|tha|trk)$ ]]; then
+                    gui_lang="$_lang"
+                else
+                    gui_lang="$(synogetkeyvalue /etc/synoinfo.conf maillang)"
+                fi
+
                 # Validate --dev arg value
-                case "$(basename -- "$2")" in
+                case "$(basename -- "$_devarg")" in
                     sd*|hd*)
-                        if [[ $2 =~ [hs]d[a-z][a-z]?$ ]]; then
-                            if is_usb "$2"; then  # Add USB drives except flash drives
-                                if not_flash_drive "$2"; then
-                                    drives=("$(basename -- "$2")")
+                        if [[ $_devarg =~ [hs]d[a-z][a-z]?$ ]]; then
+                            if is_usb "$_devarg"; then  # Add USB drives except flash drives
+                                if not_flash_drive "$_devarg"; then
+                                    drives=("$(basename -- "$_devarg")")
                                 fi
                             else
-                                drives=("$(basename -- "$2")")  # Add all other drives
+                                drives=("$(basename -- "$_devarg")")  # Add all other drives
                             fi
                         fi
                     ;;
                     sata*|sas*)
-                        if [[ $2 =~ (sas|sata)[0-9][0-9]?[0-9]?$ ]]; then
-                            drives=("$(basename -- "$2")")
+                        if [[ $_devarg =~ (sas|sata)[0-9][0-9]?[0-9]?$ ]]; then
+                            drives=("$(basename -- "$_devarg")")
                         fi
                     ;;
                     nvme*)
-                        if [[ $2 =~ nvme[0-9][0-9]?n[0-9][0-9]?$ ]]; then
-                            nvmes=("$(basename -- "$2")")
+                        if [[ $_devarg =~ nvme[0-9][0-9]?n[0-9][0-9]?$ ]]; then
+                            nvmes=("$(basename -- "$_devarg")")
                         fi
                     ;;
                     nvc*)  # M.2 SATA drives (in PCIe card only?)
-                        if [[ $2 =~ nvc[0-9][0-9]?$ ]]; then
-                            drives=("$(basename -- "$2")")
+                        if [[ $_devarg =~ nvc[0-9][0-9]?$ ]]; then
+                            drives=("$(basename -- "$_devarg")")
                         fi
                     ;;
                     usb*)
-                        if [[ $2 =~ usb[0-9]?[0-9]?$ ]]; then
-                            if not_flash_drive "$2"; then
-                                drives=("$(basename -- "$2")")
+                        if [[ $_devarg =~ usb[0-9]?[0-9]?$ ]]; then
+                            if not_flash_drive "$_devarg"; then
+                                drives=("$(basename -- "$_devarg")")
                             fi
                         fi
                     ;;
                     *)
                         if [[ -t 1 ]]; then  # Running in terminal
-                            echo -e "Invalid dev argument '$1'\n"
+                            echo -e "Invalid dev argument '$_devarg'\n"
                         else
                             echo "err::invalid_device"
                         fi
@@ -158,6 +173,18 @@ else
         echo "err::invalid_option"
     fi
     exit 3
+fi
+
+# Load translated strings if running from within the installed package.
+# modules/get_text.sh and the texts/ folder won't exist if this script
+# is run standalone (e.g. downloaded directly from GitHub), in which
+# case fall back to printing the English defaults below.
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+get_text_module="$(dirname "${script_dir}")/modules/get_text.sh"
+if [[ -f "${get_text_module}" ]]; then
+    source "${get_text_module}" "$gui_lang"
+else
+    txt() { echo "${3}"; }  # txt SECTION KEY DEFAULT -> just print DEFAULT
 fi
 
 
@@ -222,6 +249,10 @@ detect_dtype(){
 }
 
 get_drive_num(){ 
+    local drive_label usb_drive_label system_drive_label
+    drive_label="$(txt common drive "Drive")"
+    usb_drive_label="$(txt common usb_drive "USB Drive")"
+    system_drive_label="$(txt common system_drive "System Drive")"
     drive_num=""
     disk_id=""
     disk_cnr=""
@@ -248,19 +279,22 @@ get_drive_num(){
     done
 
     if [[ $disk_cnr -eq "4" ]]; then
-        drive_num="USB Drive  "
+        usb_num="$(synousbdisk -info "$drive" | grep '^Name:' | cut -d" " -f4)"
+        drive_num="$usb_drive_label $usb_num"
     elif [[ $eunit ]]; then
-        drive_num="Drive $disk_id ($eunit)  "
+        drive_num="$drive_label $disk_id ($eunit)"
     elif synodisk --enum -t sys | grep -q "/dev/$drive"; then
         # HD6500
-        drive_num="System Drive $disk_id  "
+        drive_num="$system_drive_label $disk_id"
     else
-        drive_num="Drive $disk_id  "
+        drive_num="$drive_label $disk_id"
     fi
 }
 
 get_nvme_num(){ 
     # Get M.2 Drive number
+    local m2_drive
+    m2_drive="$(txt common m2_drive "M.2 Drive")"
     drive_num=""
     pcislot=""
     cardslot=""
@@ -273,7 +307,7 @@ get_nvme_num(){
         pcislot="$(basename -- "$drive")"
         cardslot=""
     fi
-    drive_num="M.2 Drive $pcislot$cardslot  "
+    drive_num="$m2_drive $pcislot$cardslot  "
 }
 
 log_drive(){ 
@@ -323,16 +357,16 @@ show_drive_model(){
     # Show drive model and serial
     if [[ $increased != "yes" ]]; then
         if [[ -t 1 ]]; then  # Running in terminal
-            #echo -e "\n${Cyan}${drive_num}${Off}$model  ${Yellow}$serial${Off}"
-            echo -e "\n${Cyan}${drive_num}${Off}$model  $serial  /dev/$drive"
-            #echo -e "\n${Cyan}${drive_num}${Off}$vendor $model  $serial"
+            #echo -e "\n${Cyan}${drive_num}${Off}   $model  ${Yellow}$serial${Off}"
+            echo -e "\n${Cyan}${drive_num}${Off}   $model  $serial  /dev/$drive"
+            #echo -e "\n${Cyan}${drive_num}${Off}   $vendor $model  $serial"
         else
             echo -e "\n${Cyan}${drive_num}${Off}"
             #echo "${nas_model}"
         fi
     else
         if [[ -t 1 ]]; then  # Running in terminal
-            show_drive_info="\n${Cyan}${drive_num}${Off}$model  $serial  /dev/$drive"
+            show_drive_info="\n${Cyan}${drive_num}${Off}   $model  $serial  /dev/$drive"
         else
             show_drive_info="\n${Cyan}${drive_num}${Off}"
         fi
@@ -728,7 +762,8 @@ show_health(){
     drive_type=$(detect_dtype)
 
     # Show drive overall health
-    readarray -t health_array < <("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" | tail -n +5)
+    #readarray -t health_array < <("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" | tail -n +5)
+    readarray -t health_array < <("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" | tail -n +5 | grep -v -e "SMART Status not supported" -e "Warning: This result is based on an Attribute check")
     for strIn in "${health_array[@]}"; do
         if echo "$strIn" | awk '{print $1}' | grep -E '[0-9]' >/dev/null ||\
            echo "$strIn" | awk '{print $1}' | grep 'ID#' >/dev/null ; then
@@ -867,6 +902,7 @@ show_health(){
     health_bad=""
     if [[ $drive_type == "scsi" ]]; then  # SAS drive
         health=$("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" | tail -n +5)
+        #health=$("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" | tail -n +5 | grep -v -e "SMART Status not supported" -e "Warning: This result is based on an Attribute check")
         if ! echo "$health" | grep -E 'SMART Health Status.*OK' >/dev/null; then
             if [[ $increased != "yes" ]]; then
                 # Show all SMART attributes
@@ -874,7 +910,8 @@ show_health(){
             fi
         fi
     else  # SATA drive
-        health=$("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" | tail -n +5)
+        #health=$("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" | tail -n +5)
+        health=$("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" | tail -n +5 | grep -v -e "SMART Status not supported" -e "Warning: This result is based on an Attribute check")
         if ! echo "$health" | grep PASSED >/dev/null; then
             if [[ $increased != "yes" ]]; then
                 # Show all SMART attributes

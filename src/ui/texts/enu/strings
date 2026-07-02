@@ -70,3 +70,5 @@ status_repairing	=	Repairing
 data_scrubbing	=	Data Scrubbing
 smart_name	=	S.M.A.R.T.
 smart_view	=	View S.M.A.R.T.
+temperature	=	Temperature
+usb_drive	=	"USB Drive"

@@ -43,12 +43,13 @@ fi
 
 # Add smart_info entries to sudoers.d if missing
 if [[ "$dsm" -ge "7" ]]; then
-    if ! grep -q "smart_info.sh /dev/sd" /etc/sudoers.d/drive_info 2>/dev/null; then
+    if ! grep -q "smart_info.sh --dev=/dev/sd" /etc/sudoers.d/drive_info 2>/dev/null || \
+       ! grep -q "smart_info.sh --dev=/dev/usb" /etc/sudoers.d/drive_info 2>/dev/null; then
         pkg=drive_info
         file=/etc/sudoers.d/drive_info
         script=/var/packages/drive_info/target/ui/bin/smart_info.sh
         for flags in "" "-i" "-a" "-ia"; do
-            for dev in sd hd sata sas nvme nvc; do
+            for dev in sd hd sata sas nvme nvc usb; do
                 if [[ -n "$flags" ]]; then
                     echo "$pkg ALL=(root) NOPASSWD: $script $flags --dev=/dev/${dev}*" >> "$file"
                 else
@@ -58,6 +59,13 @@ if [[ "$dsm" -ge "7" ]]; then
         done
         chmod 0440 "$file"
     fi
+fi
+
+# Remove duplicate lines from sudoers.d file
+if [[ "$dsm" -ge "7" ]]; then
+    awk '!seen[$0]++' /etc/sudoers.d/drive_info > /tmp/drive_info.clean
+    chmod 0440 /tmp/drive_info.clean
+    cp /tmp/drive_info.clean /etc/sudoers.d/drive_info
 fi
 
 # Check if 1st argument is a DSM language code
@@ -79,9 +87,29 @@ else
     txt() { echo "${3}"; }  # txt SECTION KEY DEFAULT -> just print DEFAULT
 fi
 
+not_flash_drive(){ 
+    # $1 is /sys/block/sata1 /sys/block/usb1 etc
+    # Check if drive is flash drive (not supported by smartctl)
+    removable=$(cat "${1}/removable")
+    capability=$(cat "${1}/capability")
+    if [[ $removable == "1" ]] && [[ $capability == "51" ]]; then
+        return 1
+    fi
+}
+
+is_usb(){ 
+    # $1 is /dev/sda or /sys/block/sda etc
+    if realpath /sys/block/"$(basename "$1")" | grep -q usb; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 get_drive_num(){ 
-    local label
+    local label usb_drive_label
     label="$(txt common drive "Drive")"
+    usb_drive_label="$(txt common usb_drive "USB Drive")"
     drive_num=""
     disk_id=""
     disk_cnr=""
@@ -105,7 +133,8 @@ get_drive_num(){
     done
 
     if [[ $disk_cnr -eq "4" ]]; then
-        drive_num="USB $label"
+        usb_num="$(synousbdisk -info "$drive" | grep '^Name:' | cut -d" " -f4)"
+        drive_num="$usb_drive_label $usb_num"
     elif [[ $eunit ]]; then
         #drive_num="$label $disk_id ($eunit)"
         drive_num="$label $disk_id"
@@ -157,20 +186,24 @@ get_nvme_num(){
 get_drive_health(){ 
     local health_status
     status=""
-    if [[ "$dsm" -le "6" ]]; then
-        # This works in DSM 6 but takes 31 seconds for 8 drives!
-        # The get_drive_health6 method only takes 4 seconds for 8 drives
-        health_status=$(synowebapi --exec api="SYNO.Storage.CGI.Smart" method="get_health_info" version="1" device="\"/dev/$drive\"" 2>/dev/null \
-            | jq -r '.data.healthInfo.overview.overview_status')
+    if [[ $1 == "usb" ]]; then
+        health_status=$(synousbdisk -info "$drive" | grep '^Status:' | cut -d" " -f2)
     else
-        health_status=$(synowebapi -s --exec api="SYNO.Storage.CGI.Smart" method="get_health_info" version="1" device="\"/dev/$drive\"" 2>/dev/null \
-            | jq -r '.data.healthInfo.overview.drive_status_key')
-    fi
+        if [[ "$dsm" -le "6" ]]; then
+            # This works in DSM 6 but takes 31 seconds for 8 drives!
+            # The get_drive_health6 method only takes 4 seconds for 8 drives
+            health_status=$(synowebapi --exec api="SYNO.Storage.CGI.Smart" method="get_health_info" version="1" device="\"/dev/$drive\"" 2>/dev/null \
+                | jq -r '.data.healthInfo.overview.overview_status')
+        else
+            health_status=$(synowebapi -s --exec api="SYNO.Storage.CGI.Smart" method="get_health_info" version="1" device="\"/dev/$drive\"" 2>/dev/null \
+                | jq -r '.data.healthInfo.overview.drive_status_key')
+        fi
 
-    # If webapi returned nothing, fall back to DSM 6.1 cache method
-    if [[ -z "$health_status" ]] || [[ "$health_status" == "null" ]]; then
-        get_drive_health6
-        return
+        # If webapi returned nothing, fall back to DSM 6.1 cache method
+        if [[ -z "$health_status" ]] || [[ "$health_status" == "null" ]]; then
+            get_drive_health6
+            return
+        fi
     fi
 
     case "$health_status" in
@@ -233,7 +266,8 @@ get_drive_health6(){
     status=""
 
     if [[ ! -d "$cache_dir" ]]; then
-        status="unknown::$(txt common status_unknown "Unknown")"
+        #status="unknown::$(txt common status_unknown "Unknown")"
+        status="$(txt common status_unknown "Unknown")"
     else
         smart=$(<"${cache_dir}/smart")
         adv_status=$(<"${cache_dir}/adv_status")
@@ -284,13 +318,59 @@ detect_dtype(){
     echo "$dtype"
 }
 
+c2f(){ 
+    # Celsius to Fahrenheit 
+    # F = (C x 9/5) + 32
+    local a
+    local b
+
+    a=$(echo "${1%.*}" | awk '{print ($1 * 1.8)}')
+    #echo "a: $a"  # debug
+
+    if [[ $1 == *.* ]]; then
+        d="${1##*.}"
+    fi
+    if [[ ${#d} -eq 1 ]]; then
+        b=$(echo "${1##*.}" | awk '{print (($1 * 1.8) / 10)}')
+    elif [[ ${#d} -eq 2 ]]; then
+        b=$(echo "${1##*.}" | awk '{print (($1 * 1.8) / 100)}')
+    elif [[ ${#d} -eq 3 ]]; then
+        b=$(echo "${1##*.}" | awk '{print (($1 * 1.8) / 1000)}')
+    fi
+    #echo "b: $b"  # debug
+
+    if [[ -n $b ]]; then
+        f=$(echo "$a" "$b" | awk '{print (($1 + $2) + 32)}')
+    else
+        f=$(echo "$a" | awk '{print ($1 + 32)}')
+    fi
+    #echo "f: $f"  # debug
+
+    fahrenheit="$f"
+}
+
+get_drive_temp(){ 
+    # Tempeture is a Synology typo in synodisk output
+    raw=$(synodisk --info /dev/$drive | grep 'Tempeture' | cut -d" " -f3)
+    celsius="${raw%.*}"  # Remove decimal places that are always .00
+    c2f "$celsius"
+    fahrenheit_rounded=$(printf '%.0f' "$fahrenheit")
+    temp="${celsius}°C / ${fahrenheit_rounded}°F"
+}
+
 # Add drives to drives array
 for d in /sys/block/*; do
     # $d is /sys/block/sata1 etc
     case "$(basename -- "${d}")" in
         sd*|hd*)
             if [[ $d =~ [hs]d[a-z][a-z]?$ ]]; then
-                drives+=("$(basename -- "${d}")")
+                if is_usb "$d"; then  # Add USB drives except flash drives
+                    if not_flash_drive "$d"; then
+                        usbs+=("$(basename -- "${d}")")
+                    fi
+                else
+                    drives+=("$(basename -- "${d}")")  # Add all other drives
+                fi
             fi
         ;;
         sata*|sas*)
@@ -308,6 +388,13 @@ for d in /sys/block/*; do
                 nvcs+=("$(basename -- "${d}")")
             fi
         ;;
+        usb*)
+            if [[ $d =~ usb[0-9]?[0-9]?$ ]]; then
+                if not_flash_drive "$d"; then
+                    usbs+=("$(basename -- "${d}")")
+                fi
+            fi
+        ;;
     esac
 done
 
@@ -315,14 +402,18 @@ done
 IFS=$'\n' drives=($(printf '%s\n' "${drives[@]}" | sort -V))
 IFS=$'\n' nvmes=($(printf '%s\n' "${nvmes[@]}" | sort -V))
 IFS=$'\n' nvcs=($(printf '%s\n' "${nvcs[@]}" | sort -V))
+IFS=$'\n' usbs=($(printf '%s\n' "${usbs[@]}" | sort -V))
 
 # HDDs, SSDs and NVMe drives combined into one table
-if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] || [[ "${#nvcs[@]}" -gt 0 ]]; then
+if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
+        [[ "${#nvcs[@]}" -gt 0 ]] || [[ "${#usbs[@]}" -gt 0 ]]; then
     hdr_id="$(txt common id "ID")"
     hdr_num="$(txt common drive_id "Drive ID")"
     hdr_location="$(txt common location "Location")"
     hdr_model="$(txt common model "Model")"
     hdr_serial="$(txt common serial_number "Serial Number")"
+    hdr_temp="$(txt common temperature "Temperature")"
+    #hdr_temp="$(txt common temperature "°C")"
     hdr_status="$(txt common status "Status")"
 
     w_id=${#hdr_id}
@@ -330,6 +421,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] || [[ "${#nvcs[@]}"
     w_location=${#hdr_location}
     w_model=${#hdr_model}
     w_serial=${#hdr_serial}
+    w_temp=${#hdr_temp}
     w_status=${#hdr_status}
 
     for drive in "${drives[@]}"; do
@@ -347,12 +439,15 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] || [[ "${#nvcs[@]}"
             serial=$(smartctl -i -d "$drive_type" /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
         fi
 
-        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location");  models+=("$model"); serials+=("$serial"); statuses+=("$status")
+        get_drive_temp
+
+        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
         (( ${#drive}     > w_id       )) && w_id=${#drive}
         (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
         (( ${#location}  > w_location )) && w_location=${#location}
         (( ${#model}     > w_model    )) && w_model=${#model}
         (( ${#serial}    > w_serial   )) && w_serial=${#serial}
+        (( ${#temp}      > w_temp     )) && w_temp=${#temp}
         (( ${#status}    > w_status   )) && w_status=${#status}
     done
 
@@ -367,12 +462,15 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] || [[ "${#nvcs[@]}"
         serial=$(cat "/sys/block/$drive/device/serial" | xargs)
         [[ -z "$serial" ]] && serial=$(smartctl -i -d sat /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
 
-        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); serials+=("$serial"); statuses+=("$status")
+        get_drive_temp
+
+        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
         (( ${#drive}     > w_id       )) && w_id=${#drive}
         (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
         (( ${#location}  > w_location )) && w_location=${#location}
         (( ${#model}     > w_model    )) && w_model=${#model}
         (( ${#serial}    > w_serial   )) && w_serial=${#serial}
+        (( ${#temp}      > w_temp     )) && w_temp=${#temp}
         (( ${#status}    > w_status   )) && w_status=${#status}
     done
 
@@ -387,24 +485,50 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] || [[ "${#nvcs[@]}"
         serial=$(cat "/sys/block/$drive/device/syno_disk_serial" | xargs)
         [[ -z "$serial" ]] && serial=$(smartctl -i -d sat /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
 
-        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location");  models+=("$model"); serials+=("$serial"); statuses+=("$status")
+        get_drive_temp
+
+        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
         (( ${#drive}     > w_id       )) && w_id=${#drive}
         (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
         (( ${#location}  > w_location )) && w_location=${#location}
         (( ${#model}     > w_model    )) && w_model=${#model}
         (( ${#serial}    > w_serial   )) && w_serial=${#serial}
+        (( ${#temp}      > w_temp     )) && w_temp=${#temp}
         (( ${#status}    > w_status   )) && w_status=${#status}
     done
 
-    sep_len=$(( w_id + 2 + w_num + 2 + w_location + 2 + w_model + 2 + w_serial + 2 + w_status ))
+    for drive in "${usbs[@]}"; do
+        get_drive_num
+        get_drive_health usb
+        model=$(cat "/sys/block/$drive/device/model" | xargs)
+        serial=$(cat "/sys/block/$drive/device/syno_disk_serial" | xargs)
+        if [[ -z "$serial" ]]; then
+            # Decide device type (sat/scsi) via detect_dtype()
+            drive_type=$(detect_dtype)
+            serial=$(smartctl -i -d "$drive_type" /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
+        fi
+
+        get_drive_temp
+
+        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
+        (( ${#drive}     > w_id       )) && w_id=${#drive}
+        (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
+        (( ${#location}  > w_location )) && w_location=${#location}
+        (( ${#model}     > w_model    )) && w_model=${#model}
+        (( ${#serial}    > w_serial   )) && w_serial=${#serial}
+        (( ${#temp}      > w_temp     )) && w_temp=${#temp}
+        (( ${#status}    > w_status   )) && w_status=${#status}
+    done
+
+    sep_len=$(( w_id + 2 + w_num + 2 + w_location + 2 + w_model + 2 + w_serial + 2 + w_temp + 2 + w_status ))
     echo ""
     printf '%*s\n' "$sep_len" '' | tr ' ' '-'
-    printf "%-${w_id}s  %-${w_num}s  %-${w_location}s  %-${w_model}s  %-${w_serial}s  %-${w_status}s\n" \
-        "${hdr_id}" "${hdr_num}" "${hdr_location}" "${hdr_model}" "${hdr_serial}" "${hdr_status}"
+    printf "%-${w_id}s  %-${w_num}s  %-${w_location}s  %-${w_model}s  %-${w_serial}s  %-${w_temp}s  %-${w_status}s\n" \
+        "${hdr_id}" "${hdr_num}" "${hdr_location}" "${hdr_model}" "${hdr_serial}" "${hdr_temp}" "${hdr_status}"
     printf '%*s\n' "$sep_len" '' | tr ' ' '-'
     for i in "${!ids[@]}"; do
-        printf "%-${w_id}s  %-${w_num}s  %-${w_location}s  %-${w_model}s  %-${w_serial}s  %-${w_status}s\n" \
-            "${ids[$i]}" "${nums[$i]}" "${locations[$i]}" "${models[$i]}" "${serials[$i]}" "${statuses[$i]}"
+        printf "%-${w_id}s  %-${w_num}s  %-${w_location}s  %-${w_model}s  %-${w_serial}s  %-${w_temp}s  %-${w_status}s\n" \
+            "${ids[$i]}" "${nums[$i]}" "${locations[$i]}" "${models[$i]}" "${serials[$i]}" "${temps[$i]}" "${statuses[$i]}"
     done
 fi
 

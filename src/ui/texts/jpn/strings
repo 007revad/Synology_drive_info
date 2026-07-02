@@ -68,3 +68,5 @@ status_repairing	=	"修復中"
 data_scrubbing	=	Data Scrubbing
 smart_name	=	S.M.A.R.T.
 smart_view	=	"S.M.A.R.T. を表示"
+temperature	=	温度
+usb_drive	=	"USBドライブ"

@@ -68,3 +68,5 @@ status_repairing	=	"Восстановление"
 data_scrubbing	=	Исправление ошибок данных
 smart_name	=	S.M.A.R.T.
 smart_view	=	"Просмотр S.M.A.R.T."
+temperature	=	температура
+usb_drive	=	"USB-накопитель"

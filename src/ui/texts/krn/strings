@@ -68,3 +68,5 @@ status_repairing	=	"복구 중"
 data_scrubbing	=	데이터 스크러빙
 smart_name	=	S.M.A.R.T.
 smart_view	=	"S.M.A.R.T. 보기"
+temperature	=	온도
+usb_drive	=	"USB 드라이브"

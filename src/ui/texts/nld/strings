@@ -68,3 +68,5 @@ status_repairing	=	"Wordt gerepareerd"
 data_scrubbing	=	Gegevens opschonen
 smart_name	=	S.M.A.R.T.
 smart_view	=	"S.M.A.R.T. bekijken"
+temperature	=	Temperatuur
+usb_drive	=	"USB-schijf"

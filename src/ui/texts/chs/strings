@@ -69,3 +69,5 @@ status_repairing	=	"修复中"
 data_scrubbing	=	数据清理
 smart_name	=	S.M.A.R.T.
 smart_view	=	"查看 S.M.A.R.T."
+temperature	=	温度
+usb_drive	=	"USB 驱动器"
