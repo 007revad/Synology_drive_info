@@ -81,3 +81,5 @@ size_tb	=	TiB
 rpm	=	RPM
 type	=	种类
 interface	=	界面
+hotspare	=	Hot Spare
+basic	=	Basic

@@ -79,3 +79,5 @@ size_tb	=	TiB
 rpm	=	RPM
 type	=	Typ
 interface	=	Gränssnitt
+hotspare	=	Hot Spare
+basic	=	Basic

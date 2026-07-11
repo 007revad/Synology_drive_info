@@ -4,6 +4,7 @@ PKG_NAME="drive_info"
 PKG_ROOT="/var/packages/${PKG_NAME}"
 TARGET_DIR="${PKG_ROOT}/target"
 SCRIPT="${TARGET_DIR}/ui/bin/drive_info.sh"
+SMART_SCRIPT="${TARGET_DIR}/ui/bin/smart_info.sh"
 SUDOERS_FILE="/etc/sudoers.d/${PKG_NAME}"
 
 # Get DSM major version
@@ -123,14 +124,24 @@ if [[ "$_action" == "get_settings" ]]; then
     _discover_nas=$(synogetkeyvalue "$SETTINGS_CONF" discover_nas 2>/dev/null || echo "false")
     _show_volume_info=$(synogetkeyvalue "$SETTINGS_CONF" show_volume_info 2>/dev/null || echo "false")
     _show_smart_important=$(synogetkeyvalue "$SETTINGS_CONF" show_smart_important 2>/dev/null || echo "false")
+    _smart_schedule_enable=$(synogetkeyvalue "$SETTINGS_CONF" smart_schedule_enable 2>/dev/null || echo "false")
+    _smart_notify_email=$(synogetkeyvalue "$SETTINGS_CONF" smart_notify_email 2>/dev/null || echo "")
+    _smart_notify_error_only=$(synogetkeyvalue "$SETTINGS_CONF" smart_notify_error_only 2>/dev/null || echo "false")
     _manual_count=$(synogetkeyvalue "$SETTINGS_CONF" manual_nas_count 2>/dev/null || echo "0")
     [[ -z "$_discover_nas" ]] && _discover_nas="false"
     [[ -z "$_show_volume_info" ]] && _show_volume_info="false"
     [[ -z "$_show_smart_important" ]] && _show_smart_important="false"
+    [[ -z "$_smart_schedule_enable" ]] && _smart_schedule_enable="false"
+    [[ -z "$_smart_notify_error_only" ]] && _smart_notify_error_only="false"
     [[ -z "$_manual_count" ]] && _manual_count="0"
 
-    printf '{"discover_nas":%s,"show_volume_info":%s,"show_smart_important":%s,"manual_nas":[' \
-        "$_discover_nas" "$_show_volume_info" "$_show_smart_important"
+    # Escape email for safe JSON string embedding (backslash and double-quote)
+    _smart_notify_email_json=${_smart_notify_email//\\/\\\\}
+    _smart_notify_email_json=${_smart_notify_email_json//\"/\\\"}
+
+    printf '{"discover_nas":%s,"show_volume_info":%s,"show_smart_important":%s,"smart_schedule_enable":%s,"smart_notify_email":"%s","smart_notify_error_only":%s,"manual_nas":[' \
+        "$_discover_nas" "$_show_volume_info" "$_show_smart_important" \
+        "$_smart_schedule_enable" "$_smart_notify_email_json" "$_smart_notify_error_only"
     _first=1
     for (( i=1; i<=_manual_count; i++ )); do
         _entry=$(synogetkeyvalue "$SETTINGS_CONF" "manual_nas${i}" 2>/dev/null)
@@ -202,6 +213,119 @@ if [[ "$_action" == "save_settings" ]]; then
     if [[ "$_cur_show_smart" != "$_show_smart_important" ]]; then
         synosetkeyvalue "$SETTINGS_CONF" show_smart_important "$_show_smart_important"
         _changed=true
+    fi
+
+    # Parse smart_schedule_enable
+    _smart_schedule_enable="false"
+    if [[ "${QUERY_STRING:-}" =~ (^|&)smart_schedule_enable=([^&]*) ]]; then
+        _val="${BASH_REMATCH[2]}"
+        [[ "$_val" == "true" ]] && _smart_schedule_enable="true"
+    fi
+
+    # Only write smart_schedule_enable if value changed
+    _cur_schedule_enable=$(synogetkeyvalue "$SETTINGS_CONF" smart_schedule_enable 2>/dev/null || echo "")
+    if [[ "$_cur_schedule_enable" != "$_smart_schedule_enable" ]]; then
+        synosetkeyvalue "$SETTINGS_CONF" smart_schedule_enable "$_smart_schedule_enable"
+        _changed=true
+    fi
+
+    # Parse smart_notify_email (URL-decode %40 -> @, + -> space, same style as manual_nasN)
+    _smart_notify_email=""
+    if [[ "${QUERY_STRING:-}" =~ (^|&)smart_notify_email=([^&]*) ]]; then
+        _smart_notify_email="${BASH_REMATCH[2]}"
+        _smart_notify_email="${_smart_notify_email//%40/@}"
+        _smart_notify_email="${_smart_notify_email//+/ }"
+    fi
+
+    # Only write smart_notify_email if value changed
+    _cur_notify_email=$(synogetkeyvalue "$SETTINGS_CONF" smart_notify_email 2>/dev/null || echo "")
+    if [[ "$_cur_notify_email" != "$_smart_notify_email" ]]; then
+        synosetkeyvalue "$SETTINGS_CONF" smart_notify_email "$_smart_notify_email"
+        _changed=true
+    fi
+
+    # Parse smart_notify_error_only
+    _smart_notify_error_only="false"
+    if [[ "${QUERY_STRING:-}" =~ (^|&)smart_notify_error_only=([^&]*) ]]; then
+        _val="${BASH_REMATCH[2]}"
+        [[ "$_val" == "true" ]] && _smart_notify_error_only="true"
+    fi
+
+    # Only write smart_notify_error_only if value changed
+    _cur_notify_error_only=$(synogetkeyvalue "$SETTINGS_CONF" smart_notify_error_only 2>/dev/null || echo "")
+    if [[ "$_cur_notify_error_only" != "$_smart_notify_error_only" ]]; then
+        synosetkeyvalue "$SETTINGS_CONF" smart_notify_error_only "$_smart_notify_error_only"
+        _changed=true
+    fi
+
+    #-----------------------------------------------------------------------
+    # Manage the Task Scheduler entry itself, via the task_scheduler.sh
+    # wrapper (run as root through sudo - api.cgi itself runs as the
+    # non-root drive_info user, and SYNO.Core.TaskScheduler requires
+    # root/admin context to succeed).
+    # Strategy: delete-then-recreate whenever any schedule-related setting
+    # changed, rather than calling `set` (untested against this webapi).
+    #-----------------------------------------------------------------------
+    TASK_SCHEDULER_SCRIPT="${TARGET_DIR}/ui/bin/task_scheduler.sh"
+
+    _schedule_settings_changed=false
+    if [[ "$_cur_schedule_enable" != "$_smart_schedule_enable" ]] || \
+       [[ "$_cur_notify_email" != "$_smart_notify_email" ]] || \
+       [[ "$_cur_notify_error_only" != "$_smart_notify_error_only" ]]; then
+        _schedule_settings_changed=true
+    fi
+
+    if [[ "$_schedule_settings_changed" == "true" ]]; then
+        _existing_task_id=$(synogetkeyvalue "$SETTINGS_CONF" smart_schedule_task_id 2>/dev/null || echo "")
+        _existing_owner=$(synogetkeyvalue "$SETTINGS_CONF" smart_schedule_owner 2>/dev/null || echo "")
+
+        # Delete existing task if one is on record. Not fatal if it fails
+        # (e.g. user already removed it manually via Task Scheduler) -
+        # we clear our own record either way.
+        if [[ -n "$_existing_task_id" ]]; then
+            _delete_result=$(sudo "$TASK_SCHEDULER_SCRIPT" delete "$_existing_task_id" "$_existing_owner" 2>&1)
+            # TEMP DEBUG - remove once confirmed working reliably
+            {
+                echo "--- $(date) delete attempt (whoami: $(whoami)) id=${_existing_task_id} ---"
+                echo "$_delete_result"
+            } >> "${PKG_ROOT}/var/schedule_debug.log" 2>/dev/null
+            synosetkeyvalue "$SETTINGS_CONF" smart_schedule_task_id ""
+            synosetkeyvalue "$SETTINGS_CONF" smart_schedule_owner ""
+        fi
+
+        # Create a fresh task if the schedule is enabled after this save
+        if [[ "$_smart_schedule_enable" == "true" ]]; then
+            _notify_enable="false"
+            [[ -n "$_smart_notify_email" ]] && _notify_enable="true"
+
+            # -e disables colored text so the output is clean in an email body.
+            # -i limits output to important attributes that have increased -
+            # only added for the "only when changed" mode. The script's own
+            # exit code then differs (non-zero when something increased),
+            # which combined with notify_if_error lets DSM only email when
+            # something actually changed rather than every day.
+            if [[ "$_smart_notify_error_only" == "true" ]]; then
+                _smart_script_cmd="${SMART_SCRIPT} -e -i"
+            else
+                _smart_script_cmd="${SMART_SCRIPT} -e"
+            fi
+
+            _create_result=$(sudo "$TASK_SCHEDULER_SCRIPT" create \
+                "Drive Info SMART Schedule" "$_smart_script_cmd" \
+                "$_notify_enable" "$_smart_notify_error_only" "$_smart_notify_email" 2>&1)
+            # TEMP DEBUG: log raw output (incl. stderr) so failures are visible.
+            # Remove once schedule create/delete is confirmed working reliably.
+            {
+                echo "--- $(date) create attempt (whoami: $(whoami)) ---"
+                echo "$_create_result"
+            } >> "${PKG_ROOT}/var/schedule_debug.log" 2>/dev/null
+
+            _new_id=$(printf '%s' "$_create_result" | jq -r '.data.id // empty' 2>/dev/null)
+            if [[ -n "$_new_id" ]]; then
+                synosetkeyvalue "$SETTINGS_CONF" smart_schedule_task_id "$_new_id"
+                synosetkeyvalue "$SETTINGS_CONF" smart_schedule_owner "root"
+            fi
+        fi
     fi
 
     # Parse manual_nas_count
@@ -529,10 +653,21 @@ _discover_nas=$(synogetkeyvalue "$SETTINGS_CONF" discover_nas 2>/dev/null || ech
 _show_volume_info=$(synogetkeyvalue "$SETTINGS_CONF" show_volume_info 2>/dev/null || echo "true")
 _manual_count=$(synogetkeyvalue "$SETTINGS_CONF" manual_nas_count 2>/dev/null || echo "0")
 _show_smart_important=$(synogetkeyvalue "$SETTINGS_CONF" show_smart_important 2>/dev/null || echo "true")
+_smart_schedule_enable=$(synogetkeyvalue "$SETTINGS_CONF" smart_schedule_enable 2>/dev/null || echo "false")
+_smart_notify_email=$(synogetkeyvalue "$SETTINGS_CONF" smart_notify_email 2>/dev/null || echo "")
+_smart_notify_error_only=$(synogetkeyvalue "$SETTINGS_CONF" smart_notify_error_only 2>/dev/null || echo "false")
 [[ -z "$_show_smart_important" ]] && _show_smart_important="false"
 [[ -z "$_discover_nas" ]] && _discover_nas="false"
 [[ -z "$_show_volume_info" ]] && _show_volume_info="false"
+[[ -z "$_smart_schedule_enable" ]] && _smart_schedule_enable="false"
+[[ -z "$_smart_notify_error_only" ]] && _smart_notify_error_only="false"
 [[ -z "$_manual_count" ]] && _manual_count="0"
+
+# Escape email for safe embedding in HTML attribute (value="...") and JS string literal
+_smart_notify_email_attr=${_smart_notify_email//&/&amp;}
+_smart_notify_email_attr=${_smart_notify_email_attr//\"/&quot;}
+_smart_notify_email_js=${_smart_notify_email//\\/\\\\}
+_smart_notify_email_js=${_smart_notify_email_js//\'/\\\'}
 
 # Build manual NAS JSON array for JS
 _manual_json="["
@@ -572,14 +707,20 @@ _txt_cancel=$(txt settings cancel "Cancel")
 _txt_reload=$(txt common reload "Reload")
 _txt_slot=$(txt common drive_id "Drive ID")
 _txt_model=$(txt common model "Model")
+_txt_size=$(txt common size "Size")
+_txt_smr=$(txt common size "SMR")
+_txt_size=$(txt common raid_type "RAID")
 _txt_serial=$(txt common serial_number "Serial Number")
-_txt_temp="$(txt common temperature "Temperature")"
-#_txt_temp="$(txt common temperature "°C")"
+_txt_temp=$(txt common temperature "Temperature")
+#_txt_temp=$(txt common temperature "°C")
 _txt_status=$(txt common status "Status")
 _txt_volume=$(txt common volume "Volume")
 _txt_smart_view=$(txt common smart_view "View S.M.A.R.T.")
 _txt_show_volume_info=$(txt settings show_volume_info "Show volume information")
 _txt_show_smart_important=$(txt settings show_smart_important "Show only important S.M.A.R.T. values")
+_txt_smart_schedule_enable=$(txt settings smart_schedule_enable "Schedule daily S.M.A.R.T. emails (midnight)")
+_txt_notify_email=$(txt settings notify_email "Notification email")
+_txt_notify_error_only=$(txt settings notify_error_only "Only email when important attributes have changed")
 _txt_not_reachable=$(txt errors err_not_reachable "Drive Info not installed or not reachable.")
 _txt_smart_timeout=$(txt errors err_smart_timeout "Timed out waiting for SMART data. The NAS may be busy (e.g. running a data scrub or parity check) - try again shortly.")
 _txt_smart_failed=$(txt errors err_smart_failed "Request failed.")
@@ -601,6 +742,9 @@ col.id       { width: 11%; min-width: 65px; }
 col.num      { width: 15%; min-width: 75px; }
 col.location { width: 13%; min-width: 50px; }
 col.model    { width: 26%; min-width: 140px; }
+col.size     { width: 6%; min-width: 30px; }
+col.smr      { width: 2%; min-width: 10px; }
+col.raid     { width: 4%; min-width: 20px; }
 col.serial   { width: 20%; min-width: 75px; }
 col.temp     { width: 8%; min-width: 40px; }
 col.status   { width: auto; min-width: 110px; }
@@ -608,6 +752,9 @@ th.id, td.id             { white-space: nowrap; }
 th.num, td.num           { white-space: nowrap; }
 th.location, td.location { white-space: nowrap; }
 th.model, td.model       { white-space: nowrap; }
+th.size, td.size         { white-space: nowrap; }
+th.smr, td.smr           { white-space: nowrap; }
+th.raid, td.raid         { white-space: nowrap; }
 th.serial, td.serial     { white-space: nowrap; }
 th.temp, td.temp         { white-space: nowrap; }
 th.status, td.status     { white-space: nowrap; }
@@ -658,6 +805,8 @@ a    { color: #0073c0; }
 #discover-row { padding-left: 8px; }
 #volume-info-row { padding-left: 8px; }
 #smart-important-row { padding-left: 8px; }
+#smart-schedule-row { padding-left: 8px; }
+#smart-error-only-row { padding-left: 8px; }
 .toggle { position: relative; display: inline-block; width: 40px; height: 22px; }
 .toggle input { opacity: 0; width: 0; height: 0; }
 .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0;
@@ -874,6 +1023,7 @@ col_count=0
 
 # Pre-scan to check if any Location column values are non-empty
 HAS_LOCATION=0
+IS_SMR=0
 scan_in_table=0
 scan_skip=0
 scan_headers=()
@@ -915,15 +1065,31 @@ while IFS= read -r line; do
     fi
 
     if [[ $scan_in_table -eq 1 ]] && [[ ${#scan_headers[@]} -gt 0 ]] && [[ -n "$trimmed" ]] && (( scan_col_count > 2 )); then
-        start="${scan_col_starts[2]}"
-        if (( 3 < scan_col_count )); then
-            len=$(( scan_col_starts[3] - start - 2 ))
-        else
-            len=$(( ${#line} - start ))
+        if [[ $HAS_LOCATION -eq 0 ]]; then
+            start="${scan_col_starts[2]}"
+            if (( 3 < scan_col_count )); then
+                len=$(( scan_col_starts[3] - start - 2 ))
+            else
+                len=$(( ${#line} - start ))
+            fi
+            val="${line:$start:$len}"
+            val="${val%"${val##*[![:space:]]}"}"
+            [[ -n "$val" ]] && HAS_LOCATION=1
         fi
-        val="${line:$start:$len}"
-        val="${val%"${val##*[![:space:]]}"}"
-        if [[ -n "$val" ]]; then HAS_LOCATION=1; break; fi
+
+        if [[ $IS_SMR -eq 0 ]] && (( scan_col_count > 5 )); then
+            start="${scan_col_starts[5]}"
+            if (( 6 < scan_col_count )); then
+                len=$(( scan_col_starts[6] - start - 2 ))
+            else
+                len=$(( ${#line} - start ))
+            fi
+            smr_val="${line:$start:$len}"
+            smr_val="${smr_val%"${smr_val##*[![:space:]]}"}"
+            [[ -n "$smr_val" ]] && IS_SMR=1
+        fi
+
+        if [[ $HAS_LOCATION -eq 1 && $IS_SMR -eq 1 ]]; then break; fi
         continue
     fi
 
@@ -973,28 +1139,33 @@ while IFS= read -r line; do
                 # Skip volume table entirely
                 in_table=1; table_type="skip"; headers=(); continue
             fi
-            echo '<div class="vol-table-wrapper"><table class="vol-table"><colgroup><col class="vol-name"><col class="vol-pool"><col class="vol-size"><col class="vol-used"><col class="status"><col class="vol-pool-status"></colgroup>'
+            echo '<div class="vol-table-wrapper"><table class="vol-table"><colgroup><col class="vol-name"><col class="vol-pool"><col class="raid"><col class="vol-size"><col class="vol-used"><col class="status"><col class="vol-pool-status"></colgroup>'
         else
             table_type="drive"
-            if [[ $HAS_LOCATION -eq 1 ]]; then
-                echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="serial"><col class="temp"><col class="status"></colgroup>'
+            if [[ $HAS_LOCATION -eq 1 && $IS_SMR -eq 1 ]]; then
+                echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="size"><col class="smr"><col class="serial"><col class="temp"><col class="status"></colgroup>'
+            elif [[ $HAS_LOCATION -eq 1 ]]; then
+                echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="size"><col class="serial"><col class="temp"><col class="status"></colgroup>'
+            elif [[ $IS_SMR -eq 1 ]]; then
+                echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="size"><col class="smr"><col class="serial"><col class="temp"><col class="status"></colgroup>'
             else
-                echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="serial"><col class="temp"><col class="status"></colgroup>'
+                echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="size"><col class="serial"><col class="temp"><col class="status"></colgroup>'
             fi
         fi
 
         echo "<thead><tr>"
         if [[ "$table_type" == "volume" ]]; then
-            vol_classes=("vol-name" "vol-pool" "vol-size" "vol-used" "status" "vol-pool-status")
+            vol_classes=("vol-name" "vol-pool" "raid" "vol-size" "vol-used" "status" "vol-pool-status")
             for idx in "${!headers[@]}"; do
                 cls="${vol_classes[$idx]:-}"
                 echo "<th class=\"$cls\">$(echo "${headers[$idx]}" | sed 's/</\&lt;/g;s/>/\&gt;/g')</th>"
             done
         else
-            col_classes=("id" "num" "location" "model" "serial" "temp" "status")
+            col_classes=("id" "num" "location" "model" "size" "smr" "serial" "temp" "status")
             for idx in "${!headers[@]}"; do
                 cls="${col_classes[$idx]:-}"
                 [[ "$cls" == "location" && $HAS_LOCATION -eq 0 ]] && continue
+                [[ "$cls" == "smr" && $IS_SMR -eq 0 ]] && continue
                 echo "<th class=\"$cls\">$(echo "${headers[$idx]}" | sed 's/</\&lt;/g;s/>/\&gt;/g')</th>"
             done
         fi
@@ -1020,9 +1191,19 @@ while IFS= read -r line; do
                 case $c in
                     0) echo "<td class=\"vol-name\">$val</td>" ;;
                     1) echo "<td class=\"vol-pool\">$val</td>" ;;
-                    2) echo "<td class=\"vol-size\">$val</td>" ;;
-                    3) echo "<td class=\"vol-used\">$val</td>" ;;
-                    4)
+                    2)
+                        if [[ "$val" == *"@@"* ]]; then
+                            raid_label="${val%%@@*}"
+                            raid_disks="${val#*@@}"
+                            raid_disks="${raid_disks//\"/&quot;}"
+                            echo "<td class=\"raid\" title=\"${raid_disks}\">${raid_label}</td>"
+                        else
+                            echo "<td class=\"raid\">$val</td>"
+                        fi
+                        ;;
+                    3) echo "<td class=\"vol-size\">$val</td>" ;;
+                    4) echo "<td class=\"vol-used\">$val</td>" ;;
+                    5)
                         case "$val" in
                             healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
                             warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
@@ -1033,7 +1214,7 @@ while IFS= read -r line; do
                         css_class="$css_class status"
                         echo "<td class=\"$css_class\">$val</td>"
                         ;;
-                    5)
+                    6)
                         case "$val" in
                             healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
                             warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
@@ -1055,18 +1236,30 @@ while IFS= read -r line; do
                 if [[ $c -eq 0 ]]; then
                     echo "<td class=\"id\">$val</td>"
                 elif [[ $c -eq 1 ]]; then
-                    echo "<td class=\"num\">$val</td>"
+                    if [[ "$val" == *"@@"* ]]; then
+                        num_label="${val%%@@*}"
+                        num_pool="${val#*@@}"
+                        num_pool="${num_pool//\"/&quot;}"
+                        echo "<td class=\"num\" title=\"${num_pool}\">${num_label}</td>"
+                    else
+                        echo "<td class=\"num\">$val</td>"
+                    fi
                 elif [[ $c -eq 2 ]]; then
                     [[ $HAS_LOCATION -eq 0 ]] && continue
                     echo "<td class=\"location\">$val</td>"
                 elif [[ $c -eq 3 ]]; then
                     echo "<td class=\"model\">$val</td>"
                 elif [[ $c -eq 4 ]]; then
-                    echo "<td class=\"serial\">$val</td>"
+                    echo "<td class=\"size\">$val</td>"
                 elif [[ $c -eq 5 ]]; then
+                    [[ $IS_SMR -eq 0 ]] && continue
+                    echo "<td class=\"smr\">$val</td>"
+                elif [[ $c -eq 6 ]]; then
+                    echo "<td class=\"serial\">$val</td>"
+                elif [[ $c -eq 7 ]]; then
                     #echo "<td class=\"temp\">${val}°C</td>"
                     echo "<td class=\"temp\">${val}</td>"
-                elif [[ $c -eq 6 ]]; then
+                elif [[ $c -eq 8 ]]; then
                     case "$val" in
                         healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
                         warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
@@ -1147,6 +1340,26 @@ cat << SETTINGSHTML
       </label>
       <span>${_txt_show_smart_important}</span>
     </div>
+    <div class="toggle-row" id="smart-schedule-row">
+      <label class="toggle">
+        <input type="checkbox" id="smart_schedule_enable" onchange="toggleScheduleFields()" $([ "$_smart_schedule_enable" = "true" ] && echo "checked")>
+        <span class="toggle-slider"></span>
+      </label>
+      <span>${_txt_smart_schedule_enable}</span>
+    </div>
+    <div class="schedule-subfields" id="schedule-subfields" style="$([ "$_smart_schedule_enable" = "true" ] || echo "display:none;")">
+      <div class="field-row" style="margin-left:58px;margin-top:7px;margin-bottom:7px;display:flex;align-items:center;gap:10px;">
+        <label for="smart_notify_email" style="font-size:13px;white-space:nowrap;">${_txt_notify_email}</label>
+        <input type="email" id="smart_notify_email" value="${_smart_notify_email_attr}" style="width:300px;font-size:13px;padding:3px 5px;border:1px solid #ccc;">
+      </div>
+      <div class="toggle-row" id="smart-error-only-row" style="margin-left:50px;">
+        <label class="toggle">
+          <input type="checkbox" id="smart_notify_error_only" $([ "$_smart_notify_error_only" = "true" ] && echo "checked")>
+          <span class="toggle-slider"></span>
+        </label>
+        <span>${_txt_notify_error_only}</span>
+      </div>
+    </div>
   </div>
 
   <div class="section">
@@ -1182,6 +1395,9 @@ var nasDataSaved = JSON.parse(JSON.stringify(nasData));  // snapshot for Cancel
 var discoverNasSaved = ${_discover_nas};                 // snapshot for Cancel
 var showVolumeInfoSaved = ${_show_volume_info};          // snapshot for Cancel
 var showImportantSMART = ${_show_smart_important};       // snapshot for Cancel
+var smartScheduleEnableSaved = ${_smart_schedule_enable};      // snapshot for Cancel
+var smartNotifyEmailSaved = '${_smart_notify_email_js}';       // snapshot for Cancel
+var smartNotifyErrorOnlySaved = ${_smart_notify_error_only};   // snapshot for Cancel
 var txtRemove = "${_txt_remove}";
 var viewer_lang = '${_lang}';
 var dirty = false;  // true only after settings have been saved
@@ -1206,6 +1422,10 @@ function cancelSettings() {
     document.getElementById('discover_nas').checked = discoverNasSaved;
     document.getElementById('show_volume_info').checked = showVolumeInfoSaved;
     document.getElementById('show_smart_important').checked = showImportantSMART;
+    document.getElementById('smart_schedule_enable').checked = smartScheduleEnableSaved;
+    document.getElementById('smart_notify_email').value = smartNotifyEmailSaved;
+    document.getElementById('smart_notify_error_only').checked = smartNotifyErrorOnlySaved;
+    toggleScheduleFields();
     document.getElementById('settings-panel').style.display = 'none';
     document.getElementById('main-view').style.display = '';
     document.getElementById('reload-btn').style.display = '';
@@ -1274,6 +1494,14 @@ function esc(s) {
     return (s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 }
 
+// ---------------------------------------------------------------------------
+// Show/hide the email + error-only fields under the schedule toggle
+// ---------------------------------------------------------------------------
+function toggleScheduleFields() {
+    var enabled = document.getElementById('smart_schedule_enable').checked;
+    document.getElementById('schedule-subfields').style.display = enabled ? '' : 'none';
+}
+
 function saveSettings() {
     var valid = [];
     for (var i = 0; i < nasData.length; i++) {
@@ -1288,9 +1516,15 @@ function saveSettings() {
     var discover = document.getElementById('discover_nas').checked ? 'true' : 'false';
     var showVolumeInfo = document.getElementById('show_volume_info').checked ? 'true' : 'false';
     var showSmartImportant = document.getElementById('show_smart_important').checked ? 'true' : 'false';
+    var smartScheduleEnable = document.getElementById('smart_schedule_enable').checked ? 'true' : 'false';
+    var smartNotifyEmail = document.getElementById('smart_notify_email').value.trim();
+    var smartNotifyErrorOnly = document.getElementById('smart_notify_error_only').checked ? 'true' : 'false';
     var qs = 'action=save_settings&discover_nas=' + discover +
              '&show_volume_info=' + showVolumeInfo +
              '&show_smart_important=' + showSmartImportant +
+             '&smart_schedule_enable=' + smartScheduleEnable +
+             '&smart_notify_email=' + encodeURIComponent(smartNotifyEmail) +
+             '&smart_notify_error_only=' + smartNotifyErrorOnly +
              '&manual_nas_count=' + valid.length;
 
     for (var j = 0; j < valid.length; j++) {
@@ -1325,6 +1559,9 @@ function saveSettings() {
                 nasDataSaved = JSON.parse(JSON.stringify(nasData));
                 discoverNasSaved = (discover === 'true');
                 showVolumeInfoSaved = (showVolumeInfo === 'true');
+                smartScheduleEnableSaved = (smartScheduleEnable === 'true');
+                smartNotifyEmailSaved = smartNotifyEmail;
+                smartNotifyErrorOnlySaved = (smartNotifyErrorOnly === 'true');
                 document.getElementById('settings-panel').style.display = 'none';
                 document.getElementById('main-view').style.display = '';
                 document.getElementById('reload-btn').style.display = '';

@@ -1,3 +1,10 @@
+v2.1.30
+- Added drive size column.
+- Added SMR column. Credit to @JoeSchmuck and @basilhendroff for their SMR drive list.
+- Added showing the drives in each storage pool - hover the mouse over the RAID type to see them.
+- Added showing which storage pool each drive is in - hover the mouse over the Drive's label to see it.
+- Fixed short drive model from some USB drives/docks.
+
 v2.0.29
 - Added Volume information and status.
   - Defaults to enabled but can be disabled in the settings.

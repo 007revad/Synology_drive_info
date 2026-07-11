@@ -81,3 +81,5 @@ size_tb	=	TiB
 rpm	=	RPM
 type	=	Skriv
 interface	=	Grensesnitt
+hotspare	=	Hot Spare
+basic	=	Basic

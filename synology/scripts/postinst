@@ -20,6 +20,8 @@ chmod 755 "$UI_DIR/bin/smart_info.sh"
 chmod 755 "$UI_DIR/bin/syno_discover.py"
 chmod 755 "$UI_DIR/modules/get_text.sh"
 
+chmod 644 "$UI_DIR/bin/smr_drive_list.txt"
+
 # Create settings.conf with world-readable/writable permissions
 # DSM 7: in var/ (writable by drive_info via run-as:package)
 # DSM 6: in etc/ (writable by system CGI user via 666 permissions)

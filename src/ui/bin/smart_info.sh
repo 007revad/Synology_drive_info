@@ -11,9 +11,28 @@
 #scriptname=syno_smart_info
 #repo="007revad/Synology_SMART_info"
 
-# Check if script is running in an interactive shell
+detect_scheduler(){ 
+    # Check parent process
+    local parent
+    parent=$(ps -p $PPID -o comm=)
+
+    #echo "DEBUG: parent: $parent"
+
+    [[ "$parent" =~ (TaskS|systemd-run|sched|crond) ]] && return 0
+    return 1
+}
+
+# Check if script is running in an interactive shell or from schedule
 if [[ -t 1 ]]; then  # Running in terminal
     echo "Running in an interactive shell (user terminal)."
+else
+    # Check if running via task scheduler
+    if detect_scheduler; then
+        sch_task="yes"
+        color="no"
+    #else
+    #    echo "DEBUG: Not running in terminal or via task scheduler"
+    fi
 fi
 
 nas_model=$(synogetkeyvalue /etc.defaults/synoinfo.conf upnpmodelname 2>/dev/null)
@@ -187,7 +206,6 @@ else
     txt() { echo "${3}"; }  # txt SECTION KEY DEFAULT -> just print DEFAULT
 fi
 
-
 # Shell Colors
 if [[ $color != "no" ]]; then
     #Black='\e[0;30m'     # ${Black}
@@ -216,7 +234,8 @@ else
     echo ""  # For task scheduler email readability
 fi
 
-if [[ ! -t 1 ]]; then  # Not running in terminal (running in Drive Info package)
+if [[ ! -t 1 && $color != "no" ]]; then
+    # Not running in terminal or via task scheduler (running in Drive Info package)
     LiteRed="red::"
     LiteGreen="green::"
     Yellow="blue::"
@@ -1551,5 +1570,9 @@ fi
 awk 'NR>1 && /^\[/ && prev!="" {print ""} {print; prev=$0}' \
     "$smart_log" > /tmp/smart.tmp \
     && mv /tmp/smart.tmp "$smart_log"
+
+if [[ $sch_task == "yes" ]]; then
+    echo -e "\n \n "  # For task scheduler email readability
+fi
 
 exit "$errtotal"

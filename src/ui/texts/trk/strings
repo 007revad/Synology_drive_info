@@ -80,3 +80,5 @@ size_tb	=	TiB
 rpm	=	RPM
 type	=	Tip
 interface	=	Arabirim
+hotspare	=	Hot Spare
+basic	=	Basic

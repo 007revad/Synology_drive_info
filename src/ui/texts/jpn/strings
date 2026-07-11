@@ -80,3 +80,5 @@ size_tb	=	TiB
 rpm	=	RPM
 type	=	タイプ
 interface	=	インターフェイス
+hotspare	=	Hot Spare
+basic	=	Basic

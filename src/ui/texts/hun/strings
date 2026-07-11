@@ -80,3 +80,5 @@ size_tb	=	TiB
 rpm	=	RPM
 type	=	Típus
 interface	=	Illesztőfelület
+hotspare	=	Hot Spare
+basic	=	Basic

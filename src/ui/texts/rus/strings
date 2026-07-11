@@ -80,3 +80,5 @@ size_tb	=	ТиБ
 rpm	=	RPM
 type	=	Тип
 interface	=	Интерфейс
+hotspare	=	Hot Spare
+basic	=	Basic

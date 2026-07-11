@@ -80,3 +80,5 @@ size_tb	=	TiB
 rpm	=	RPM
 type	=	ประเภท
 interface	=	อินเตอร์เฟซ
+hotspare	=	Hot Spare
+basic	=	Basic
