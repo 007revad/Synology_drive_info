@@ -1,3 +1,7 @@
+v2.1.31
+- Added translations for the new settings options.
+- Changed so package upgrades update the permissions instead of the updated package updating the permissions when it's frst run.
+
 v2.1.30
 - Added option to set a schedule to email changed SMART values (Not translated to other languages yet).
 - Added drive size column.

@@ -32,6 +32,9 @@ login_port	=	로그인 포트
 cancel	=	취소
 show_volume_info	=	"볼륨 정보 표시"
 show_smart_important	=	"중요한 S.M.A.R.T. 값만 표시"
+smart_schedule_enable	=	"매일 S.M.A.R.T. 이메일 예약 (자정)"
+notify_email	=	"알림 이메일"
+notify_error_only	=	"중요한 속성이 변경된 경우에만 이메일 전송"
 
 [common]
 location	=	위치

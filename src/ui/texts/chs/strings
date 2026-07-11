@@ -33,6 +33,9 @@ login_port	=	登录端口
 cancel	=	取消
 show_volume_info	=	"显示卷信息"
 show_smart_important	=	"仅显示重要的 S.M.A.R.T. 值"
+smart_schedule_enable	=	"计划每日 S.M.A.R.T. 邮件（午夜）"
+notify_email	=	"通知邮件"
+notify_error_only	=	"仅在重要属性发生变化时发送邮件"
 
 [common]
 location	=	位置

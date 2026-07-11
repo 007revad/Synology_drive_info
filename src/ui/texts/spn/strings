@@ -32,6 +32,9 @@ login_port	=	Puerto de inicio de sesión
 cancel	=	Cancelar
 show_volume_info	=	"Mostrar información del volumen"
 show_smart_important	=	"Mostrar solo los valores S.M.A.R.T. importantes"
+smart_schedule_enable	=	"Programar correos S.M.A.R.T. diarios (medianoche)"
+notify_email	=	"Correo de notificación"
+notify_error_only	=	"Enviar correo solo cuando atributos importantes hayan cambiado"
 
 [common]
 location	=	Ubicación

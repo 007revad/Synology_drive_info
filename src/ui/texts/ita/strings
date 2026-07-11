@@ -32,6 +32,9 @@ login_port	=	Porta di accesso
 cancel	=	Annulla
 show_volume_info	=	"Mostra informazioni sul volume"
 show_smart_important	=	"Mostra solo i valori S.M.A.R.T. importanti"
+smart_schedule_enable	=	"Pianifica e-mail S.M.A.R.T. giornaliere (mezzanotte)"
+notify_email	=	"E-mail di notifica"
+notify_error_only	=	"Invia e-mail solo quando gli attributi importanti sono cambiati"
 
 [common]
 location	=	Posizione

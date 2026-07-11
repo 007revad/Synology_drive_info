@@ -22,6 +22,13 @@ chmod 755 "$UI_DIR/modules/get_text.sh"
 
 chmod 644 "$UI_DIR/bin/smr_drive_list.txt"
 
+# For users who have already completed the one-time sudoers setup (see
+# set_package_permissions.md), refresh /etc/sudoers.d/drive_info on every
+# upgrade so newly added entries take effect immediately, instead of
+# waiting for the user to open the UI first. Calls the exact no-argument
+# command form that setup already grants.
+sudo "$UI_DIR/bin/drive_info.sh"
+
 # Create settings.conf with world-readable/writable permissions
 # DSM 7: in var/ (writable by drive_info via run-as:package)
 # DSM 6: in etc/ (writable by system CGI user via 666 permissions)

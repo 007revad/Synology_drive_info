@@ -32,6 +32,9 @@ login_port	=	Login-port.
 cancel	=	Annuller
 show_volume_info	=	"Vis volumeoplysninger"
 show_smart_important	=	"Vis kun vigtige S.M.A.R.T.-værdier"
+smart_schedule_enable	=	"Planlæg daglige S.M.A.R.T.-e-mails (midnat)"
+notify_email	=	"Notifikations-e-mail"
+notify_error_only	=	"Send kun e-mail når vigtige attributter har ændret sig"
 
 [common]
 location	=	Placering

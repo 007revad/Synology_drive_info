@@ -32,6 +32,9 @@ login_port	=	Porta de login
 cancel	=	Cancelar
 show_volume_info	=	"Pokaż informacje o woluminie"
 show_smart_important	=	"Mostrar apenas valores S.M.A.R.T. importantes"
+smart_schedule_enable	=	"Agendar e-mails diários S.M.A.R.T. (meia-noite)"
+notify_email	=	"E-mail de notificação"
+notify_error_only	=	"Enviar e-mail apenas quando atributos importantes forem alterados"
 
 [common]
 location	=	Localização

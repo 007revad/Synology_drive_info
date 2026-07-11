@@ -32,6 +32,9 @@ login_port	=	Inlogpoort
 cancel	=	Annuleren
 show_volume_info	=	"Volume-informatie weergeven"
 show_smart_important	=	"Toon alleen belangrijke S.M.A.R.T.-waarden"
+smart_schedule_enable	=	"Dagelijkse S.M.A.R.T.-e-mails plannen (middernacht)"
+notify_email	=	"Notificatie-e-mail"
+notify_error_only	=	"E-mail alleen verzenden wanneer belangrijke attributen zijn gewijzigd"
 
 [common]
 location	=	Locatie

@@ -32,6 +32,9 @@ login_port	=	Port für Anmeldung
 cancel	=	Abbrechen
 show_volume_info	=	"Volume-Informationen anzeigen"
 show_smart_important	=	"Nur wichtige S.M.A.R.T.-Werte anzeigen"
+smart_schedule_enable	=	"Tägliche S.M.A.R.T.-E-Mails planen (Mitternacht)"
+notify_email	=	"Benachrichtigungs-E-Mail"
+notify_error_only	=	"E-Mail nur senden, wenn wichtige Attribute geändert wurden"
 
 [common]
 location	=	Ort

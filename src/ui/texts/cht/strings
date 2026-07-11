@@ -32,6 +32,9 @@ login_port	=	登入連接埠
 cancel	=	取消
 show_volume_info	=	"顯示磁碟區資訊"
 show_smart_important	=	"僅顯示重要的 S.M.A.R.T. 值"
+smart_schedule_enable	=	"排程每日 S.M.A.R.T. 電子郵件（午夜）"
+notify_email	=	"通知電子郵件"
+notify_error_only	=	"僅在重要屬性變更時傳送電子郵件"
 
 [common]
 location	=	位置

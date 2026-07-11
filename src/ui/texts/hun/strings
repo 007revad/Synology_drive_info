@@ -32,6 +32,9 @@ login_port	=	Bejelentkezési port
 cancel	=	Mégse
 show_volume_info	=	"Kötetinformációk megjelenítése"
 show_smart_important	=	"Csak a fontos S.M.A.R.T. értékek megjelenítése"
+smart_schedule_enable	=	"Napi S.M.A.R.T. e-mailek ütemezése (éjfél)"
+notify_email	=	"Értesítési e-mail"
+notify_error_only	=	"E-mail küldése csak fontos attribútumok változásakor"
 
 [common]
 location	=	Hely

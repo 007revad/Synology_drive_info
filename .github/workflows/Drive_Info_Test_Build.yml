@@ -1,0 +1,97 @@
+name: Build Drive Info Test Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_tag:
+        description: 'Label for this test build (used to name the downloadable artifact only - never published)'
+        required: false
+        default: ''
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-test-spk:
+    name: Build Test Package
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ['kvmx64']
+        dsm: ['7.0']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get test tag
+        id: get_tag
+        run: |
+          test_tag="${{ github.event.inputs.test_tag }}"
+          if [ -z "$test_tag" ]; then
+            test_tag="test-${{ github.run_number }}"
+          fi
+          echo "new_tag=$test_tag" >> $GITHUB_OUTPUT
+
+      - name: Determine DSM suffix
+        id: dsm_suffix
+        run: |
+          # Count how many DSM versions are in the matrix
+          dsm_list='${{ toJSON(matrix.dsm) }}'
+          count=$(echo "$dsm_list" | jq 'if type == "array" then length else 1 end')
+          current="${{ matrix.dsm }}"
+          if [ "$count" -eq 1 ] && [ "$current" = "7.0" ]; then
+            echo "suffix=DSM-7.x" >> $GITHUB_OUTPUT
+          else
+            echo "suffix=DSM-${current}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Synology Package Builder Github Action
+        uses: 007revad/synology-package-builder@main
+        with:
+          dsm: ${{ matrix.dsm }}
+          arch: ${{ matrix.arch }}
+          output: ./dist
+
+      - name: Remove debug spk and rename package
+        run: |
+          ls -l ./dist
+          rm ./dist/*_debug.spk
+          for f in ./dist/*.spk; do
+            mv "$f" "./dist/Drive_Info-x86_64-${{ steps.get_tag.outputs.new_tag }}-${{ steps.dsm_suffix.outputs.suffix }}.spk"
+          done
+          ls -l ./dist
+
+      - name: Create noarch package
+        run: |
+          for f in ./dist/Drive_Info-x86_64-*.spk; do
+            noarch="${f/x86_64/noarch}"
+            tmpdir=$(mktemp -d)
+            tar -xf "$f" -C "$tmpdir"
+            sed -i 's/arch="x86_64"/arch="noarch"/' "$tmpdir/INFO"
+            tar -cf "$noarch" -C "$tmpdir" $(ls "$tmpdir")
+            rm -rf "$tmpdir"
+          done
+          ls -l ./dist
+
+      - name: Create DSM 6 package
+        run: |
+          for f in ./dist/Drive_Info-noarch-*.spk; do
+            dsm6="${f/${{ steps.dsm_suffix.outputs.suffix }}/DSM-6.x}"
+            tmpdir=$(mktemp -d)
+            tar -xf "$f" -C "$tmpdir"
+            rm -rf "$tmpdir/WIZARD_UIFILES"
+            rm -rf "$tmpdir/conf"
+            sed -i -E 's/os_min_ver="7\.0-[0-9]+"/os_min_ver="6.0-7321"/' "$tmpdir/INFO"
+            sed -i 's/os_max_ver="9.9-99999"/os_max_ver="6.9-99999"/' "$tmpdir/INFO"
+            tar -cf "$dsm6" -C "$tmpdir" $(ls "$tmpdir")
+            rm -rf "$tmpdir"
+          done
+          ls -l ./dist
+
+      - name: Upload Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Drive_Info-${{ steps.dsm_suffix.outputs.suffix }}-${{ steps.get_tag.outputs.new_tag }}
+          path: ./dist/*.spk

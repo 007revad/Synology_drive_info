@@ -32,6 +32,9 @@ login_port	=	Inloggningsport
 cancel	=	Avbryt
 show_volume_info	=	"Visa volyminformation"
 show_smart_important	=	"Visa endast viktiga S.M.A.R.T.-värden"
+smart_schedule_enable	=	"Schemalägg dagliga S.M.A.R.T.-e-postmeddelanden (midnatt)"
+notify_email	=	"Aviserings-e-post"
+notify_error_only	=	"Skicka endast e-post när viktiga attribut har ändrats"
 
 [common]
 drive_id	=	Disk-ID

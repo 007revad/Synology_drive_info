@@ -32,6 +32,9 @@ login_port	=	Oturum açma bağlantı noktası
 cancel	=	İptal
 show_volume_info	=	"Birim bilgilerini göster"
 show_smart_important	=	"Yalnızca önemli S.M.A.R.T. değerlerini göster"
+smart_schedule_enable	=	"Günlük S.M.A.R.T. e-postalarını zamanla (gece yarısı)"
+notify_email	=	"Bildirim e-postası"
+notify_error_only	=	"E-postayı yalnızca önemli özellikler değiştiğinde gönder"
 
 [common]
 location	=	Konum

@@ -32,6 +32,9 @@ login_port	=	Port pro přihlášení
 cancel	=	Storno
 show_volume_info	=	"Zobrazit informace o svazku"
 show_smart_important	=	"Zobrazit pouze důležité hodnoty S.M.A.R.T."
+smart_schedule_enable	=	"Naplánovat denní e-maily S.M.A.R.T. (půlnoc)"
+notify_email	=	"Oznámení e-mailem"
+notify_error_only	=	"Odesílat e-mail pouze při změně důležitých atributů"
 
 [common]
 location	=	Umístění

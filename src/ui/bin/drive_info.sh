@@ -409,8 +409,8 @@ check_drive_smr(){
     # https://www.truenas.com/community/resources/list-of-known-smr-drives.141/
     local smr_type vendor model
     local smr_drive_list_file="/var/packages/drive_info/target/ui/bin/smr_drive_list.txt"
-    local ha-smr_drive_list_file="/var/packages/drive_info/target/ui/bin/ha-smr_drive_list.txt"
-    local hm-smr_drive_list_file="/var/packages/drive_info/target/ui/bin/hm-smr_drive_list.txt"
+    local ha_smr_drive_list_file="/var/packages/drive_info/target/ui/bin/ha-smr_drive_list.txt"
+    local hm_smr_drive_list_file="/var/packages/drive_info/target/ui/bin/hm-smr_drive_list.txt"
 
     model=$(cat "/sys/block/$drive/device/model" | xargs)
     vendor=$(cat "/sys/block/$drive/device/vendor" 2>/dev/null | xargs)
@@ -420,11 +420,11 @@ check_drive_smr(){
     elif [[ "$smr_check" == "0x10b" ]]; then
         #smr_type="DM-SMR"
         smr_type="SMR"
-    elif grep -qFf "$ha-smr_drive_list_file" <<< "$model" \
-        || grep -qFf "$ha-smr_drive_list_file" <<< "$vendor$model"; then
+    elif grep -qFf "$ha_smr_drive_list_file" <<< "$model" \
+        || grep -qFf "$ha_smr_drive_list_file" <<< "$vendor$model"; then
         smr_type="HA-SMR"
-    elif grep -qFf "$hm-smr_drive_list_file" <<< "$model" \
-        || grep -qFf "$hm-smr_drive_list_file" <<< "$vendor$model"; then
+    elif grep -qFf "$hm_smr_drive_list_file" <<< "$model" \
+        || grep -qFf "$hm_smr_drive_list_file" <<< "$vendor$model"; then
         smr_type="HM-SMR"
     elif grep -qFf "$smr_drive_list_file" <<< "$model" \
         || grep -qFf "$smr_drive_list_file" <<< "$vendor$model"; then

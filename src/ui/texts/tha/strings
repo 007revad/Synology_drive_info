@@ -32,6 +32,9 @@ login_port	=	พอร์ตการลงชื่อเข้าใช้
 cancel	=	ยกเลิก
 show_volume_info	=	"แสดงข้อมูลโวลุ่ม"
 show_smart_important	=	"แสดงเฉพาะค่า S.M.A.R.T. ที่สำคัญ"
+smart_schedule_enable	=	"กำหนดเวลาอีเมล S.M.A.R.T. รายวัน (เที่ยงคืน)"
+notify_email	=	"อีเมลแจ้งเตือน"
+notify_error_only	=	"ส่งอีเมลเฉพาะเมื่อแอตทริบิวต์สำคัญมีการเปลี่ยนแปลง"
 
 [common]
 location	=	ตำแหน่ง

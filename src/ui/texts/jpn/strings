@@ -32,6 +32,9 @@ login_port	=	ログイン ポート
 cancel	=	キャンセル
 show_volume_info	=	"ボリューム情報を表示"
 show_smart_important	=	"重要な S.M.A.R.T. 値のみ表示"
+smart_schedule_enable	=	"毎日の S.M.A.R.T. メールをスケジュール（深夜0時）"
+notify_email	=	"通知メール"
+notify_error_only	=	"重要な属性が変化したときのみメールを送信"
 
 [common]
 location	=	位置

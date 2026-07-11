@@ -32,6 +32,9 @@ login_port	=	Порт входа в систему
 cancel	=	Отмена
 show_volume_info	=	"Показать сведения о томе"
 show_smart_important	=	"Показывать только важные значения S.M.A.R.T."
+smart_schedule_enable	=	"Запланировать ежедневные письма S.M.A.R.T. (полночь)"
+notify_email	=	"Уведомление по электронной почте"
+notify_error_only	=	"Отправлять письмо только при изменении важных атрибутов"
 
 [common]
 location	=	Расположение

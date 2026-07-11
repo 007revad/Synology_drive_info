@@ -32,6 +32,9 @@ login_port	=	Påloggingsport
 cancel	=	Avbryt
 show_volume_info	=	"Vis volumeinformasjon"
 show_smart_important	=	"Vis kun viktige S.M.A.R.T.-verdier"
+smart_schedule_enable	=	"Planlegg daglige S.M.A.R.T.-e-poster (midnatt)"
+notify_email	=	"Varsel-e-post"
+notify_error_only	=	"Send kun e-post når viktige attributter har endret seg"
 
 [common]
 location	=	Plassering

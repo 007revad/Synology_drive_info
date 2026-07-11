@@ -32,6 +32,9 @@ login_port	=	Port logowania
 cancel	=	Anuluj
 show_volume_info	=	"Pokaż informacje o woluminie"
 show_smart_important	=	"Pokaż tylko ważne wartości S.M.A.R.T."
+smart_schedule_enable	=	"Zaplanuj codzienne e-maile S.M.A.R.T. (północ)"
+notify_email	=	"E-mail z powiadomieniem"
+notify_error_only	=	"Wysyłaj e-mail tylko gdy ważne atrybuty uległy zmianie"
 
 [common]
 location	=	Lokalizacja

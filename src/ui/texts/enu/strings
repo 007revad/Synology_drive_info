@@ -34,6 +34,9 @@ login_port	=	Login port
 cancel	=	Cancel
 show_volume_info	=	"Show volume information"
 show_smart_important    = "Show only important S.M.A.R.T. values"
+smart_schedule_enable	=	"Schedule daily S.M.A.R.T. emails (midnight)"
+notify_email	=	"Notification email"
+notify_error_only   	=	"Only send email when important attributes have changed"
 
 [common]
 drive	=	Drive
