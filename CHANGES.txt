@@ -1,5 +1,5 @@
 v2.1.33
-- Added support for HTTPS, including a checkbox in settings for manually added NAS.
+- Added support for HTTPS, including a HTTPS Port field in settings for manually added NAS.
 - Added DSM version for each NAS.
 
 v2.1.32
