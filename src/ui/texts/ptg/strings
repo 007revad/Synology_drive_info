@@ -41,6 +41,8 @@ save_failed	=	"Não foi possível guardar as definições - tente novamente"
 nas_unreachable	=	"Não é possível alcançar %h em %ip:%port - verifique o endereço IP e a porta"
 login_port	=	"Porta HTTP"
 https_port	=	"Porta HTTPS"
+smart_email_important	=	"Enviar por e-mail apenas valores S.M.A.R.T. importantes"
+err_invalid_email	=	"Introduza um endereço de e-mail válido."
 
 [common]
 location	=	Localização

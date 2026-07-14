@@ -41,6 +41,8 @@ save_failed	=	"A beállítások mentése nem sikerült - kérjük, próbálja ú
 nas_unreachable	=	"Nem sikerült elérni: %h (%ip:%port) - ellenőrizze az IP-címet és a portot"
 login_port	=	"HTTP-port"
 https_port	=	"HTTPS-port"
+smart_email_important	=	"Csak a fontos S.M.A.R.T. értékek küldése e-mailben"
+err_invalid_email	=	"Adjon meg egy érvényes e-mail-címet."
 
 [common]
 location	=	Hely

@@ -41,6 +41,8 @@ save_failed	=	"無法儲存設定 - 請重試"
 nas_unreachable	=	"無法連線至 %h（%ip:%port）- 請檢查 IP 位址和連接埠"
 login_port	=	"HTTP 連接埠"
 https_port	=	"HTTPS 連接埠"
+smart_email_important	=	"僅以電子郵件傳送重要的 S.M.A.R.T. 值"
+err_invalid_email	=	"請輸入有效的電子郵件地址。"
 
 [common]
 location	=	位置

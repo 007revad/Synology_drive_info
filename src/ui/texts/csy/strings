@@ -41,6 +41,8 @@ save_failed	=	"Nastavení nelze uložit - zkuste to prosím znovu"
 nas_unreachable	=	"Nelze se připojit k %h na %ip:%port - zkontrolujte IP adresu a port"
 login_port	=	"HTTP port"
 https_port	=	"HTTPS port"
+smart_email_important	=	"E-mailem odesílat pouze důležité hodnoty S.M.A.R.T."
+err_invalid_email	=	"Zadejte platnou e-mailovou adresu."
 
 [common]
 location	=	Umístění

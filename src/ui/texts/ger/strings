@@ -41,6 +41,8 @@ save_failed	=	"Einstellungen konnten nicht gespeichert werden - bitte erneut ver
 nas_unreachable	=	"Verbindung zu %h unter %ip:%port nicht möglich - IP-Adresse und Port prüfen"
 login_port	=	"HTTP-Port"
 https_port	=	"HTTPS-Port"
+smart_email_important	=	"Nur wichtige S.M.A.R.T.-Werte per E-Mail senden"
+err_invalid_email	=	"Geben Sie eine gültige E-Mail-Adresse ein."
 
 [common]
 location	=	Ort

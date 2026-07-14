@@ -41,6 +41,8 @@ save_failed	=	"설정을 저장할 수 없습니다 - 다시 시도해 주세요
 nas_unreachable	=	"%ip:%port 에서 %h 에 연결할 수 없습니다 - IP 주소와 포트를 확인하세요"
 login_port	=	"HTTP 포트"
 https_port	=	"HTTPS 포트"
+smart_email_important	=	"중요한 S.M.A.R.T. 값만 이메일로 전송"
+err_invalid_email	=	"유효한 이메일 주소를 입력하세요."
 
 [common]
 location	=	위치

@@ -41,6 +41,8 @@ save_failed	=	"Kunne ikke gemme indstillinger - prøv venligst igen"
 nas_unreachable	=	"Kan ikke nå %h på %ip:%port - kontroller IP-adressen og porten"
 login_port	=	"HTTP-port"
 https_port	=	"HTTPS-port"
+smart_email_important	=	"Send kun vigtige S.M.A.R.T.-værdier via e-mail"
+err_invalid_email	=	"Indtast en gyldig e-mailadresse."
 
 [common]
 location	=	Placering

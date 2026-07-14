@@ -41,6 +41,8 @@ save_failed	=	"Det gick inte att spara inställningarna - försök igen"
 nas_unreachable	=	"Kan inte nå %h på %ip:%port - kontrollera IP-adressen och porten"
 login_port	=	"HTTP-port"
 https_port	=	"HTTPS-port"
+smart_email_important	=	"Skicka endast viktiga S.M.A.R.T.-värden via e-post"
+err_invalid_email	=	"Ange en giltig e-postadress."
 
 [common]
 drive_id	=	Disk-ID

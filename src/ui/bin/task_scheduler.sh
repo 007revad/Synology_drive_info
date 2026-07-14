@@ -58,7 +58,7 @@ case "$_action" in
         _today=$(date +%Y/%-m/%-d)
 
         $SYNOWEBAPI $WEBAPI_FLAG --exec api=SYNO.Core.TaskScheduler method=create version=1 \
-            name="$_name_json" owner="root" enable=true type="script" \
+            name="\"$_name_json\"" owner="\"root\"" enable=true type="\"script\"" \
             extra="{\"script\":\"${_script_json}\",\"notify_enable\":${_notify_enable},\"notify_if_error\":${_notify_if_error},\"notify_mail\":\"${_email_json}\"}" \
             schedule="{\"date\":\"${_today}\",\"date_type\":0,\"hour\":0,\"minute\":0,\"repeat_date\":0,\"repeat_hour\":0,\"week_day\":\"0,1,2,3,4,5,6\"}"
         ;;

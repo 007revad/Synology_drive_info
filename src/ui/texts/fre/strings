@@ -41,6 +41,8 @@ save_failed	=	"Impossible d'enregistrer les paramètres - veuillez réessayer"
 nas_unreachable	=	"Impossible d'atteindre %h à %ip:%port - vérifiez l'adresse IP et le port"
 login_port	=	"Port HTTP"
 https_port	=	"Port HTTPS"
+smart_email_important	=	"Envoyer uniquement les valeurs S.M.A.R.T. importantes par e-mail"
+err_invalid_email	=	"Saisissez une adresse e-mail valide."
 
 [common]
 location	=	Emplacement

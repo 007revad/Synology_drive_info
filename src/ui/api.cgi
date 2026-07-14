@@ -143,21 +143,23 @@ if [[ "$_action" == "get_settings" ]]; then
     _smart_schedule_enable=$(synogetkeyvalue "$SETTINGS_CONF" smart_schedule_enable 2>/dev/null || echo "false")
     _smart_notify_email=$(synogetkeyvalue "$SETTINGS_CONF" smart_notify_email 2>/dev/null || echo "")
     _smart_notify_error_only=$(synogetkeyvalue "$SETTINGS_CONF" smart_notify_error_only 2>/dev/null || echo "false")
+    _smart_email_important=$(synogetkeyvalue "$SETTINGS_CONF" smart_email_important 2>/dev/null || echo "true")
     _manual_count=$(synogetkeyvalue "$SETTINGS_CONF" manual_nas_count 2>/dev/null || echo "0")
     [[ -z "$_discover_nas" ]] && _discover_nas="false"
     [[ -z "$_show_volume_info" ]] && _show_volume_info="false"
     [[ -z "$_show_smart_important" ]] && _show_smart_important="false"
     [[ -z "$_smart_schedule_enable" ]] && _smart_schedule_enable="false"
     [[ -z "$_smart_notify_error_only" ]] && _smart_notify_error_only="false"
+    [[ -z "$_smart_email_important" ]] && _smart_email_important="true"
     [[ -z "$_manual_count" ]] && _manual_count="0"
 
     # Escape email for safe JSON string embedding (backslash and double-quote)
     _smart_notify_email_json=${_smart_notify_email//\\/\\\\}
     _smart_notify_email_json=${_smart_notify_email_json//\"/\\\"}
 
-    printf '{"discover_nas":%s,"show_volume_info":%s,"show_smart_important":%s,"smart_schedule_enable":%s,"smart_notify_email":"%s","smart_notify_error_only":%s,"manual_nas":[' \
+    printf '{"discover_nas":%s,"show_volume_info":%s,"show_smart_important":%s,"smart_schedule_enable":%s,"smart_notify_email":"%s","smart_notify_error_only":%s,"smart_email_important":%s,"manual_nas":[' \
         "$_discover_nas" "$_show_volume_info" "$_show_smart_important" \
-        "$_smart_schedule_enable" "$_smart_notify_email_json" "$_smart_notify_error_only"
+        "$_smart_schedule_enable" "$_smart_notify_email_json" "$_smart_notify_error_only" "$_smart_email_important"
     _first=1
     for (( i=1; i<=_manual_count; i++ )); do
         _entry=$(synogetkeyvalue "$SETTINGS_CONF" "manual_nas${i}" 2>/dev/null)
@@ -321,6 +323,24 @@ if [[ "$_action" == "save_settings" ]]; then
         _changed=true
     fi
 
+    # Parse smart_email_important - independent of show_smart_important (the
+    # web-view toggle): controls whether the *emailed* SMART report is
+    # limited to important attributes (-e, no -a) or includes everything
+    # (-e -a). Default "true" preserves the original always-important-only
+    # emailed report for anyone upgrading from before this toggle existed.
+    _smart_email_important="true"
+    if [[ "${QUERY_STRING:-}" =~ (^|&)smart_email_important=([^&]*) ]]; then
+        _val="${BASH_REMATCH[2]}"
+        [[ "$_val" == "false" ]] && _smart_email_important="false"
+    fi
+
+    # Only write smart_email_important if value changed
+    _cur_email_important=$(synogetkeyvalue "$SETTINGS_CONF" smart_email_important 2>/dev/null || echo "true")
+    if [[ "$_cur_email_important" != "$_smart_email_important" ]]; then
+        synosetkeyvalue "$SETTINGS_CONF" smart_email_important "$_smart_email_important"
+        _changed=true
+    fi
+
     #-----------------------------------------------------------------------
     # Manage the Task Scheduler entry itself, via the task_scheduler.sh
     # wrapper (run as root through sudo - api.cgi itself runs as the
@@ -334,7 +354,8 @@ if [[ "$_action" == "save_settings" ]]; then
     _schedule_settings_changed=false
     if [[ "$_cur_schedule_enable" != "$_smart_schedule_enable" ]] || \
        [[ "$_cur_notify_email" != "$_smart_notify_email" ]] || \
-       [[ "$_cur_notify_error_only" != "$_smart_notify_error_only" ]]; then
+       [[ "$_cur_notify_error_only" != "$_smart_notify_error_only" ]] || \
+       [[ "$_cur_email_important" != "$_smart_email_important" ]]; then
         _schedule_settings_changed=true
     fi
 
@@ -356,21 +377,31 @@ if [[ "$_action" == "save_settings" ]]; then
             synosetkeyvalue "$SETTINGS_CONF" smart_schedule_owner ""
         fi
 
-        # Create a fresh task if the schedule is enabled after this save
-        if [[ "$_smart_schedule_enable" == "true" ]]; then
-            _notify_enable="false"
-            [[ -n "$_smart_notify_email" ]] && _notify_enable="true"
+        # Create a fresh task only if the schedule is enabled AND a
+        # non-blank, plausibly-valid email is set after this save. If the
+        # email was cleared (or was never set), leave the task deleted -
+        # a schedule with nowhere to send the report isn't useful, and this
+        # is also how clearing the email + Save removes the task.
+        if [[ "$_smart_schedule_enable" == "true" ]] && \
+           [[ -n "$_smart_notify_email" ]] && \
+           [[ "$_smart_notify_email" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then
+            _notify_enable="true"
 
             # -e disables colored text so the output is clean in an email body.
             # -i limits output to important attributes that have increased -
             # only added for the "only when changed" mode. The script's own
             # exit code then differs (non-zero when something increased),
             # which combined with notify_if_error lets DSM only email when
-            # something actually changed rather than every day.
+            # something actually changed rather than every day. -i already
+            # implies "important only", so it always wins over -a below.
+            # Otherwise, smart_email_important decides: enabled -> no -a
+            # (important attributes only), disabled -> add -a (everything).
             if [[ "$_smart_notify_error_only" == "true" ]]; then
                 _smart_script_cmd="${SMART_SCRIPT} -e -i"
-            else
+            elif [[ "$_smart_email_important" == "true" ]]; then
                 _smart_script_cmd="${SMART_SCRIPT} -e"
+            else
+                _smart_script_cmd="${SMART_SCRIPT} -e -a"
             fi
 
             _create_result=$(sudo "$TASK_SCHEDULER_SCRIPT" create \
@@ -719,11 +750,13 @@ _show_smart_important=$(synogetkeyvalue "$SETTINGS_CONF" show_smart_important 2>
 _smart_schedule_enable=$(synogetkeyvalue "$SETTINGS_CONF" smart_schedule_enable 2>/dev/null || echo "false")
 _smart_notify_email=$(synogetkeyvalue "$SETTINGS_CONF" smart_notify_email 2>/dev/null || echo "")
 _smart_notify_error_only=$(synogetkeyvalue "$SETTINGS_CONF" smart_notify_error_only 2>/dev/null || echo "false")
+_smart_email_important=$(synogetkeyvalue "$SETTINGS_CONF" smart_email_important 2>/dev/null || echo "true")
 [[ -z "$_show_smart_important" ]] && _show_smart_important="false"
 [[ -z "$_discover_nas" ]] && _discover_nas="false"
 [[ -z "$_show_volume_info" ]] && _show_volume_info="false"
 [[ -z "$_smart_schedule_enable" ]] && _smart_schedule_enable="false"
 [[ -z "$_smart_notify_error_only" ]] && _smart_notify_error_only="false"
+[[ -z "$_smart_email_important" ]] && _smart_email_important="true"
 [[ -z "$_manual_count" ]] && _manual_count="0"
 
 # Escape email for safe embedding in HTML attribute (value="...") and JS string literal
@@ -790,6 +823,9 @@ _txt_show_smart_important=$(txt settings show_smart_important "Show only importa
 _txt_smart_schedule_enable=$(txt settings smart_schedule_enable "Schedule daily S.M.A.R.T. emails (midnight)")
 _txt_notify_email=$(txt settings notify_email "Notification email")
 _txt_notify_error_only=$(txt settings notify_error_only "Only send email when important attributes have changed")
+_txt_email_important=$(txt settings smart_email_important "Email only important S.M.A.R.T. values")
+#_txt_invalid_email=$(txt settings err_invalid_email "Enter a valid email address, or turn off S.M.A.R.T. email scheduling.")
+_txt_invalid_email=$(txt settings err_invalid_email "Enter a valid email address.")
 _txt_not_reachable=$(txt errors err_not_reachable "Drive Info not installed or not reachable.")
 _txt_https_cert=$(txt errors err_https_cert "Could not connect via HTTPS to %ip:%port. If this NAS uses a self-signed or untrusted certificate, open https://%ip:%port directly in this browser, accept the security warning, then reload this page (exact steps vary by browser; if your browser won't let you bypass this, try a different browser or install a trusted certificate).")
 _txt_needs_https_port=$(txt errors err_needs_https_port "This page is loaded over HTTPS, but no HTTPS port is set for this NAS, so the browser blocks the insecure HTTP request. Add an HTTPS port for this entry in Settings, or view Drive Info over HTTP instead.")
@@ -878,6 +914,9 @@ a    { color: #0073c0; }
 #smart-important-row { padding-left: 8px; }
 #smart-schedule-row { padding-left: 8px; }
 #smart-error-only-row { padding-left: 8px; }
+#smart-email-important-row { padding-left: 8px; }
+.toggle-row.disabled-row { opacity: 0.5; }
+.toggle-row.disabled-row .toggle-slider { cursor: not-allowed; }
 .toggle { position: relative; display: inline-block; width: 40px; height: 22px; }
 .toggle input { opacity: 0; width: 0; height: 0; }
 .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0;
@@ -1446,10 +1485,17 @@ cat << SETTINGSHTML
       </div>
       <div class="toggle-row" id="smart-error-only-row" style="margin-left:50px;">
         <label class="toggle">
-          <input type="checkbox" id="smart_notify_error_only" $([ "$_smart_notify_error_only" = "true" ] && echo "checked")>
+          <input type="checkbox" id="smart_notify_error_only" onchange="updateEmailImportantState()" $([ "$_smart_notify_error_only" = "true" ] && echo "checked")>
           <span class="toggle-slider"></span>
         </label>
         <span>${_txt_notify_error_only}</span>
+      </div>
+      <div class="toggle-row" id="smart-email-important-row" style="margin-left:50px;">
+        <label class="toggle">
+          <input type="checkbox" id="smart_email_important" onchange="smartEmailImportantPref = this.checked" $([ "$_smart_email_important" = "true" ] && echo "checked")>
+          <span class="toggle-slider"></span>
+        </label>
+        <span>${_txt_email_important}</span>
       </div>
     </div>
   </div>
@@ -1492,11 +1538,14 @@ var showImportantSMART = ${_show_smart_important};       // snapshot for Cancel
 var smartScheduleEnableSaved = ${_smart_schedule_enable};      // snapshot for Cancel
 var smartNotifyEmailSaved = '${_smart_notify_email_js}';       // snapshot for Cancel
 var smartNotifyErrorOnlySaved = ${_smart_notify_error_only};   // snapshot for Cancel
+var smartEmailImportantSaved = ${_smart_email_important};      // snapshot for Cancel
+var smartEmailImportantPref = ${_smart_email_important};       // user's real preference, distinct from the forced-on display state
 var txtRemove = "${_txt_remove}";
 var txtTesting = "${_txt_testing}";
 var txtUnreachable = "${_txt_unreachable}";
 var txtSaveFailed = "${_txt_save_failed}";
 var txtNotReachable = "${_txt_not_reachable}";
+var txtInvalidEmail = "${_txt_invalid_email}";
 var txtHttpsCert = "${_txt_https_cert}";
 var txtNeedsHttpsPort = "${_txt_needs_https_port}";
 var viewer_lang = '${_lang}';
@@ -1513,6 +1562,7 @@ function showSettings() {
     btn.innerHTML = '<img src="/webman/3rdparty/drive_info/images/bt_home.png" width="20" height="20" alt="">';
     btn.title = '${_txt_back}';
     btn.onclick = cancelSettings;
+    updateEmailImportantState();
     renderTable();
 }
 
@@ -1525,6 +1575,10 @@ function cancelSettings() {
     document.getElementById('smart_schedule_enable').checked = smartScheduleEnableSaved;
     document.getElementById('smart_notify_email').value = smartNotifyEmailSaved;
     document.getElementById('smart_notify_error_only').checked = smartNotifyErrorOnlySaved;
+    document.getElementById('smart_email_important').checked = smartEmailImportantSaved;
+    smartEmailImportantPref = smartEmailImportantSaved;
+    document.getElementById('smart_notify_email').style.borderColor = '';
+    hideSaveError();
     toggleScheduleFields();
     document.getElementById('settings-panel').style.display = 'none';
     document.getElementById('main-view').style.display = '';
@@ -1601,6 +1655,37 @@ function esc(s) {
 function toggleScheduleFields() {
     var enabled = document.getElementById('smart_schedule_enable').checked;
     document.getElementById('schedule-subfields').style.display = enabled ? '' : 'none';
+    if (!enabled) {
+        document.getElementById('smart_notify_email').style.borderColor = '';
+        hideSaveError();
+    }
+    updateEmailImportantState();
+}
+
+// ---------------------------------------------------------------------------
+// "Only send email when important attributes have changed" forces the
+// emailed report into important-only mode (-i implies no -a), so when it's
+// on, "Email only important S.M.A.R.T. values" is shown checked and locked.
+// This only overrides the *display* - smartEmailImportantPref remembers the
+// user's actual preference so it's restored, not lost, when un-forced.
+// ---------------------------------------------------------------------------
+function updateEmailImportantState() {
+    var errorOnly = document.getElementById('smart_notify_error_only').checked;
+    var cb = document.getElementById('smart_email_important');
+    var row = document.getElementById('smart-email-important-row');
+    if (errorOnly) {
+        if (!cb.disabled) {
+            // Not already forced - capture the real preference before overriding it
+            smartEmailImportantPref = cb.checked;
+        }
+        cb.checked = true;
+        cb.disabled = true;
+        row.classList.add('disabled-row');
+    } else {
+        cb.checked = smartEmailImportantPref;
+        cb.disabled = false;
+        row.classList.remove('disabled-row');
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1633,8 +1718,27 @@ function hideSaveError() {
     el.textContent = '';
 }
 
+function isValidEmail(v) {
+    // Same shape as the server-side check in api.cgi's save_settings action -
+    // deliberately simple, just enough to catch blank/obviously-malformed input.
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+}
+
 function saveSettings() {
     hideSaveError();
+
+    var scheduleEnabled = document.getElementById('smart_schedule_enable').checked;
+    var emailField = document.getElementById('smart_notify_email');
+    var emailVal = emailField.value.trim();
+    if (scheduleEnabled && !isValidEmail(emailVal)) {
+        emailField.style.borderColor = '#d9534f';
+        var errEl = document.getElementById('save-error');
+        errEl.textContent = txtInvalidEmail;
+        errEl.style.display = 'inline-block';
+        emailField.focus();
+        return;  // don't close the settings panel or send the request
+    }
+    emailField.style.borderColor = '';
 
     var valid = [];
     for (var i = 0; i < nasData.length; i++) {
@@ -1696,12 +1800,14 @@ function doSaveSettings(valid, validSaved, willCheckNas) {
     var smartScheduleEnable = document.getElementById('smart_schedule_enable').checked ? 'true' : 'false';
     var smartNotifyEmail = document.getElementById('smart_notify_email').value.trim();
     var smartNotifyErrorOnly = document.getElementById('smart_notify_error_only').checked ? 'true' : 'false';
+    var smartEmailImportant = document.getElementById('smart_email_important').checked ? 'true' : 'false';
     var qs = 'action=save_settings&discover_nas=' + discover +
              '&show_volume_info=' + showVolumeInfo +
              '&show_smart_important=' + showSmartImportant +
              '&smart_schedule_enable=' + smartScheduleEnable +
              '&smart_notify_email=' + encodeURIComponent(smartNotifyEmail) +
              '&smart_notify_error_only=' + smartNotifyErrorOnly +
+             '&smart_email_important=' + smartEmailImportant +
              '&manual_nas_count=' + valid.length;
 
     for (var j = 0; j < valid.length; j++) {
@@ -1741,6 +1847,8 @@ function doSaveSettings(valid, validSaved, willCheckNas) {
                 smartScheduleEnableSaved = (smartScheduleEnable === 'true');
                 smartNotifyEmailSaved = smartNotifyEmail;
                 smartNotifyErrorOnlySaved = (smartNotifyErrorOnly === 'true');
+                smartEmailImportantSaved = (smartEmailImportant === 'true');
+                smartEmailImportantPref = smartEmailImportantSaved;
                 document.getElementById('settings-panel').style.display = 'none';
                 document.getElementById('main-view').style.display = '';
                 document.getElementById('reload-btn').style.display = '';

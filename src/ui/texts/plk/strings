@@ -41,6 +41,8 @@ save_failed	=	"Nie można zapisać ustawień - spróbuj ponownie"
 nas_unreachable	=	"Nie można połączyć się z %h pod adresem %ip:%port - sprawdź adres IP i port"
 login_port	=	"Port HTTP"
 https_port	=	"Port HTTPS"
+smart_email_important	=	"Wysyłaj e-mailem tylko ważne wartości S.M.A.R.T."
+err_invalid_email	=	"Wprowadź prawidłowy adres e-mail."
 
 [common]
 location	=	Lokalizacja

@@ -41,6 +41,8 @@ save_failed	=	"No se pudieron guardar los ajustes - por favor, inténtelo de nue
 nas_unreachable	=	"No se puede conectar con %h en %ip:%port - compruebe la dirección IP y el puerto"
 login_port	=	"Puerto HTTP"
 https_port	=	"Puerto HTTPS"
+smart_email_important	=	"Enviar por correo solo los valores S.M.A.R.T. importantes"
+err_invalid_email	=	"Introduzca una dirección de correo electrónico válida."
 
 [common]
 location	=	Ubicación

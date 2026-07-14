@@ -41,6 +41,8 @@ save_failed	=	"Instellingen konden niet worden opgeslagen - probeer het opnieuw"
 nas_unreachable	=	"Kan %h op %ip:%port niet bereiken - controleer het IP-adres en de poort"
 login_port	=	"HTTP-poort"
 https_port	=	"HTTPS-poort"
+smart_email_important	=	"Alleen belangrijke S.M.A.R.T.-waarden per e-mail verzenden"
+err_invalid_email	=	"Voer een geldig e-mailadres in."
 
 [common]
 location	=	Locatie

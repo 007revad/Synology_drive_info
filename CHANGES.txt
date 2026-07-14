@@ -1,3 +1,8 @@
+v2.1.37
+- Added "Email only important S.M.A.R.T. values" option in settings.
+- Added basic email address validation when user clicks Save.
+- Bug fixes for SMART email scheduling.
+
 v2.1.36
 - Bug fix for SMART email schedule not being set.
 

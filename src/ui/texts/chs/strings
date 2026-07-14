@@ -42,6 +42,8 @@ save_failed	=	"无法保存设置 - 请重试"
 nas_unreachable	=	"无法访问 %h（%ip:%port）- 请检查 IP 地址和端口"
 login_port	=	"HTTP 端口"
 https_port	=	"HTTPS 端口"
+smart_email_important	=	"仅通过电子邮件发送重要的 S.M.A.R.T. 值"
+err_invalid_email	=	"请输入有效的电子邮件地址。"
 
 [common]
 location	=	位置

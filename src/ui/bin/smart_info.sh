@@ -30,6 +30,7 @@ else
     if detect_scheduler; then
         sch_task="yes"
         color="no"
+        #echo "DEBUG: Running via task scheduler"
     #else
     #    echo "DEBUG: Not running in terminal or via task scheduler"
     fi
@@ -169,6 +170,9 @@ if options="$(getopt -o abcdefghijklmnopqrstuvwxyz0123456789 -l dev:,all,increas
                 ;;
             -d|--debug)         # Show SAS debug messages
                 debug=yes
+                ;;
+            -e|--email)         # No coloured text for emails
+                color=no
                 ;;
             --)
                 shift
@@ -1314,45 +1318,47 @@ is_seagate(){
     fi
 }
 
-# Add drives to drives array
-#for d in /sys/block/*; do
-#    # $d is /sys/block/sata1 etc
-#    case "$(basename -- "${d}")" in
-#        sd*|hd*)
-#            if [[ $d =~ [hs]d[a-z][a-z]?$ ]]; then
-#                if is_usb "$d"; then  # Add USB drives except flash drives
-#                    if not_flash_drive "$d"; then
-#                        drives+=("$(basename -- "${d}")")
-#                    fi
-#                else
-#                    drives+=("$(basename -- "${d}")")  # Add all other drives
-#                fi
-#            fi
-#        ;;
-#        sata*|sas*)
-#            if [[ $d =~ (sas|sata)[0-9][0-9]?[0-9]?$ ]]; then
-#                drives+=("$(basename -- "${d}")")
-#            fi
-#        ;;
-#        nvme*)
-#            if [[ $d =~ nvme[0-9][0-9]?n[0-9][0-9]?$ ]]; then
-#                nvmes+=("$(basename -- "${d}")")
-#            fi
-#        ;;
-#        nvc*)  # M.2 SATA drives (in PCIe card only?)
-#            if [[ $d =~ nvc[0-9][0-9]?$ ]]; then
-#                drives+=("$(basename -- "${d}")")
-#            fi
-#        ;;
-#        usb*)
-#            if [[ $d =~ usb[0-9]?[0-9]?$ ]]; then
-#                if not_flash_drive "$d"; then
-#                    drives+=("$(basename -- "${d}")")
-#                fi
-#            fi
-#        ;;
-#    esac
-#done
+# Add drives to drives array if running from task scheduler
+if [[ $sch_task == "yes" ]]; then
+    for d in /sys/block/*; do
+        # $d is /sys/block/sata1 etc
+        case "$(basename -- "${d}")" in
+            sd*|hd*)
+                if [[ $d =~ [hs]d[a-z][a-z]?$ ]]; then
+                    if is_usb "$d"; then  # Add USB drives except flash drives
+                        if not_flash_drive "$d"; then
+                            drives+=("$(basename -- "${d}")")
+                        fi
+                    else
+                        drives+=("$(basename -- "${d}")")  # Add all other drives
+                    fi
+                fi
+            ;;
+            sata*|sas*)
+                if [[ $d =~ (sas|sata)[0-9][0-9]?[0-9]?$ ]]; then
+                    drives+=("$(basename -- "${d}")")
+                fi
+            ;;
+            nvme*)
+                if [[ $d =~ nvme[0-9][0-9]?n[0-9][0-9]?$ ]]; then
+                    nvmes+=("$(basename -- "${d}")")
+                fi
+            ;;
+            nvc*)  # M.2 SATA drives (in PCIe card only?)
+                if [[ $d =~ nvc[0-9][0-9]?$ ]]; then
+                    drives+=("$(basename -- "${d}")")
+                fi
+            ;;
+            usb*)
+                if [[ $d =~ usb[0-9]?[0-9]?$ ]]; then
+                    if not_flash_drive "$d"; then
+                        drives+=("$(basename -- "${d}")")
+                    fi
+                fi
+            ;;
+        esac
+    done
+fi
 
 if [[ -z "$errtotal" ]]; then errtotal=0 ; fi
 
@@ -1371,28 +1377,110 @@ for drive in "${drives[@]}"; do
     get_drive_num
     drive_number="$(echo "$drive_num" | xargs)"
 
-    #if [[ ${#drive_number} == "7" ]]; then
-    #    drives_1+=("${drive_number:?},${drive:?}")
-    #elif [[ ${#drive_number} == "8" ]]; then
-    #    drives_2+=("${drive_number:?},${drive:?}")
-    #elif [[ ${#drive_number} == "9" ]]; then
-    #    drives_3+=("${drive_number:?},${drive:?}")
-    #elif echo "$drive_number" | grep -q -E '^System Drive'; then
-    #    sys_drives+=("${drive_number:?},${drive:?}")
-    #elif echo "$drive_number" | grep -q -E '\(DX|\(RX|\(FX'; then
-    #    d_number="$(echo "$drive_num" | cut -d"(" -f1 | xargs)"
-    #    if [[ ${#d_number} == "7" ]]; then
-    #        eunit_drives_1+=("${drive_number:?},${drive:?}")
-    #    elif [[ ${#d_number} == "8" ]]; then
-    #        eunit_drives_2+=("${drive_number:?},${drive:?}")
-    #    elif [[ ${#d_number} == "9" ]]; then
-    #        eunit_drives_3+=("${drive_number:?},${drive:?}")
-    #    fi
-    #fi
-    
-    drives_sorted+=("${drive_number:?},${drive:?}")
+    if [[ $sch_task == "yes" ]]; then
+        if [[ ${#drive_number} == "7" ]]; then
+            drives_1+=("${drive_number:?},${drive:?}")
+        elif [[ ${#drive_number} == "8" ]]; then
+            drives_2+=("${drive_number:?},${drive:?}")
+        elif [[ ${#drive_number} == "9" ]]; then
+            drives_3+=("${drive_number:?},${drive:?}")
+        elif echo "$drive_number" | grep -q -E '^System Drive'; then
+            sys_drives+=("${drive_number:?},${drive:?}")
+        elif echo "$drive_number" | grep -q -E '\(DX|\(RX|\(FX'; then
+            d_number="$(echo "$drive_num" | cut -d"(" -f1 | xargs)"
+            if [[ ${#d_number} == "7" ]]; then
+                eunit_drives_1+=("${drive_number:?},${drive:?}")
+            elif [[ ${#d_number} == "8" ]]; then
+                eunit_drives_2+=("${drive_number:?},${drive:?}")
+            elif [[ ${#d_number} == "9" ]]; then
+                eunit_drives_3+=("${drive_number:?},${drive:?}")
+            fi
+        fi
+    else
+        drives_sorted+=("${drive_number:?},${drive:?}")
+    fi
 done
 
+if [[ $sch_task == "yes" ]]; then
+    # Sort HDD/SSD drives_1 array
+    IFS=$'\n'
+    drives_sorted=($(sort <<<"${drives_1[*]}"))  # Sort array
+    unset IFS
+
+    # Sort HDD/SSD drives_2 array
+    IFS=$'\n'
+    drives_sorted_2=($(sort <<<"${drives_2[*]}"))  # Sort array
+    unset IFS
+
+    # Append drives_sorted_2 to drives_sorted
+    for d in "${drives_sorted_2[@]}"; do
+        drives_sorted+=("$d")
+    done
+
+    # Sort HDD/SSD drives_3 array
+    IFS=$'\n'
+    drives_sorted_3=($(sort <<<"${drives_3[*]}"))  # Sort array
+    unset IFS
+
+    # Append drives_sorted_3 to drives_sorted
+    for d in "${drives_sorted_3[@]}"; do
+        drives_sorted+=("$d")
+    done
+
+
+    # Sort HDD/SSD sys_drives array
+    IFS=$'\n'
+    sys_drives_sorted=($(sort <<<"${sys_drives[*]}"))  # Sort array
+    unset IFS
+
+    # Append sys_drives_sorted to drives_sorted
+    for d in "${sys_drives_sorted[@]}"; do
+        drives_sorted+=("$d")
+    done
+
+
+    # Get array of connected expansion units
+    # Only device tree models have syno_slot_mapping so we use different method
+    for f in /tmp/eunitinfo_*; do
+        if [[ -f "$f" ]]; then
+            eunits+=("$(get_key_value "$f" EUnitModel)")
+        fi
+    done
+
+    # Sort eunit HDD/SSD eunit_drives_1 array
+    IFS=$'\n'
+    eunit_drives_sorted=($(sort <<<"${eunit_drives_1[*]}"))  # Sort array
+    unset IFS
+
+    # Sort eunit HDD/SSD eunit_drives_2 array
+    IFS=$'\n'
+    eunit_drives_sorted_2=($(sort <<<"${eunit_drives_2[*]}"))  # Sort array
+    unset IFS
+
+    # Append eunit_drives_sorted_2 to eunit_drives_sorted
+    for d in "${eunit_drives_sorted_2[@]}"; do
+        eunit_drives_sorted+=("$d")
+    done
+
+    # Sort eunit HDD/SSD eunit_drives_3 array
+    IFS=$'\n'
+    eunit_drives_sorted_3=($(sort <<<"${eunit_drives_3[*]}"))  # Sort array
+    unset IFS
+
+    # Append eunit_drives_sorted_3 to eunit_drives_sorted
+    for d in "${eunit_drives_sorted_3[@]}"; do
+        eunit_drives_sorted+=("$d")
+    done
+
+    # Append eunit drives to drives_sorted in eunit order then drive number order
+    for e in "${eunits[@]}"; do
+        for d in "${eunit_drives_sorted[@]}"; do
+            if echo "$d" | grep -q "$e"; then
+                drives_sorted+=("$d")
+            fi
+        done
+    done
+fi
 
 # HDD and SSD
 for d in "${drives_sorted[@]}"; do
@@ -1467,6 +1555,10 @@ for d in "${drives_sorted[@]}"; do
                 echo -e "$i"
             done
         fi
+    fi
+
+    if [[ $sch_task == "yes" ]]; then
+        echo -e " \n"
     fi
 done
 
@@ -1554,6 +1646,10 @@ for d in "${nvmes_sorted[@]}"; do
             done
         fi
     fi
+
+    if [[ $sch_task == "yes" ]]; then
+        echo -e " \n"
+    fi
 done
 
 if [[ $increased == "yes" ]]; then
@@ -1573,8 +1669,8 @@ awk 'NR>1 && /^\[/ && prev!="" {print ""} {print; prev=$0}' \
     "$smart_log" > /tmp/smart.tmp \
     && mv /tmp/smart.tmp "$smart_log"
 
-if [[ $sch_task == "yes" ]]; then
-    echo -e "\n \n "  # For task scheduler email readability
-fi
+#if [[ $sch_task == "yes" ]]; then
+#    echo -e "\n \n "  # For task scheduler email readability
+#fi
 
 exit "$errtotal"

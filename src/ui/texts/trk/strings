@@ -41,6 +41,8 @@ save_failed	=	"Ayarlar kaydedilemedi - lütfen tekrar deneyin"
 nas_unreachable	=	"%h adresine %ip:%port üzerinden ulaşılamıyor - IP adresini ve portu kontrol edin"
 login_port	=	"HTTP bağlantı noktası"
 https_port	=	"HTTPS bağlantı noktası"
+smart_email_important	=	"Yalnızca önemli S.M.A.R.T. değerlerini e-postayla gönder"
+err_invalid_email	=	"Geçerli bir e-posta adresi girin."
 
 [common]
 location	=	Konum

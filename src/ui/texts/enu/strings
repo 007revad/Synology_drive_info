@@ -43,6 +43,8 @@ save_failed	=	"Could not save settings - please try again"
 nas_unreachable	=	"Cannot reach %h at %ip:%port - check the IP address and port"
 login_port	=	HTTP port
 https_port	=	HTTPS port
+smart_email_important	=	"Email only important S.M.A.R.T. values"
+err_invalid_email	=	"Enter a valid email address."
 
 [common]
 drive	=	Drive
