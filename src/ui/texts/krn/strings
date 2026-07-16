@@ -94,3 +94,4 @@ interface	=	인터페이스
 hotspare	=	Hot Spare
 basic	=	Basic
 eject_usb	=	꺼내기
+esata_drive	=	"eSATA 드라이브"

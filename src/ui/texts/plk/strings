@@ -94,3 +94,4 @@ interface	=	Interfejs
 hotspare	=	Hot Spare
 basic	=	Basic
 eject_usb	=	Wysuń
+esata_drive	=	"Dysk eSATA"

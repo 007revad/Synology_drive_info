@@ -94,3 +94,4 @@ interface	=	Rozhraní
 hotspare	=	Hot Spare
 basic	=	Basic
 eject_usb	=	Odebrat
+esata_drive	=	"eSATA disk"

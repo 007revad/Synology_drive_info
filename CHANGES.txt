@@ -1,3 +1,9 @@
+v2.1.39
+- Added "eSATA Drive #" for external eSATA drives.
+- Bug fix for SMR showing for NVMe M.2 and SATA M.2 drives if the previous drive was an SMR drive.
+- Bug fix for newly connected expansion units not being detected.
+- Bug fix for empty scheduled SMART emails (or only containing NVMe drives) if the user's language was not English, Czech, Spanish or Thia.
+
 v2.1.38
 - Bug fix for SMART email scheduling.
   - Enabling "Only send email when important attributes have changed" was changing the user's "Email only important S.M.A.R.T. values" setting.

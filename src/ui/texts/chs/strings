@@ -95,3 +95,4 @@ interface	=	界面
 hotspare	=	Hot Spare
 basic	=	Basic
 eject_usb	=	退出
+esata_drive	=	"eSATA 驱动器"

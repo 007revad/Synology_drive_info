@@ -93,3 +93,4 @@ interface	=	Gränssnitt
 hotspare	=	Hot Spare
 basic	=	Basic
 eject_usb	=	Mata ut
+esata_drive	=	"eSATA-enhet"

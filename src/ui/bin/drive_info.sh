@@ -39,6 +39,12 @@ else
     smartctl=$(which smartctl)
 fi
 
+# Get eunit model and port number
+# Only device tree models have syno_slot_mapping so we use different method
+# Ensure newly connected ebox has /tmp/eunitinfo_N files
+# Create new /tmp/eunitinfo_N files
+/usr/syno/sbin/eunit_info
+
 # Check if language entries exist in sudoers file, regardless of (ALL) vs (root)
 if [[ "$dsm" -ge "7" ]]; then
     if ! grep -q "drive_info.sh enu" /etc/sudoers.d/drive_info 2>/dev/null; then
@@ -143,10 +149,25 @@ is_usb(){
     fi
 }
 
+get_esata_title(){ 
+    local dev_id="$1"
+    # Don't run synowebapi for each eSATA drive
+    if [[ -z "$esata_json" ]]; then
+        if [[ "$dsm" -le "6" ]]; then
+            esata_json=$(synowebapi --exec api=SYNO.Core.ExternalDevice.Storage.eSATA method=list version=1 2>/dev/null)
+        else
+            esata_json=$(synowebapi -s --exec api=SYNO.Core.ExternalDevice.Storage.eSATA method=list version=1 2>/dev/null)
+        fi
+    fi
+    echo "$esata_json" | jq -r --arg dev "$dev_id" '.data.devices[] | select(.dev_id == $dev) | .dev_title'
+}
+
 get_drive_num(){ 
-    local label usb_drive_label
-    label="$(txt common drive "Drive")"
+    local drive_label usb_drive_label esata_drive_label system_drive_label
+    drive_label="$(txt common drive "Drive")"
     usb_drive_label="$(txt common usb_drive "USB Drive")"
+    system_drive_label="$(txt common system_drive "System Drive")"
+    esata_drive_label="$(txt common esata_drive "eSATA Drive")"
     drive_num=""
     disk_id=""
     disk_cnr=""
@@ -170,18 +191,30 @@ get_drive_num(){
     done
 
     if [[ $disk_cnr -eq "4" ]]; then
+        # USB drives
         usb_num="$(synousbdisk -info "$drive" | grep '^Name:' | cut -d" " -f4)"
         drive_num="$usb_drive_label $usb_num"
+    elif [[ $disk_cnr -eq "8" ]]; then
+        # eSATA drives
+        #if [[ "$dsm" -le "6" ]]; then  # Might not just be DSM 6. It may be all models that don't have model.dtb
+        if ! which syno_slot_mapping >/dev/null; then
+            drive_title=$(get_esata_title "$(basename -- "$drive")")
+            disk_id="$(echo "$drive_title" | cut -d" " -f3)"
+            disk_id="${disk_id#Disk}"
+        fi
+        drive_num="$esata_drive_label $disk_id"
     elif [[ $eunit ]]; then
-        #drive_num="$label $disk_id ($eunit)"
-        drive_num="$label $disk_id"
+        # Expansion unit drives
+        #drive_num="$drive_label $disk_id ($eunit)"
+        drive_num="$drive_label $disk_id"
         location="$eunit"
     elif synodisk --enum -t sys | grep -q "/dev/$drive"; then
-        # HD6500
-        drive_num="$label $disk_id"
-        location="$(txt common system_drive "System Drive")"
+        # HD6500 system drives
+        drive_num="$drive_label $disk_id"
+        location="$system_drive_label"
     else
-        drive_num="$label $disk_id"
+        # All other drives
+        drive_num="$drive_label $disk_id"
     fi
 
     # Get PCIe M.2 card model (if the drive is an M.2 SATA drive in a PCIe M.2 card)
@@ -591,9 +624,8 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
     w_temp=${#hdr_temp}
     w_status=${#hdr_status}
 
-    smr=""
-
     for drive in "${drives[@]}"; do
+        smr=""
         get_drive_num
         append_pool_hover
         if [[ "$dsm" -le "6" ]]; then
@@ -626,6 +658,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
     done
 
     for drive in "${nvmes[@]}"; do
+        smr=""
         get_nvme_num
         append_pool_hover
         if [[ "$dsm" -le "6" ]]; then
@@ -653,6 +686,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
     done
 
     for drive in "${nvcs[@]}"; do
+        smr=""
         get_drive_num
         append_pool_hover
         if [[ "$dsm" -le "6" ]]; then
@@ -680,6 +714,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
     done
 
     for drive in "${usbs[@]}"; do
+        smr=""
         get_drive_num
         append_pool_hover
         get_drive_health usb

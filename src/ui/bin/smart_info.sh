@@ -8,8 +8,11 @@
 
 #scriptver="v1.4.40"
 #script=Synology_SMART_info
-#scriptname=syno_smart_info
+scriptname=syno_smart_info
 #repo="007revad/Synology_SMART_info"
+
+# Get location of script
+scriptpath="$(realpath "$0")"
 
 detect_scheduler(){ 
     # Check parent process
@@ -52,7 +55,7 @@ if [[ -z "$nas_model" ]]; then
 fi
 
 # Get DSM major version
-dsm=$(get_key_value /etc.defaults/VERSION majorversion)
+dsm=$(synogetkeyvalue /etc.defaults/VERSION majorversion)
 
 # Set log path
 # DSM 7: var/ exists and is writable by drive_info (run-as: package)
@@ -71,6 +74,12 @@ if which smartctl7 >/dev/null; then
 else
     smartctl=$(which smartctl)
 fi
+
+# Get eunit model and port number
+# Only device tree models have syno_slot_mapping so we use different method
+# Ensure newly connected ebox has /tmp/eunitinfo_N files
+# Create new /tmp/eunitinfo_N files
+/usr/syno/sbin/eunit_info
 
 debug() {
     [[ $debug == "yes" ]] && echo "DEBUG: $*"
@@ -205,6 +214,7 @@ fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 get_text_module="$(dirname "${script_dir}")/modules/get_text.sh"
 if [[ -f "${get_text_module}" ]]; then
+    # shellcheck source=/dev/null
     source "${get_text_module}" "$gui_lang"
 else
     txt() { echo "${3}"; }  # txt SECTION KEY DEFAULT -> just print DEFAULT
@@ -271,18 +281,34 @@ detect_dtype(){
     echo "$dtype"
 }
 
+get_esata_title(){ 
+    local dev_id="$1"
+    # Don't run synowebapi for each eSATA drive
+    if [[ -z "$esata_json" ]]; then
+        if [[ "$dsm" -le "6" ]]; then
+            esata_json=$(synowebapi --exec api=SYNO.Core.ExternalDevice.Storage.eSATA method=list version=1 2>/dev/null)
+        else
+            esata_json=$(synowebapi -s --exec api=SYNO.Core.ExternalDevice.Storage.eSATA method=list version=1 2>/dev/null)
+        fi
+    fi
+    echo "$esata_json" | jq -r --arg dev "$dev_id" '.data.devices[] | select(.dev_id == $dev) | .dev_title'
+}
+
 get_drive_num(){ 
-    local drive_label usb_drive_label system_drive_label
+    local drive_label usb_drive_label esata_drive_label system_drive_label
     drive_label="$(txt common drive "Drive")"
     usb_drive_label="$(txt common usb_drive "USB Drive")"
     system_drive_label="$(txt common system_drive "System Drive")"
+    esata_drive_label="$(txt common esata_drive "eSATA Drive")"
     drive_num=""
+    drive_id=""
     disk_id=""
     disk_cnr=""
     #disk_cnridx=""
     #eunit_num=""
     #eunit_model=""
     eunit=""
+    is_system_drive=""
     # Get Drive number
     disk_id=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk id:' | awk '{print $NF}')
     disk_cnr=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk cnr:' | awk '{print $NF}')
@@ -296,21 +322,39 @@ get_drive_num(){
     for f in /tmp/eunitinfo_*; do
         if [[ -f "$f" ]]; then
             if grep -q "/dev/$drive" "$f"; then
-                eunit="$(get_key_value "$f" EUnitModel)"
+                eunit="$(synogetkeyvalue "$f" EUnitModel)"
             fi
         fi
     done
 
     if [[ $disk_cnr -eq "4" ]]; then
+        # USB drives
         usb_num="$(synousbdisk -info "$drive" | grep '^Name:' | cut -d" " -f4)"
         drive_num="$usb_drive_label $usb_num"
+        drive_id="$usb_num"
+    elif [[ $disk_cnr -eq "8" ]]; then
+        # eSATA drives
+        #if [[ "$dsm" -le "6" ]]; then  # Might not just be DSM 6. It may be all models that don't have model.dtb
+        if ! which syno_slot_mapping >/dev/null; then
+            drive_title=$(get_esata_title "$(basename -- "$drive")")
+            disk_id="$(echo "$drive_title" | cut -d" " -f3)"
+            disk_id="${disk_id#Disk}"
+        fi
+        drive_num="$esata_drive_label $disk_id"
+        drive_id="$disk_id"
     elif [[ $eunit ]]; then
+        # Expansion unit drives
         drive_num="$drive_label $disk_id ($eunit)"
+        drive_id="$disk_id"
     elif synodisk --enum -t sys | grep -q "/dev/$drive"; then
-        # HD6500
+        # HD6500 system drives
         drive_num="$system_drive_label $disk_id"
+        is_system_drive="yes"
+        drive_id="$disk_id"
     else
+        # All other drives
         drive_num="$drive_label $disk_id"
+        drive_id="$disk_id"
     fi
 }
 
@@ -1367,10 +1411,16 @@ if [[ -z "$errtotal" ]]; then errtotal=0 ; fi
 smart_log="${logpath}"/smart.log
 if [[ ! -f $smart_log ]]; then
     touch "$smart_log"
-    chown root:root "$smart_log"
+    if [[ $dsm -gt "6" ]]; then
+        chown drive_info:drive_info "$smart_log"
+    fi
     chmod 666 "$smart_log"
 fi
 
+# Fix owner:group from older versions
+if [[ $dsm -gt "6" ]]; then
+    chown drive_info:drive_info "$smart_log"
+fi
 
 # Sort HDD and SSD devices by DSM drive name
 for drive in "${drives[@]}"; do
@@ -1378,21 +1428,22 @@ for drive in "${drives[@]}"; do
     drive_number="$(echo "$drive_num" | xargs)"
 
     if [[ $sch_task == "yes" ]]; then
-        if [[ ${#drive_number} == "7" ]]; then
+        if [[ ${#drive_id} == "1" ]]; then
             drives_1+=("${drive_number:?},${drive:?}")
-        elif [[ ${#drive_number} == "8" ]]; then
+        elif [[ ${#drive_id} == "2" ]]; then
             drives_2+=("${drive_number:?},${drive:?}")
-        elif [[ ${#drive_number} == "9" ]]; then
+        elif [[ ${#drive_id} == "3" ]]; then
             drives_3+=("${drive_number:?},${drive:?}")
-        elif echo "$drive_number" | grep -q -E '^System Drive'; then
+        #elif echo "$drive_number" | grep -q -E '^System Drive'; then
+        elif [[ $is_system_drive == "yes" ]]; then
             sys_drives+=("${drive_number:?},${drive:?}")
         elif echo "$drive_number" | grep -q -E '\(DX|\(RX|\(FX'; then
             d_number="$(echo "$drive_num" | cut -d"(" -f1 | xargs)"
-            if [[ ${#d_number} == "7" ]]; then
+            if [[ ${#d_number} == "1" ]]; then
                 eunit_drives_1+=("${drive_number:?},${drive:?}")
-            elif [[ ${#d_number} == "8" ]]; then
+            elif [[ ${#d_number} == "2" ]]; then
                 eunit_drives_2+=("${drive_number:?},${drive:?}")
-            elif [[ ${#d_number} == "9" ]]; then
+            elif [[ ${#d_number} == "3" ]]; then
                 eunit_drives_3+=("${drive_number:?},${drive:?}")
             fi
         fi
@@ -1443,7 +1494,7 @@ if [[ $sch_task == "yes" ]]; then
     # Only device tree models have syno_slot_mapping so we use different method
     for f in /tmp/eunitinfo_*; do
         if [[ -f "$f" ]]; then
-            eunits+=("$(get_key_value "$f" EUnitModel)")
+            eunits+=("$(synogetkeyvalue "$f" EUnitModel)")
         fi
     done
 

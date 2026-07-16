@@ -94,3 +94,4 @@ interface	=	Illesztőfelület
 hotspare	=	Hot Spare
 basic	=	Basic
 eject_usb	=	Kivetés
+esata_drive	=	"eSATA-meghajtó"

@@ -95,3 +95,4 @@ interface	=	Grensesnitt
 hotspare	=	Hot Spare
 basic	=	Basic
 eject_usb	=	Løs ut
+esata_drive	=	"eSATA-stasjon"

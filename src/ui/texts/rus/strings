@@ -94,3 +94,4 @@ interface	=	Интерфейс
 hotspare	=	Hot Spare
 basic	=	Basic
 eject_usb	=	Извлечь
+esata_drive	=	"eSATA-накопитель"

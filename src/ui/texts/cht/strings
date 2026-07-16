@@ -94,3 +94,4 @@ interface	=	介面
 hotspare	=	Hot Spare
 basic	=	Basic
 eject_usb	=	退出
+esata_drive	=	"eSATA 磁碟機"

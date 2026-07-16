@@ -94,3 +94,4 @@ interface	=	Schnittstelle
 hotspare	=	Hot Spare
 basic	=	Basic
 eject_usb	=	Entfernen
+esata_drive	=	"eSATA-Laufwerk"
