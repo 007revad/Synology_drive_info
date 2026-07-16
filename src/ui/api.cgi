@@ -640,9 +640,24 @@ if [[ "$_action" == "get_smart" ]]; then
         fi
 
         # SMART health / error log prose lines (sentinel may be mid-line, e.g. "...: green::PASSED")
+        # These always stand alone between attribute blocks, so close any table
+        # left open by whatever came before (e.g. the marginal-attributes table),
+        # otherwise the next block (a different table shape) gets force-parsed
+        # using the wrong column layout.
         if [[ "$trimmed" =~ ^SMART ]]; then
+            close_smart_table
             esc="$(echo "$trimmed" | sed 's/</\&lt;/g;s/>/\&gt;/g')"
             esc="$(colorize_inline "$esc")"
+            echo "<div id=\"smart-panel-prose\">$esc</div>"
+            continue
+        fi
+
+        # smartctl's own "Please note the following marginal Attributes:" heading,
+        # printed ahead of its WHEN_FAILED mini-table. Ends in a bare colon with
+        # nothing after it, so treat as prose, not a "Key: Value" NVMe row.
+        if [[ "$trimmed" =~ ^Please\ note\ the\ following\ marginal\ Attributes:?$ ]]; then
+            close_smart_table
+            esc="$(echo "$trimmed" | sed 's/</\&lt;/g;s/>/\&gt;/g')"
             echo "<div id=\"smart-panel-prose\">$esc</div>"
             continue
         fi
@@ -657,14 +672,27 @@ if [[ "$_action" == "get_smart" ]]; then
 
         # Header row for -a (SATA) or SCSI table - detected directly even with no
         # preceding separator line, since some smart_info.sh output omits it.
+        # WHEN_FAILED header is smartctl's own "Please note the following
+        # marginal Attributes:" mini-table (no FLAGS, no RAW_VALUE columns) -
+        # emitted whenever a drive has an attribute that failed in the past.
         if [[ "$trimmed" =~ ATTRIBUTE_NAME ]] && [[ $smart_in_table -eq 0 || -z "$smart_mode" ]]; then
-            smart_in_table=1
             if [[ "$trimmed" =~ FLAGS ]]; then
+                smart_in_table=1
                 smart_mode="all_sata"
                 echo '<table><thead><tr><th>ID#</th><th>Attribute</th><th>Flags</th><th>Value</th><th>Worst</th><th>Thresh</th><th>Fail</th><th>Raw</th></tr></thead><tbody>'
             elif [[ "$trimmed" =~ RAW_VALUE ]]; then
+                smart_in_table=1
                 smart_mode="scsi"
                 echo '<table class="smart-table-compact"><thead><tr><th>ID#</th><th>Attribute</th><th>Raw Value</th></tr></thead><tbody>'
+            elif [[ "$trimmed" =~ WHEN_FAILED ]]; then
+                smart_in_table=1
+                smart_mode="marginal"
+                echo '<table class="smart-table-compact"><thead><tr><th>ID#</th><th>Attribute</th><th>Value</th><th>Worst</th><th>Thresh</th><th>Type</th><th>When Failed</th></tr></thead><tbody>'
+            else
+                # Unrecognized header shape - don't claim an open table we
+                # can't render, or every following line gets silently dropped.
+                smart_in_table=0
+                smart_mode=""
             fi
             continue
         fi
@@ -720,6 +748,10 @@ if [[ "$_action" == "get_smart" ]]; then
                 raw="$(echo "$esc" | awk '{print $NF}')"
                 name="$(echo "$esc" | awk '{$1="";$NF="";print}' | sed 's/^ *//;s/ *$//')"
                 echo "<tr${row_cls}><td>$id</td><td>$name</td><td>$raw</td></tr>"
+            elif [[ "$smart_mode" == "marginal" ]]; then
+                # ID# ATTRIBUTE_NAME VALUE WORST THRESH TYPE WHEN_FAILED (7 single-word fields)
+                read -r id name value worst thresh type when_failed <<< "$esc"
+                echo "<tr${row_cls}><td>$id</td><td>$name</td><td>$value</td><td>$worst</td><td>$thresh</td><td>$type</td><td>$when_failed</td></tr>"
             fi
             continue
         fi

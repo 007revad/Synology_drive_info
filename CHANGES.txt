@@ -1,3 +1,6 @@
+v2.1.40
+- Bug fix for "Show only important S.M.A.R.T. values" not showing any SMART attribues if the drive had a "Please note the following marginal Attributes" warning.
+
 v2.1.39
 - Added "eSATA Drive #" for external eSATA drives.
 - Bug fix for SMR showing for NVMe M.2 and SATA M.2 drives if the previous drive was an SMR drive.
