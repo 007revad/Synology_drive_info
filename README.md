@@ -9,10 +9,14 @@
 
 ### Description
 
-DSM package to show drive device id, DSM drive number, location, model, serial number, health and S.M.A.R.T. values for all drives in all your Synology NAS.
+DSM package to show each drive's device id, DSM drive number, location, model, serial number, temperature, health and S.M.A.R.T. values for all drives in all your Synology NAS.
+  - Shows each drive's device id, DSM drive number, location, drive model, drive serial number, temperature, health, btrfs data scrub status and more.
+  - Shows volume and storage pool infomation.
   - Helps you map device ids in logs to the correct drive in Storage Manager.
   - Can also show drive information for other local Synology NAS.
+  - Can schedule daily SMART emails (for all SMART attributes or only important SMART attributes).
   - Now shows data scrubbing status, RAID rebuilding/repairing status and S.M.A.R.T. info.
+  - Supports all 21 languages that DSM supports: Chinese (Simplified), Chinese (Traditional), Czech, Danish, English (US), French, German, Hungarian, Italian, Japanese, Koreann, Dutch, Norweg, Polish, Portuguese (Brazil), Portuguese (Portugal), Russian, Spanish, Swedish, Thai and Turkish.
 
 Available for DSM 7 and DSM 6.
 
