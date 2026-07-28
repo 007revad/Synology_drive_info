@@ -63,6 +63,15 @@ jobs:
             | jq -r '.assets[].name' | grep -c '\.spk' || true)
           echo "spk_count=$existing" >> $GITHUB_OUTPUT
 
+
+      - name: Debug toolkit download
+        run: |
+          curl -L --fail -o /tmp/base_env-7.0.txz \
+            "https://github.com/007revad/synology-toolkit-cache/releases/download/7.0/base_env-7.0.txz"
+          ls -l /tmp/base_env-7.0.txz
+          sha256sum /tmp/base_env-7.0.txz
+
+
       - name: Synology Package Builder Github Action
         if: steps.check_assets.outputs.spk_count == '0'
         #uses: tomgrv/synology-package-builder@v1.3.0
