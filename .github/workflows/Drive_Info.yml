@@ -21,7 +21,7 @@ jobs:
         arch: ['kvmx64']
         #arch: ['noarch']
         #dsm: ['7.0','7.1','7.2','7.3']
-        dsm: ['7.2']
+        dsm: ['7.0']
 
     steps:
       - name: Checkout
@@ -50,7 +50,7 @@ jobs:
           dsm_list='${{ toJSON(matrix.dsm) }}'
           count=$(echo "$dsm_list" | jq 'if type == "array" then length else 1 end')
           current="${{ matrix.dsm }}"
-          if [ "$count" -eq 1 ] && [ "$current" = "7.2" ]; then
+          if [ "$count" -eq 1 ] && [ "$current" = "7.0" ]; then
             echo "suffix=DSM-7.x" >> $GITHUB_OUTPUT
           else
             echo "suffix=DSM-${current}" >> $GITHUB_OUTPUT
