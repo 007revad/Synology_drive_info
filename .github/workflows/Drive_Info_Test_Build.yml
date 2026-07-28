@@ -1,4 +1,4 @@
-name: Build Drive Info Test Package
+name: TEST Build Drive Info Test Package
 
 on:
   workflow_dispatch:
