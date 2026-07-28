@@ -6,6 +6,7 @@ TARGET_DIR="${PKG_ROOT}/target"
 SCRIPT="${TARGET_DIR}/ui/bin/drive_info.sh"
 SMART_SCRIPT="${TARGET_DIR}/ui/bin/smart_info.sh"
 CHECK_IP_SCRIPT="${TARGET_DIR}/ui/bin/check_ip_port.sh"
+TASK_SCHEDULER_SCRIPT="${TARGET_DIR}/ui/bin/task_scheduler.sh"
 SUDOERS_FILE="/etc/sudoers.d/${PKG_NAME}"
 
 # Get DSM major version
@@ -18,9 +19,26 @@ dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
 #---------------------------------------------------------------------------
 if [[ -d "${PKG_ROOT}/var" ]]; then
     SETTINGS_CONF="${PKG_ROOT}/var/settings.conf"
+    PKG_VAR_DIR="${PKG_ROOT}/var"
 else
     SETTINGS_CONF="${PKG_ROOT}/etc/settings.conf"
+    PKG_VAR_DIR="${PKG_ROOT}/etc"
 fi
+
+#---------------------------------------------------------------------------
+# synowebapi (without -s, i.e. on DSM 6) prints a verbose
+# "[Line NNN] Exec WebAPI: ..." trace line to stderr before the actual
+# JSON reply. task_scheduler.sh's create/delete results are captured with
+# 2>&1 (deliberately, so failures are visible in schedule_debug.log), so
+# on DSM 6 that trace text ends up prepended to the JSON and breaks jq
+# (which needs its input to start with valid JSON) - confirmed via
+# schedule_debug.log comparison between DSM 6 and DSM 7 output. This
+# strips everything before the first line that starts with '{' so jq
+# gets clean JSON regardless of DSM version/trace verbosity.
+#---------------------------------------------------------------------------
+_strip_webapi_trace() {
+    sed -n '/^{/,$p'
+}
 
 #---------------------------------------------------------------------------
 # JSON API actions - handled before any HTML output
@@ -351,7 +369,6 @@ if [[ "$_action" == "save_settings" ]]; then
     # Strategy: delete-then-recreate whenever any schedule-related setting
     # changed, rather than calling `set` (untested against this webapi).
     #-----------------------------------------------------------------------
-    TASK_SCHEDULER_SCRIPT="${TARGET_DIR}/ui/bin/task_scheduler.sh"
 
     _schedule_settings_changed=false
     if [[ "$_cur_schedule_enable" != "$_smart_schedule_enable" ]] || \
@@ -365,43 +382,56 @@ if [[ "$_action" == "save_settings" ]]; then
         _existing_task_id=$(synogetkeyvalue "$SETTINGS_CONF" smart_schedule_task_id 2>/dev/null || echo "")
         _existing_owner=$(synogetkeyvalue "$SETTINGS_CONF" smart_schedule_owner 2>/dev/null || echo "")
 
-        # Delete existing task if one is on record. Not fatal if it fails
-        # (e.g. user already removed it manually via Task Scheduler) -
-        # we clear our own record either way.
+        # Delete existing task if one is on record. Only clear our own
+        # record - and only allow a fresh create below - once the delete
+        # has actually been confirmed to succeed. Clearing the record
+        # unconditionally (the old behaviour) meant a failed delete left
+        # an orphaned, un-trackable task behind: the next save would just
+        # create a brand-new one alongside it (duplicate schedules), and
+        # a disable would silently fail to remove anything at all. Leaving
+        # the record in place on failure means the next save retries the
+        # same delete instead of losing track of it.
+        _delete_ok=true
         if [[ -n "$_existing_task_id" ]]; then
+            _delete_ok=false
             _delete_result=$(sudo "$TASK_SCHEDULER_SCRIPT" delete "$_existing_task_id" "$_existing_owner" 2>&1)
+            _delete_success=$(printf '%s' "$_delete_result" | _strip_webapi_trace | jq -r '.success // false' 2>/dev/null)
             # TEMP DEBUG - remove once confirmed working reliably
             {
-                echo "--- $(date) delete attempt (whoami: $(whoami)) id=${_existing_task_id} ---"
+                echo "--- $(date) delete attempt (whoami: $(whoami)) id=${_existing_task_id} success=${_delete_success} ---"
                 echo "$_delete_result"
-            } >> "${PKG_ROOT}/var/schedule_debug.log" 2>/dev/null
-            synosetkeyvalue "$SETTINGS_CONF" smart_schedule_task_id ""
-            synosetkeyvalue "$SETTINGS_CONF" smart_schedule_owner ""
+            } >> "${PKG_VAR_DIR}/schedule_debug.log" 2>/dev/null
+            if [[ "$_delete_success" == "true" ]]; then
+                _delete_ok=true
+                synosetkeyvalue "$SETTINGS_CONF" smart_schedule_task_id ""
+                synosetkeyvalue "$SETTINGS_CONF" smart_schedule_owner ""
+            fi
         fi
 
-        # Create a fresh task only if the schedule is enabled AND a
-        # non-blank, plausibly-valid email is set after this save. If the
-        # email was cleared (or was never set), leave the task deleted -
-        # a schedule with nowhere to send the report isn't useful, and this
+        # Create a fresh task only if: the old one was successfully removed
+        # (or there wasn't one to begin with) AND the schedule is enabled
+        # AND a non-blank, plausibly-valid email is set after this save.
+        # Skipping create when the delete failed avoids ending up with two
+        # tasks - the stale one plus a new one - side by side. If the email
+        # was cleared (or was never set), leave the task deleted - a
+        # schedule with nowhere to send the report isn't useful, and this
         # is also how clearing the email + Save removes the task.
-        if [[ "$_smart_schedule_enable" == "true" ]] && \
+        if [[ "$_delete_ok" == "true" ]] && \
+           [[ "$_smart_schedule_enable" == "true" ]] && \
            [[ -n "$_smart_notify_email" ]] && \
            [[ "$_smart_notify_email" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then
             _notify_enable="true"
 
             # -e disables colored text so the output is clean in an email body.
-            # -i limits output to important attributes that have increased -
-            # only added for the "only when changed" mode. The script's own
-            # exit code then differs (non-zero when something increased),
-            # which combined with notify_if_error lets DSM only email when
-            # something actually changed rather than every day. -i already
-            # implies "important only", so it always wins over -a below.
-            # Otherwise, smart_email_important decides: enabled -> no -a
-            # (important attributes only), disabled -> add -a (everything).
-            if [[ "$_smart_notify_error_only" == "true" ]]; then
+            # -i shows only important S.M.A.R.T. attributes; -a shows all.
+            # This follows smart_email_important directly - notify_error_only
+            # ("only send when important attributes have changed") is a
+            # separate concept that only controls the notify_if_error
+            # parameter passed to task_scheduler.sh below (DSM's own "send
+            # run details only when the script terminates abnormally"
+            # checkbox), and doesn't change which attributes get reported.
+            if [[ "$_smart_email_important" == "true" ]]; then
                 _smart_script_cmd="${SMART_SCRIPT} -e -i"
-            elif [[ "$_smart_email_important" == "true" ]]; then
-                _smart_script_cmd="${SMART_SCRIPT} -e"
             else
                 _smart_script_cmd="${SMART_SCRIPT} -e -a"
             fi
@@ -410,13 +440,15 @@ if [[ "$_action" == "save_settings" ]]; then
                 "Drive Info SMART Schedule" "$_smart_script_cmd" \
                 "$_notify_enable" "$_smart_notify_error_only" "$_smart_notify_email" 2>&1)
             # TEMP DEBUG: log raw output (incl. stderr) so failures are visible.
+            # cmd= is logged too so we can see exactly what flags were sent
+            # for a given save, independent of what Task Scheduler shows.
             # Remove once schedule create/delete is confirmed working reliably.
             {
-                echo "--- $(date) create attempt (whoami: $(whoami)) ---"
+                echo "--- $(date) create attempt (whoami: $(whoami)) cmd=${_smart_script_cmd} ---"
                 echo "$_create_result"
-            } >> "${PKG_ROOT}/var/schedule_debug.log" 2>/dev/null
+            } >> "${PKG_VAR_DIR}/schedule_debug.log" 2>/dev/null
 
-            _new_id=$(printf '%s' "$_create_result" | jq -r '.data.id // empty' 2>/dev/null)
+            _new_id=$(printf '%s' "$_create_result" | _strip_webapi_trace | jq -r '.data.id // .id // empty' 2>/dev/null)
             if [[ -n "$_new_id" ]]; then
                 synosetkeyvalue "$SETTINGS_CONF" smart_schedule_task_id "$_new_id"
                 synosetkeyvalue "$SETTINGS_CONF" smart_schedule_owner "root"
@@ -468,6 +500,49 @@ if [[ "$_action" == "save_settings" ]]; then
     done
 
     printf '{"ok":true,"changed":%s}\n' "$_changed"
+    exit 0
+fi
+
+#---------------------------------------------------------------------------
+# action=check_schedule
+# Reconciles tracked schedule state against reality, called by showSettings()
+# every time the settings panel is opened. settings.conf can end up out of
+# sync with actual Task Scheduler content - e.g. a task deleted manually via
+# the DSM GUI, or any create/delete mismatch we haven't caught - leaving
+# smart_schedule_task_id pointing at a task that no longer exists. If that
+# happens, the UI would keep showing the schedule as enabled with no way to
+# fix it short of manually editing settings.conf. So: whenever a task is
+# tracked, confirm it's actually still there; if not, self-heal by clearing
+# the tracked fields and tell the caller so it can update the checkboxes.
+#---------------------------------------------------------------------------
+if [[ "$_action" == "check_schedule" ]]; then
+    printf 'Content-Type: application/json\r\n'
+    printf 'Access-Control-Allow-Origin: *\r\n'
+    printf '\r\n'
+
+    _tracked_task_id=$(synogetkeyvalue "$SETTINGS_CONF" smart_schedule_task_id 2>/dev/null || echo "")
+    _healed="false"
+
+    if [[ -n "$_tracked_task_id" ]]; then
+        _list_result=$(sudo "$TASK_SCHEDULER_SCRIPT" list 2>&1)
+        _task_exists=$(printf '%s' "$_list_result" | _strip_webapi_trace | \
+            jq -r --arg id "$_tracked_task_id" '(.data.tasks // []) | any(.id == ($id | tonumber)) // false' 2>/dev/null)
+        {
+            echo "--- $(date) reconcile check (whoami: $(whoami)) tracked_id=${_tracked_task_id} exists=${_task_exists} ---"
+            echo "$_list_result"
+        } >> "${PKG_VAR_DIR}/schedule_debug.log" 2>/dev/null
+        if [[ "$_task_exists" != "true" ]]; then
+            synosetkeyvalue "$SETTINGS_CONF" smart_schedule_enable "false"
+            synosetkeyvalue "$SETTINGS_CONF" smart_schedule_task_id ""
+            synosetkeyvalue "$SETTINGS_CONF" smart_schedule_owner ""
+            _healed="true"
+        fi
+    fi
+
+    _current_schedule_enable=$(synogetkeyvalue "$SETTINGS_CONF" smart_schedule_enable 2>/dev/null || echo "false")
+    [[ -z "$_current_schedule_enable" ]] && _current_schedule_enable="false"
+
+    printf '{"ok":true,"healed":%s,"smart_schedule_enable":%s}\n' "$_healed" "$_current_schedule_enable"
     exit 0
 fi
 
@@ -1598,6 +1673,32 @@ function showSettings() {
     btn.onclick = cancelSettings;
     updateEmailImportantState();
     renderTable();
+    checkScheduleStillExists();
+}
+
+// ---------------------------------------------------------------------------
+// Reconciles smart_schedule_enable against whether the tracked Task
+// Scheduler entry actually still exists, every time the settings panel is
+// opened. If the app had self-healed a stale reference (e.g. the task was
+// deleted manually via the DSM GUI), reflect that in the checkbox/snapshot
+// rather than continuing to show a schedule that no longer exists.
+// ---------------------------------------------------------------------------
+function checkScheduleStillExists() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'api.cgi?action=check_schedule&_ts=' + new Date().getTime(), true);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            var resp = null;
+            try { resp = JSON.parse(xhr.responseText); } catch (e) {}
+            if (resp && resp.ok && resp.healed) {
+                var enabled = !!resp.smart_schedule_enable;
+                document.getElementById('smart_schedule_enable').checked = enabled;
+                smartScheduleEnableSaved = enabled;
+                toggleScheduleFields();
+            }
+        }
+    };
+    xhr.send();
 }
 
 function cancelSettings() {

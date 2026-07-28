@@ -1,3 +1,8 @@
+v2.1.43
+- Updated to check if scheduled task still exists (in case user deleted it) instead of assuming it still exists.
+- Bug fix for "Email only important S.M.A.R.T. values" being ignored if "Only send email when important attributes have changed" was disabled.
+- Bug fix for DSM 6 creating extra schedules instead of editing or deleting the original schedule.
+
 v2.1.42
 - Changed to only show remote NAS once if the remote NAS has more than 1 LAN IP address with the same hostname.
 
