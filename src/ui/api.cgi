@@ -423,15 +423,18 @@ if [[ "$_action" == "save_settings" ]]; then
             _notify_enable="true"
 
             # -e disables colored text so the output is clean in an email body.
-            # -i shows only important S.M.A.R.T. attributes; -a shows all.
-            # This follows smart_email_important directly - notify_error_only
-            # ("only send when important attributes have changed") is a
-            # separate concept that only controls the notify_if_error
-            # parameter passed to task_scheduler.sh below (DSM's own "send
-            # run details only when the script terminates abnormally"
-            # checkbox), and doesn't change which attributes get reported.
-            if [[ "$_smart_email_important" == "true" ]]; then
+            # -i limits output to important attributes that have increased -
+            # only added for the "only when changed" mode. The script's own
+            # exit code then differs (non-zero when something increased),
+            # which combined with notify_if_error lets DSM only email when
+            # something actually changed rather than every day. -i already
+            # implies "important only", so it always wins over -a below.
+            # Otherwise, smart_email_important decides: enabled -> no -a
+            # (important attributes only), disabled -> add -a (everything).
+            if [[ "$_smart_notify_error_only" == "true" ]]; then
                 _smart_script_cmd="${SMART_SCRIPT} -e -i"
+            elif [[ "$_smart_email_important" == "true" ]]; then
+                _smart_script_cmd="${SMART_SCRIPT} -e"
             else
                 _smart_script_cmd="${SMART_SCRIPT} -e -a"
             fi

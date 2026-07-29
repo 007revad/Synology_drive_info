@@ -1,3 +1,6 @@
+v2.1.44
+- Fixed "Only send email when important attributes have changed" that was broken in v2.1.43.
+
 v2.1.43
 - Updated to check if scheduled task still exists (in case user deleted it) instead of assuming it still exists.
 - Bug fix for "Email only important S.M.A.R.T. values" being ignored if "Only send email when important attributes have changed" was disabled.

@@ -15,13 +15,15 @@ scriptname=syno_smart_info
 scriptpath="$(realpath "$0")"
 
 detect_scheduler(){ 
-    # Check parent process
-    local parent
-    parent=$(ps -p $PPID -o comm=)
-
-    #echo "DEBUG: parent: $parent"
-
-    [[ "$parent" =~ (TaskS|systemd-run|sched|crond) ]] && return 0
+    # SYNO.Core.TaskS is regular scheduled task
+    # SYNO.Core.Event is triggered scheduled task
+    local pid=$PPID
+    local comm
+    while [[ "$pid" != "1" && -n "$pid" ]]; do
+        comm=$(ps -p "$pid" -o comm=)
+        [[ "$comm" =~ (SYNO.Core.TaskS|SYNO.Core.Event|crond) ]] && return 0
+        pid=$(ps -p "$pid" -o ppid= | tr -d ' ')
+    done
     return 1
 }
 
@@ -903,7 +905,7 @@ show_health(){
             fi
         else
             log_bad "SMART_Error_Counter_Log" "0"
-            errcount="0"
+#            #errcount="0"
             if [[ $increased != "yes" ]]; then
                 echo -e "SMART Error Counter Log:         ${LiteGreen}No Errors Logged${Off}"
             elif [[ -n $show_increased ]]; then
@@ -1592,6 +1594,7 @@ for d in "${drives_sorted[@]}"; do
                 for i in "${changed_atts[@]}"; do
                     if echo "$i" | grep -q -E 'Increased|Decreased'; then
                         echo -e "$i"
+                        change_count=$((change_count +1))
                     fi
                 done
             fi
@@ -1682,6 +1685,7 @@ for d in "${nvmes_sorted[@]}"; do
                 for i in "${changed_atts[@]}"; do
                     if echo "$i" | grep -q -E 'Increased|Decreased'; then
                         echo -e "$i"
+                        change_count=$((change_count +1))
                     fi
                 done
             fi
@@ -1723,5 +1727,13 @@ awk 'NR>1 && /^\[/ && prev!="" {print ""} {print; prev=$0}' \
 #if [[ $sch_task == "yes" ]]; then
 #    echo -e "\n \n "  # For task scheduler email readability
 #fi
+
+if [[ $warn -gt "0" ]]; then
+    errtotal=$((errtotal +warn))
+fi
+
+if [[ $change_count -gt "0" ]]; then
+    errtotal=$((errtotal +change_count))
+fi
 
 exit "$errtotal"
