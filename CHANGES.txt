@@ -1,3 +1,7 @@
+v2.1.45
+- Bug fix for task scheduler sending empty emails for DSM 7.3.2 Update 3 and later. Issue #1
+- Bug fix for HD6500 system drive labels.
+
 v2.1.44
 - Fixed "Only send email when important attributes have changed" that was broken in v2.1.43.
 

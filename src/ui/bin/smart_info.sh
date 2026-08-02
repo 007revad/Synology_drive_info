@@ -15,13 +15,14 @@ scriptname=syno_smart_info
 scriptpath="$(realpath "$0")"
 
 detect_scheduler(){ 
-    # SYNO.Core.TaskS is regular scheduled task
-    # SYNO.Core.Event is triggered scheduled task
+    # SYNO.Core.TaskS is manually run scheduled task
+    # synoschedtask is scheduled task run on a time schedule
+    # SYNO.Core.Event is triggered scheduled task (boot-up, shutdown)
     local pid=$PPID
     local comm
     while [[ "$pid" != "1" && -n "$pid" ]]; do
         comm=$(ps -p "$pid" -o comm=)
-        [[ "$comm" =~ (SYNO.Core.TaskS|SYNO.Core.Event|crond) ]] && return 0
+        [[ "$comm" =~ (synoschedtask|SYNO.Core.TaskS|SYNO.Core.Event|crond) ]] && return 0
         pid=$(ps -p "$pid" -o ppid= | tr -d ' ')
     done
     return 1
@@ -112,7 +113,7 @@ if options="$(getopt -o abcdefghijklmnopqrstuvwxyz0123456789 -l dev:,all,increas
     while true; do
         case "${1,,}" in
             --dev)
-                # Split "--dev=/dev/sda|ger" into device path and optional language code
+                # Split "--dev=/dev/sda,ger" into device path and optional language code
                 _lang=""
                 _devarg="$2"
                 if [[ "$_devarg" == *","* ]]; then
@@ -267,6 +268,8 @@ if [[ $( whoami ) != "root" ]]; then
     exit 1  # Not running as root
 fi
 
+increased_txt="$(txt common increased "Increased")"
+decreased_txt="$(txt common decreased "Deccreased")"
 
 detect_dtype(){ 
     # Default to SAT
@@ -1430,15 +1433,15 @@ for drive in "${drives[@]}"; do
     drive_number="$(echo "$drive_num" | xargs)"
 
     if [[ $sch_task == "yes" ]]; then
-        if [[ ${#drive_id} == "1" ]]; then
+        #if echo "$drive_number" | grep -q -E '^System Drive'; then
+        if [[ $is_system_drive == "yes" ]]; then
+            sys_drives+=("${drive_number:?},${drive:?}")
+        elif [[ ${#drive_id} == "1" ]]; then
             drives_1+=("${drive_number:?},${drive:?}")
         elif [[ ${#drive_id} == "2" ]]; then
             drives_2+=("${drive_number:?},${drive:?}")
         elif [[ ${#drive_id} == "3" ]]; then
             drives_3+=("${drive_number:?},${drive:?}")
-        #elif echo "$drive_number" | grep -q -E '^System Drive'; then
-        elif [[ $is_system_drive == "yes" ]]; then
-            sys_drives+=("${drive_number:?},${drive:?}")
         elif echo "$drive_number" | grep -q -E '\(DX|\(RX|\(FX'; then
             d_number="$(echo "$drive_num" | cut -d"(" -f1 | xargs)"
             if [[ ${#d_number} == "1" ]]; then
