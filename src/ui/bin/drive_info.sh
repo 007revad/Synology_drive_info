@@ -30,20 +30,9 @@ fi
 # Get DSM major version
 dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
 
-# Get smartctl location and check if version 7
-if which smartctl7 >/dev/null; then
-    # smartmontools 7 from SynoCli Disk Tools is installed
-    smartctl=$(which smartctl7)
-    smartversion=7
-else
-    smartctl=$(which smartctl)
-fi
 
-# Get eunit model and port number
-# Only device tree models have syno_slot_mapping so we use different method
-# Ensure newly connected ebox has /tmp/eunitinfo_N files
-# Create new /tmp/eunitinfo_N files
-/usr/syno/sbin/eunit_info
+#--------------------------------------------------------
+# Update sudoers file
 
 # Check if language entries exist in sudoers file, regardless of (ALL) vs (root)
 if [[ "$dsm" -ge "7" ]]; then
@@ -58,6 +47,7 @@ if [[ "$dsm" -ge "7" ]]; then
         done
         echo "$pkg ALL=(root) NOPASSWD: $script" >> "$file"
         chmod 0440 "$file"
+        replace_sudoers="yes"
     fi
 fi
 
@@ -78,6 +68,7 @@ if [[ "$dsm" -ge "7" ]]; then
             done
         done
         chmod 0440 "$file"
+        replace_sudoers="yes"
     fi
 fi
 
@@ -90,6 +81,7 @@ if [[ "$dsm" -ge "7" ]]; then
         echo "$pkg ALL=(root) NOPASSWD: $script create *" >> "$file"
         echo "$pkg ALL=(root) NOPASSWD: $script delete *" >> "$file"
         chmod 0440 "$file"
+        replace_sudoers="yes"
     fi
 fi
 
@@ -101,6 +93,7 @@ if [[ "$dsm" -ge "7" ]]; then
         script=/var/packages/drive_info/target/ui/bin/task_scheduler.sh
         echo "$pkg ALL=(root) NOPASSWD: $script list" >> "$file"
         chmod 0440 "$file"
+        replace_sudoers="yes"
     fi
 fi
 
@@ -112,15 +105,62 @@ if [[ "$dsm" -ge "7" ]]; then
         script=/var/packages/drive_info/target/ui/bin/check_ip_port.sh
         echo "$pkg ALL=(root) NOPASSWD: $script --ip=* --port=*" >> "$file"
         chmod 0440 "$file"
+        replace_sudoers="yes"
+    fi
+fi
+
+# Add get_ha_passive entry to sudoers.d if missing
+if [[ "$dsm" -ge "7" ]]; then
+    if ! grep -q "drive_info.sh get_ha_passive" /etc/sudoers.d/drive_info 2>/dev/null; then
+        # Update sudoers to support get_ha_passive argument
+        pkg=drive_info
+        file=/etc/sudoers.d/drive_info
+        script=/var/packages/drive_info/target/ui/bin/drive_info.sh
+        echo "$pkg ALL=(root) NOPASSWD: $script get_ha_passive" >> "$file"
+        chmod 0440 "$file"
+        replace_sudoers="yes"
     fi
 fi
 
 # Remove duplicate lines from sudoers.d file
-if [[ "$dsm" -ge "7" ]]; then
+if [[ "$dsm" -ge "7" && "${replace_sudoers:-}" == "yes" ]]; then
     awk '!seen[$0]++' /etc/sudoers.d/drive_info > /tmp/drive_info.clean
     chmod 0440 /tmp/drive_info.clean
     cp /tmp/drive_info.clean /etc/sudoers.d/drive_info
+    rm /tmp/drive_info.clean
 fi
+
+
+#--------------------------------------------------------
+# get_ha_passive: return both HA nodes' disk data via
+# SYNO.SHA.Panel.Disk, for api.cgi to parse with jq.
+# Runs early, before the normal (non-HA) drive-listing
+# setup below, since none of that is needed here.
+#--------------------------------------------------------
+if [[ "$1" == "get_ha_passive" ]]; then
+    if [[ "$dsm" -le "6" ]]; then
+        synowebapi --exec api=SYNO.SHA.Panel.Disk method=load version=1 2>/dev/null
+    else
+        synowebapi -s --exec api=SYNO.SHA.Panel.Disk method=load version=1 2>/dev/null
+    fi
+    exit 0
+fi
+
+# Get smartctl location and check if version 7
+if which smartctl7 >/dev/null; then
+    # smartmontools 7 from SynoCli Disk Tools is installed
+    smartctl=$(which smartctl7)
+    smartversion=7
+else
+    smartctl=$(which smartctl)
+fi
+
+# Get eunit model and port number
+# Only device tree models have syno_slot_mapping so we use different method
+# Ensure newly connected ebox has /tmp/eunitinfo_N files
+# Create new /tmp/eunitinfo_N files
+/usr/syno/sbin/eunit_info
+
 
 # Check if 1st argument is a DSM language code
 if [[ $1 =~ chs|cht|csy|dan|enu|fre|ger|hun|ita|jpn|krn|nld|nor|plk|ptb|ptg|rus|spn|sve|tha|trk ]]; then

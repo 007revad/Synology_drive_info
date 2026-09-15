@@ -551,11 +551,11 @@ fi
 
 #---------------------------------------------------------------------------
 # action=get_ha_passive
-# Returns passive node drive data from /var/lib/ha/space_disk_info.
-# This file is maintained by the Synology HighAvailability package and
-# contains a JSON object of all drives on the passive node, keyed by
-# slot id (e.g. "0-1", "0-2", ...).
-# Only available on HD6500 / SHA cluster (requires HighAvailability pkg).
+# Returns both nodes' drive data via SYNO.SHA.Panel.Disk (HighAvailability
+# package's own webapi, called through drive_info.sh get_ha_passive), which
+# already includes both active and passive node disk arrays in one call -
+# no need to read space_disk_info or work out the passive IP from ha.conf.
+# Only available on SHA cluster (requires HighAvailability pkg).
 #---------------------------------------------------------------------------
 if [[ "$_action" == "get_ha_passive" ]]; then
     printf 'Content-Type: application/json\r\n'
@@ -568,29 +568,29 @@ if [[ "$_action" == "get_ha_passive" ]]; then
         exit 0
     fi
 
-    _ha_disk_file="/var/lib/ha/space_disk_info"
-    if [[ ! -f "$_ha_disk_file" ]] || [[ ! -s "$_ha_disk_file" ]]; then
+    _sha_result=$(sudo "$SCRIPT" get_ha_passive 2>&1)
+
+    _ha_json=$(printf '%s' "$_sha_result" | _strip_webapi_trace | jq -c '
+        if (.success != true) or (.data.leftNode == null) or (.data.rightNode == null) then
+            {"ha":"unavailable"}
+        else
+            (.data.leftNode) as $l | (.data.rightNode) as $r |
+            (if $l.active then $l else $r end) as $active |
+            (if $l.active then $r else $l end) as $passive |
+            {
+                ha: "passive",
+                active_node:  {name: $active.name,  disks: $active.disk},
+                passive_node: {name: $passive.name, disks: $passive.disk}
+            }
+        end
+    ' 2>/dev/null)
+
+    if [[ -z "$_ha_json" ]]; then
         printf '{"ha":"unavailable"}\n'
         exit 0
     fi
 
-    # Get passive node hostname for labelling
-    _ha_conf="/usr/syno/etc/packages/HighAvailability/ha.conf"
-    _passive_ip=$(synogetkeyvalue "$_ha_conf" ip1 2>/dev/null || echo "")
-    _local_ip=$(synogetkeyvalue "$_ha_conf" ip0 2>/dev/null || echo "")
-    # Determine which is passive by comparing against local interfaces
-    _local_ips=$(ip addr show 2>/dev/null | grep -o 'inet [0-9.]*' | awk '{print $2}')
-    if echo "$_local_ips" | grep -q "^${_local_ip}$"; then
-        _passive_ip=$(synogetkeyvalue "$_ha_conf" ip1 2>/dev/null || echo "")
-    else
-        _passive_ip=$(synogetkeyvalue "$_ha_conf" ip0 2>/dev/null || echo "")
-    fi
-
-    _passive_hostname=$(synogetkeyvalue "$_ha_conf" host1 2>/dev/null || echo "Passive Node")
-
-    _disk_json=$(cat "$_ha_disk_file")
-    printf '{"ha":"passive","hostname":"%s","ip":"%s","data":%s}\n' \
-        "$_passive_hostname" "$_passive_ip" "$_disk_json"
+    printf '%s\n' "$_ha_json"
     exit 0
 fi
 
@@ -2008,8 +2008,9 @@ function doSaveSettings(valid, validSaved, willCheckNas) {
 
 // ---------------------------------------------------------------------------
 // HA Passive node fetching
-// Reads /var/lib/ha/space_disk_info via api.cgi?action=get_ha_passive.
-// Only present on HD6500 / SHA clusters running the HighAvailability package.
+// Reads both HA nodes' disk data via api.cgi?action=get_ha_passive, which
+// calls SYNO.SHA.Panel.Disk. Only present on SHA clusters running the 
+// HighAvailability package.
 // ---------------------------------------------------------------------------
 function fetchHAPassive() {
     var container = document.getElementById('ha-passive-container');
@@ -2021,33 +2022,30 @@ function fetchHAPassive() {
         if (xhr.status !== 200) return;
         var resp;
         try { resp = JSON.parse(xhr.responseText); } catch(e) { return; }
-        if (!resp || resp.ha !== 'passive' || !resp.data) return;
+        if (!resp || resp.ha !== 'passive' || !resp.passive_node) return;
 
-        var label = resp.hostname || 'Passive Node';
-        var ip    = resp.ip || '';
+        var label = resp.passive_node.name || 'Passive Node';
 
         var section = document.createElement('div');
         section.className = 'remote-section';
         section.innerHTML =
             '<h2>' + escHtml(label) +
-            (ip ? ' <span style="font-weight:normal;font-size:11px;color:#999;">(' + escHtml(ip) + ' \u2014 Passive)</span>' : ' <span style="font-weight:normal;font-size:11px;color:#999;">(Passive)</span>') +
+            ' <span style="font-weight:normal;font-size:11px;color:#999;">(Passive)</span>' +
             '</h2>' +
-            buildHAPassiveTable(resp.data);
+            buildHAPassiveTable(resp.passive_node.disks);
         container.appendChild(section);
     };
     xhr.send();
 }
 
-function buildHAPassiveTable(drives) {
-    // drives is an object keyed by slot id e.g. {"0-1":{...},"0-2":{...}}
-    // Sort by slot_id numerically
-    var keys = Object.keys(drives).sort(function(a, b) {
-        var na = parseInt(a.split('-')[1], 10);
-        var nb = parseInt(b.split('-')[1], 10);
-        return na - nb;
+function buildHAPassiveTable(disks) {
+    // disks is an array of disk objects (from SYNO.SHA.Panel.Disk),
+    // sorted by slot_id.
+    disks = (disks || []).slice().sort(function(a, b) {
+        return (a.slot_id || 0) - (b.slot_id || 0);
     });
 
-    if (keys.length === 0) return '<p class="remote-err">No drive data available.</p>';
+    if (disks.length === 0) return '<p class="remote-err">No drive data available.</p>';
 
     var html = '<table><colgroup>' +
         '<col class="num"><col class="model"><col class="serial"><col class="status">' +
@@ -2058,9 +2056,9 @@ function buildHAPassiveTable(drives) {
         '<th class="status">${_txt_status}</th>' +
         '</tr></thead><tbody>';
 
-    for (var i = 0; i < keys.length; i++) {
-        var d = drives[keys[i]];
-        var slotNum  = d.slot_id !== undefined ? d.slot_id : keys[i].split('-')[1];
+    for (var i = 0; i < disks.length; i++) {
+        var d = disks[i];
+        var slotNum  = d.slot_id !== undefined ? d.slot_id : '';
         var model    = d.model   || '';
         var serial   = d.ui_serial || d.serial || '';
         var statusKey = d.drive_status_key || d.status || '';
@@ -2095,6 +2093,10 @@ function buildHAPassiveTable(drives) {
             '<td class="num">' + escHtml(String(slotNum)) + '</td>' +
             '<td class="model">' + escHtml(model) + '</td>' +
             '<td class="serial">' + escHtml(serial) + '</td>' +
+            // Status is plain text here (no click-to-SMART), unlike the
+            // local-drive table - SYNO.SHA.Panel.Disk doesn't return actual
+            // SMART attribute values for the passive node's drives, so
+            // there's nothing for smart_info.sh to show.
             '<td class="' + statusClass + '">' + escHtml(statusText) + '</td>' +
             '</tr>';
     }
