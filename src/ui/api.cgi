@@ -923,8 +923,21 @@ _txt_slot=$(txt common drive_id "Drive ID")
 _txt_model=$(txt common model "Model")
 _txt_size=$(txt common size "Size")
 _txt_smr=$(txt common size "SMR")
-_txt_size=$(txt common raid_type "RAID")
+_txt_raid=$(txt common raid_type "RAID")
 _txt_serial=$(txt common serial_number "Serial Number")
+_txt_id=$(txt common id "ID")
+_txt_location=$(txt common location "Location")
+_txt_size_tb=$(txt common size_tb "TiB")
+_txt_size_gb=$(txt common size_gb "GiB")
+_txt_size_mb=$(txt common size_mb "MiB")
+_txt_status_healthy=$(txt common status_healthy "Healthy")
+_txt_status_warning=$(txt common status_warning "Warning")
+_txt_status_critical=$(txt common status_critical "Critical")
+_txt_status_failing=$(txt common status_failing "Failing")
+_txt_status_unsupported=$(txt common status_unsupported "Not supported")
+_txt_status_data_detected=$(txt common status_data_detected "Detected")
+_txt_status_disabled=$(txt common status_disabled "Disabled")
+_txt_status_unknown=$(txt common status_unknown "Unknown")
 _txt_temp=$(txt common temperature "Temperature")
 #_txt_temp=$(txt common temperature "°C")
 _txt_status=$(txt common status "Status")
@@ -2038,66 +2051,99 @@ function fetchHAPassive() {
     xhr.send();
 }
 
+function naturalIdCompare(a, b) {
+    // Matches drive_info.sh's `sort -V` behavior on device names like
+    // sas1..sas28, sata1, sata2: split into alpha prefix + numeric suffix,
+    // sort by prefix first, then numerically within each prefix group.
+    var re = /^([a-zA-Z]+)(\d*)$/;
+    var ma = re.exec(a) || [null, a, ''];
+    var mb = re.exec(b) || [null, b, ''];
+    if (ma[1] !== mb[1]) return ma[1] < mb[1] ? -1 : 1;
+    return (parseInt(ma[2], 10) || 0) - (parseInt(mb[2], 10) || 0);
+}
+
 function buildHAPassiveTable(disks) {
-    // disks is an array of disk objects (from SYNO.SHA.Panel.Disk),
-    // sorted by slot_id.
+    // The API's own array order is arbitrary (not physical-bay order), so
+    // sort by id the same way drive_info.sh's `sort -V "${drives[@]}"`
+    // orders the local table.
     disks = (disks || []).slice().sort(function(a, b) {
-        return (a.slot_id || 0) - (b.slot_id || 0);
+        return naturalIdCompare(a.id || '', b.id || '');
     });
 
     if (disks.length === 0) return '<p class="remote-err">No drive data available.</p>';
 
+    var STATUS_MAP = {
+        normal:            {cls: 'status-healthy',  text: '${_txt_status_healthy}'},
+        healthy:           {cls: 'status-healthy',  text: '${_txt_status_healthy}'},
+        unc:               {cls: 'status-warning',  text: '${_txt_status_warning}'},
+        warning:           {cls: 'status-warning',  text: '${_txt_status_warning}'},
+        critical:          {cls: 'status-critical', text: '${_txt_status_critical}'},
+        failing:           {cls: 'status-failing',  text: '${_txt_status_failing}'},
+        data_detected:     {cls: 'status-critical', text: '${_txt_status_data_detected}'},
+        disknotsupported:  {cls: 'status-warning',  text: '${_txt_status_unsupported}'},
+        disabled:          {cls: 'status',          text: '${_txt_status_disabled}'},
+        unknown:           {cls: 'status',          text: '${_txt_status_unknown}'}
+    };
+
     var html = '<table><colgroup>' +
-        '<col class="num"><col class="model"><col class="serial"><col class="status">' +
+        '<col class="id"><col class="num"><col class="location"><col class="model">' +
+        '<col class="size"><col class="serial"><col class="temp"><col class="status">' +
         '</colgroup><thead><tr>' +
+        '<th class="id">${_txt_id}</th>' +
         '<th class="num">${_txt_slot}</th>' +
+        '<th class="location">${_txt_location}</th>' +
         '<th class="model">${_txt_model}</th>' +
+        '<th class="size">${_txt_size}</th>' +
         '<th class="serial">${_txt_serial}</th>' +
+        '<th class="temp">${_txt_temp}</th>' +
         '<th class="status">${_txt_status}</th>' +
         '</tr></thead><tbody>';
 
     for (var i = 0; i < disks.length; i++) {
         var d = disks[i];
-        var slotNum  = d.slot_id !== undefined ? d.slot_id : '';
-        var model    = d.model   || '';
+        var id       = d.id    || '';
+        var label    = d.name || d.longName || '';
+        var location = d.has_system ? '${_txt_system_drive}' : '';  // stays blank until system drives ever appear in this data
+        var model    = d.model || '';
         var serial   = d.ui_serial || d.serial || '';
-        var statusKey = d.drive_status_key || d.status || '';
-        var temp     = (d.temp !== undefined && d.temp !== null) ? d.temp + '\u00b0C' : '';
 
-        var statusClass, statusText;
-        switch (statusKey) {
-            case 'normal':
-                statusClass = 'status-healthy';
-                statusText  = temp ? 'Normal ' + temp : 'Normal';
-                break;
-            case 'warning':
-                statusClass = 'status-warning';
-                statusText  = temp ? 'Warning ' + temp : 'Warning';
-                break;
-            case 'critical':
-            case 'error':
-                statusClass = 'status-critical';
-                statusText  = temp ? 'Critical ' + temp : 'Critical';
-                break;
-            case 'failing':
-                statusClass = 'status-failing';
-                statusText  = 'Failing';
-                break;
-            default:
-                statusClass = 'status';
-                statusText  = statusKey || (temp || '-');
+        // Size: mirror get_drive_size's TiB/GiB/MiB auto-selection, 1 decimal
+        var sizeText = '';
+        var bytes = parseInt(d.size_total, 10);
+        if (!isNaN(bytes)) {
+            var tib = bytes / Math.pow(1024, 4);
+            var gib = bytes / Math.pow(1024, 3);
+            var mib = bytes / Math.pow(1024, 2);
+            if (tib >= 1)      sizeText = tib.toFixed(1) + ' ${_txt_size_tb}';
+            else if (gib >= 1) sizeText = gib.toFixed(1) + ' ${_txt_size_gb}';
+            else               sizeText = mib.toFixed(1) + ' ${_txt_size_mb}';
         }
+
+        // Temperature: mirror get_drive_temp/c2f exactly - "{C}°C / {F}°F"
+        var tempText = '';
+        if (d.temp !== undefined && d.temp !== null) {
+            var c = d.temp;
+            var f = Math.round(c * 1.8 + 32);
+            tempText = c + '\u00b0C / ' + f + '\u00b0F';
+        }
+
+        var statusKey = d.drive_status_key || '';
+        var mapped = STATUS_MAP[statusKey] || {cls: 'status', text: statusKey || '-'};
 
         html +=
             '<tr>' +
-            '<td class="num">' + escHtml(String(slotNum)) + '</td>' +
+            '<td class="id">' + escHtml(id) + '</td>' +
+            '<td class="num">' + escHtml(label) + '</td>' +
+            '<td class="location">' + escHtml(location) + '</td>' +
             '<td class="model">' + escHtml(model) + '</td>' +
+            '<td class="size">' + escHtml(sizeText) + '</td>' +
             '<td class="serial">' + escHtml(serial) + '</td>' +
+            '<td class="temp">' + escHtml(tempText) + '</td>' +
             // Status is plain text here (no click-to-SMART), unlike the
             // local-drive table - SYNO.SHA.Panel.Disk doesn't return actual
             // SMART attribute values for the passive node's drives, so
             // there's nothing for smart_info.sh to show.
-            '<td class="' + statusClass + '">' + escHtml(statusText) + '</td>' +
+            '<td class="' + mapped.cls + '">' + escHtml(mapped.text) + '</td>' +
             '</tr>';
     }
 

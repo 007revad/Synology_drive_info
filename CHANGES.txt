@@ -1,3 +1,6 @@
+v2.2.49
+- Bug fixes for SHA passive server's drive info.
+
 v2.2.48
 - Updated to show SHA passive server's drive info.
 
