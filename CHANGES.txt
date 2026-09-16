@@ -1,3 +1,6 @@
+v2.2.50
+- Bug fix for Settings button not working and other Synology's drive info not appearing.
+
 v2.2.49
 - Bug fixes for SHA passive server's drive info.
 

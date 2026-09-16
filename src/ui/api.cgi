@@ -367,7 +367,7 @@ if [[ "$_action" == "save_settings" ]]; then
     # non-root drive_info user, and SYNO.Core.TaskScheduler requires
     # root/admin context to succeed).
     # Strategy: delete-then-recreate whenever any schedule-related setting
-    # changed, rather than calling `set` (untested against this webapi).
+    # changed, rather than calling set (untested against this webapi).
     #-----------------------------------------------------------------------
 
     _schedule_settings_changed=false
@@ -2052,7 +2052,7 @@ function fetchHAPassive() {
 }
 
 function naturalIdCompare(a, b) {
-    // Matches drive_info.sh's `sort -V` behavior on device names like
+    // Matches drive_info.sh's sort -V behavior on device names like
     // sas1..sas28, sata1, sata2: split into alpha prefix + numeric suffix,
     // sort by prefix first, then numerically within each prefix group.
     var re = /^([a-zA-Z]+)(\d*)$/;
@@ -2064,7 +2064,7 @@ function naturalIdCompare(a, b) {
 
 function buildHAPassiveTable(disks) {
     // The API's own array order is arbitrary (not physical-bay order), so
-    // sort by id the same way drive_info.sh's `sort -V "${drives[@]}"`
+    // sort by id the same way drive_info.sh's sort -V "${drives[@]}"
     // orders the local table.
     disks = (disks || []).slice().sort(function(a, b) {
         return naturalIdCompare(a.id || '', b.id || '');
