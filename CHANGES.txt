@@ -2,7 +2,7 @@ v2.2.54
 - Changed to show HD6500 system drives as "System Drive N" as the "Drive id" instead of "Drive N" as the Drive id and "System Drive" as the Location.
 - Bug fix for SHA passive nodes not showing the Location of NVMe drives in a E10M20-T1, M2D20 or M2D18.
 - Bug fix for SHA passive nodes not showing the Location of drives in an expansion unit.
-- Bug fix for SHA passive nodes showing the Location coloumn even if it was empty.
+- Bug fix for SHA passive nodes showing the Location column even if it was empty.
 - Bug fix for "sudo password required" showing instead of passive node's SMART info.
 
 v2.2.53
