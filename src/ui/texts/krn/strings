@@ -75,7 +75,6 @@ status_repairing	=	수리 중
 status_read_only	=	읽기 전용
 status_crashed	=	충돌함
 storage_status	=	저장소 상태
-status_repairing	=	"복구 중"
 data_scrubbing	=	데이터 스크러빙
 smart_name	=	S.M.A.R.T.
 smart_view	=	"S.M.A.R.T. 보기"

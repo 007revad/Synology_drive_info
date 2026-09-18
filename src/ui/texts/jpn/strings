@@ -75,7 +75,6 @@ status_repairing	=	修復中
 status_read_only	=	読み取り専用
 status_crashed	=	クラッシュしました
 storage_status	=	ストレージ状態
-status_repairing	=	"修復中"
 data_scrubbing	=	Data Scrubbing
 smart_name	=	S.M.A.R.T.
 smart_view	=	"S.M.A.R.T. を表示"

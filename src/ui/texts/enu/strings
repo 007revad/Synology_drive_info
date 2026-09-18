@@ -77,7 +77,6 @@ volume	=	Volume
 volume_size	=	"Volume Size"
 volume_used	=	"Used"
 storage_status	=	Storage Status
-status_repairing	=	Repairing
 data_scrubbing	=	Data Scrubbing
 smart_name	=	S.M.A.R.T.
 smart_view	=	View S.M.A.R.T.

@@ -75,7 +75,6 @@ status_repairing	=	Reparando
 status_read_only	=	Sólo lectura
 status_crashed	=	Averiado
 storage_status	=	Estado de almacenamiento
-status_repairing	=	"Reparando"
 data_scrubbing	=	Depuración de datos
 smart_name	=	S.M.A.R.T.
 smart_view	=	"Ver S.M.A.R.T."

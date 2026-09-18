@@ -74,7 +74,6 @@ status_repairing	=	Reparerar
 status_read_only	=	Endast läsbar
 status_crashed	=	Kraschade
 storage_status	=	Lagringsstatus
-status_repairing	=	"Reparerar"
 data_scrubbing	=	Dataskrubbning
 smart_name	=	S.M.A.R.T.
 smart_view	=	"Visa S.M.A.R.T."

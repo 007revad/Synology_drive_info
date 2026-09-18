@@ -132,17 +132,23 @@ fi
 
 
 #--------------------------------------------------------
-# get_ha_passive: return both HA nodes' disk data via
-# SYNO.SHA.Panel.Disk, for api.cgi to parse with jq.
-# Runs early, before the normal (non-HA) drive-listing
-# setup below, since none of that is needed here.
+# get_ha_passive: return the passive node's own disk data (including
+# system drives) via SYNO.SHA.Util/send_remote_webapi relaying
+# SYNO.Storage.CGI.Storage/load_info, plus its hostname/IP/model/DSM
+# version via SYNO.SHA.Panel.Overview - combined into one JSON blob for
+# api.cgi to parse with jq. Runs early, before the normal (non-HA)
+# drive-listing setup below, since none of that is needed here.
 #--------------------------------------------------------
 if [[ "$1" == "get_ha_passive" ]]; then
     if [[ "$dsm" -le "6" ]]; then
-        synowebapi --exec api=SYNO.SHA.Panel.Disk method=load version=1 2>/dev/null
+        _overview_json=$(synowebapi --exec api=SYNO.SHA.Panel.Overview method=load version=1 2>/dev/null)
+        _storage_json=$(synowebapi --exec api=SYNO.SHA.Util method=send_remote_webapi version=1 remote_api="\"SYNO.Storage.CGI.Storage\"" remote_method="\"load_info\"" remote_version=1 2>/dev/null)
     else
-        synowebapi -s --exec api=SYNO.SHA.Panel.Disk method=load version=1 2>/dev/null
+        _overview_json=$(synowebapi -s --exec api=SYNO.SHA.Panel.Overview method=load version=1 2>/dev/null)
+        _storage_json=$(synowebapi -s --exec api=SYNO.SHA.Util method=send_remote_webapi version=1 remote_api="\"SYNO.Storage.CGI.Storage\"" remote_method="\"load_info\"" remote_version=1 2>/dev/null)
     fi
+    jq -n --argjson overview "$_overview_json" --argjson storage "$_storage_json" \
+        '{overview: $overview, storage: $storage}' 2>/dev/null
     exit 0
 fi
 
@@ -828,7 +834,7 @@ get_volume_info(){
     while IFS='|' read -r pool_id pool_num_id pool_st pool_scrub pool_pct pool_devtype pool_disks_raw; do
         pool_num["$pool_id"]="$pool_num_id"
         local scrub_suffix=""
-        [[ "$pool_scrub" == "scrubbing" ]] && scrub_suffix=" - Data Scrubbing"
+        [[ "$pool_scrub" == "scrubbing" ]] && scrub_suffix=" - $(txt common data_scrubbing "Data Scrubbing")"
         pool_status_map["$pool_id"]="${pool_st}${scrub_suffix}"
         pool_pct_map["$pool_id"]="$pool_pct"
         pool_devtype_map["$pool_id"]="$pool_devtype"

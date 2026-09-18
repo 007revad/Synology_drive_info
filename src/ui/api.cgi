@@ -551,11 +551,12 @@ fi
 
 #---------------------------------------------------------------------------
 # action=get_ha_passive
-# Returns both nodes' drive data via SYNO.SHA.Panel.Disk (HighAvailability
-# package's own webapi, called through drive_info.sh get_ha_passive), which
-# already includes both active and passive node disk arrays in one call -
-# no need to read space_disk_info or work out the passive IP from ha.conf.
-# Only available on SHA cluster (requires HighAvailability pkg).
+# Returns the passive node's own disk data (including system drives) via
+# SYNO.Storage.CGI.Storage/load_info, relayed through SYNO.SHA.Util's
+# send_remote_webapi, combined with its hostname/IP/model/DSM version via
+# SYNO.SHA.Panel.Overview - both fetched by drive_info.sh get_ha_passive
+# and merged here. Only available on SHA cluster (requires HighAvailability
+# pkg).
 #---------------------------------------------------------------------------
 if [[ "$_action" == "get_ha_passive" ]]; then
     printf 'Content-Type: application/json\r\n'
@@ -571,16 +572,21 @@ if [[ "$_action" == "get_ha_passive" ]]; then
     _sha_result=$(sudo "$SCRIPT" get_ha_passive 2>&1)
 
     _ha_json=$(printf '%s' "$_sha_result" | _strip_webapi_trace | jq -c '
-        if (.success != true) or (.data.leftNode == null) or (.data.rightNode == null) then
+        if (.overview.success != true) or (.storage.success != true) or (.storage.data.disks == null) then
             {"ha":"unavailable"}
         else
-            (.data.leftNode) as $l | (.data.rightNode) as $r |
-            (if $l.active then $l else $r end) as $active |
-            (if $l.active then $r else $l end) as $passive |
+            (if .overview.data.lnode.role == "passive" then .overview.data.lnode else .overview.data.rnode end) as $p |
             {
                 ha: "passive",
-                active_node:  {name: $active.name,  disks: $active.disk},
-                passive_node: {name: $passive.name, disks: $passive.disk}
+                passive_node: {
+                name: $p.hostname,
+                    ip: $p.ip,
+                    model: $p.model,
+                    dsm_ver: $p.dsm_ver,
+                    disks: .storage.data.disks,
+                    volumes: (.storage.data.volumes // []),
+                    storagePools: (.storage.data.storagePools // [])
+                    }
             }
         end
     ' 2>/dev/null)
@@ -847,6 +853,226 @@ if [[ "$_action" == "get_smart" ]]; then
 fi
 
 #---------------------------------------------------------------------------
+# action=get_ha_passive_smart
+# Returns SMART data for a drive on the HA passive node as an HTML
+# fragment. Calls smart_passive_info.sh via sudo with the validated
+# device path, via SYNO.SHA.Util/send_remote_webapi relaying
+# SYNO.Storage.CGI.Smart - smartctl has no concept of a remote drive.
+# Parser is a duplicate of action=get_smart's, since smart_passive_info.sh
+# emits the same sentinel-prefixed format as smart_info.sh.
+#---------------------------------------------------------------------------
+if [[ "$_action" == "get_ha_passive_smart" ]]; then
+    printf 'Content-Type: text/html; charset=utf-8\r\n'
+    printf 'Access-Control-Allow-Origin: *\r\n'
+    printf '\r\n'
+
+    _device=""
+    if [[ "${QUERY_STRING:-}" =~ (^|&)device=([^&]*) ]]; then
+        _device="${BASH_REMATCH[2]}"
+    fi
+
+    # Validate device - passive-cluster device types only (sas/sata/nvme;
+    # no sd/hd/usb/nvc, which aren't relevant to a remote HA node's bays)
+    if [[ ! "$_device" =~ ^(sata[0-9]+|sas[0-9]+|nvme[0-9]+n[0-9]+)$ ]]; then
+        echo "<p class=\"err\">$(txt errors err_invalid_device "Invalid device.")</p>"
+        exit 0
+    fi
+
+    SMART_PASSIVE_SCRIPT="${TARGET_DIR}/ui/bin/smart_passive_info.sh"
+    if [[ ! -f "$SMART_PASSIVE_SCRIPT" ]]; then
+        echo "<p class=\"err\">$(txt errors err_smart_script_missing "smart_passive_info.sh not found.")</p>"
+        exit 0
+    fi
+
+    # Same setting as the local view - when true, show only important
+    # attributes (default mode); when false/unset, show all (-a flag)
+    _smart_important=$(synogetkeyvalue "$SETTINGS_CONF" show_smart_important 2>/dev/null || echo "false")
+    SMART_FLAGS=()
+    [[ "$_smart_important" != "true" ]] && SMART_FLAGS+=("-a")
+
+    if [[ "$dsm" -ge "7" ]]; then
+        SMART_OUTPUT=$(sudo "$SMART_PASSIVE_SCRIPT" "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
+    else
+        SMART_OUTPUT=$(bash "$SMART_PASSIVE_SCRIPT" "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
+    fi
+    _smart_rc=$?
+
+    if [[ $_smart_rc -ne 0 ]] && [[ "$SMART_OUTPUT" == *"err::invalid_device"* ]]; then
+        echo "<p class=\"err\">$(txt errors err_invalid_device "Invalid device argument.")</p>"
+        exit 0
+    fi
+    if [[ $_smart_rc -ne 0 ]] && [[ "$SMART_OUTPUT" == *"err::invalid_option"* ]]; then
+        echo "<p class=\"err\">$(txt errors err_invalid_option "Invalid option.")</p>"
+        exit 0
+    fi
+
+    #-----------------------------------------------------------------------
+    # Parse smart_passive_info.sh sentinel-prefixed output into HTML.
+    # Duplicate of action=get_smart's parser - see that block for the
+    # sentinel/table-shape documentation.
+    #-----------------------------------------------------------------------
+    smart_in_table=0
+    smart_mode=""
+    smart_nvme_open=0
+
+    strip_sentinel() {
+        local l="$1"
+        _row_class=""
+        case "$l" in
+            green::*)  _row_class="smart-green";  l="${l#green::}"  ;;
+            red::*)    _row_class="smart-red";     l="${l#red::}"    ;;
+            yellow::*) _row_class="smart-yellow";  l="${l#yellow::}" ;;
+            cyan::*)   _row_class="smart-cyan";    l="${l#cyan::}"   ;;
+            blue::*)   _row_class="smart-blue";    l="${l#blue::}"   ;;
+        esac
+        _text="$l"
+    }
+
+    colorize_inline() {
+        local l="$1"
+        l="${l//green::/<span class=\"smart-green\">}"
+        l="${l//red::/<span class=\"smart-red\">}"
+        l="${l//yellow::/<span class=\"smart-yellow\">}"
+        l="${l//cyan::/<span class=\"smart-cyan\">}"
+        l="${l//blue::/<span class=\"smart-blue\">}"
+        if [[ "$l" == *'<span class='* ]]; then
+            l="${l}</span>"
+        fi
+        echo "$l"
+    }
+
+    close_smart_table() {
+        if [[ $smart_in_table -eq 1 ]]; then
+            echo "</tbody></table>"
+            smart_in_table=0
+            smart_mode=""
+        fi
+        if [[ $smart_nvme_open -eq 1 ]]; then
+            echo "</tbody></table>"
+            smart_nvme_open=0
+        fi
+    }
+
+    while IFS= read -r smart_line; do
+        strip_sentinel "$smart_line"
+        line="$_text"
+        rclass="$_row_class"
+        trimmed="${line#"${line%%[![:space:]]*}"}"
+
+        if [[ -z "$trimmed" ]]; then
+            close_smart_table
+            continue
+        fi
+
+        if [[ "$rclass" == "smart-cyan" ]]; then
+            close_smart_table
+            esc="$(echo "$trimmed" | sed 's/</\&lt;/g;s/>/\&gt;/g')"
+            echo "<div id=\"smart-panel-drive-title\" class=\"$rclass\">$esc</div>"
+            continue
+        fi
+
+        if [[ "$trimmed" =~ ^SMART ]]; then
+            close_smart_table
+            esc="$(echo "$trimmed" | sed 's/</\&lt;/g;s/>/\&gt;/g')"
+            esc="$(colorize_inline "$esc")"
+            echo "<div id=\"smart-panel-prose\">$esc</div>"
+            continue
+        fi
+
+        if [[ "$trimmed" =~ ^Please\ note\ the\ following\ marginal\ Attributes:?$ ]]; then
+            close_smart_table
+            esc="$(echo "$trimmed" | sed 's/</\&lt;/g;s/>/\&gt;/g')"
+            echo "<div id=\"smart-panel-prose\">$esc</div>"
+            continue
+        fi
+
+        if [[ "$trimmed" =~ ^-+$ ]]; then
+            smart_in_table=1
+            smart_mode=""
+            continue
+        fi
+
+        if [[ "$trimmed" =~ ATTRIBUTE_NAME ]] && [[ $smart_in_table -eq 0 || -z "$smart_mode" ]]; then
+            if [[ "$trimmed" =~ FLAGS ]]; then
+                smart_in_table=1
+                smart_mode="all_sata"
+                echo '<table><thead><tr><th>ID#</th><th>Attribute</th><th>Flags</th><th>Value</th><th>Worst</th><th>Thresh</th><th>Fail</th><th>Raw</th></tr></thead><tbody>'
+            elif [[ "$trimmed" =~ RAW_VALUE ]]; then
+                smart_in_table=1
+                smart_mode="scsi"
+                echo '<table class="smart-table-compact"><thead><tr><th>ID#</th><th>Attribute</th><th>Raw Value</th></tr></thead><tbody>'
+            elif [[ "$trimmed" =~ WHEN_FAILED ]]; then
+                smart_in_table=1
+                smart_mode="marginal"
+                echo '<table class="smart-table-compact"><thead><tr><th>ID#</th><th>Attribute</th><th>Value</th><th>Worst</th><th>Thresh</th><th>Type</th><th>When Failed</th></tr></thead><tbody>'
+            else
+                smart_in_table=0
+                smart_mode=""
+            fi
+            continue
+        fi
+
+        if [[ $smart_in_table -eq 0 ]] && [[ "$trimmed" =~ ^[0-9] ]]; then
+            if [[ $smart_nvme_open -eq 0 ]]; then
+                echo '<table class="smart-table-compact"><thead><tr><th>ID#</th><th>Attribute</th><th>Raw Value</th></tr></thead><tbody>'
+                smart_nvme_open=1
+            fi
+            esc="$(echo "$trimmed" | sed 's/</\&lt;/g;s/>/\&gt;/g')"
+            id="$(echo "$esc" | awk '{print $1}')"
+            raw="$(echo "$esc" | awk '{print $NF}')"
+            raw="$(colorize_inline "$raw")"
+            name="$(echo "$esc" | awk '{$1="";$NF="";print}' | sed 's/^ *//;s/ *$//')"
+            name="$(colorize_inline "$name")"
+            echo "<tr><td>$id</td><td>$name</td><td>$raw</td></tr>"
+            continue
+        fi
+
+        if [[ $smart_in_table -eq 0 ]] && [[ "$trimmed" == *:* ]]; then
+            if [[ $smart_nvme_open -eq 0 ]]; then
+                echo '<table class="smart-table-compact"><tbody>'
+                smart_nvme_open=1
+            fi
+            key="${trimmed%%:*}"
+            val="${trimmed#*:}"
+            val="${val#"${val%%[![:space:]]*}"}"
+            key="$(echo "$key" | sed 's/</\&lt;/g;s/>/\&gt;/g')"
+            val="$(echo "$val" | sed 's/</\&lt;/g;s/>/\&gt;/g')"
+            val="$(colorize_inline "$val")"
+            row_cls=""
+            [[ -n "$rclass" ]] && row_cls=" class=\"smart-row-${rclass#smart-}\""
+            echo "<tr${row_cls}><td>$key</td><td>$val</td></tr>"
+            continue
+        fi
+
+        if [[ $smart_in_table -eq 1 ]]; then
+            esc="$(echo "$trimmed" | sed 's/</\&lt;/g;s/>/\&gt;/g')"
+            row_cls=""
+            [[ -n "$rclass" ]] && row_cls=" class=\"smart-row-${rclass#smart-}\""
+            if [[ "$smart_mode" == "all_sata" ]]; then
+                IFS='|' read -r id name flags value worst thresh fail raw <<< "$(echo "$esc" | awk '{id=$1;name=$2;flags=$3;value=$4;worst=$5;thresh=$6;fail=$7;$1=$2=$3=$4=$5=$6=$7="";raw=$0;sub(/^ +/,"",raw);printf "%s|%s|%s|%s|%s|%s|%s|%s",id,name,flags,value,worst,thresh,fail,raw}')"
+                echo "<tr${row_cls}><td>$id</td><td>$name</td><td>$flags</td><td>$value</td><td>$worst</td><td>$thresh</td><td>$fail</td><td>$raw</td></tr>"
+            elif [[ "$smart_mode" == "scsi" ]]; then
+                id="$(echo "$esc" | awk '{print $1}')"
+                raw="$(echo "$esc" | awk '{print $NF}')"
+                name="$(echo "$esc" | awk '{$1="";$NF="";print}' | sed 's/^ *//;s/ *$//')"
+                echo "<tr${row_cls}><td>$id</td><td>$name</td><td>$raw</td></tr>"
+            elif [[ "$smart_mode" == "marginal" ]]; then
+                read -r id name value worst thresh type when_failed <<< "$esc"
+                echo "<tr${row_cls}><td>$id</td><td>$name</td><td>$value</td><td>$worst</td><td>$thresh</td><td>$type</td><td>$when_failed</td></tr>"
+            fi
+            continue
+        fi
+
+        esc="$(echo "$trimmed" | sed 's/</\&lt;/g;s/>/\&gt;/g')"
+        echo "<div>$esc</div>"
+
+    done <<< "$SMART_OUTPUT"
+    close_smart_table
+
+    exit 0
+fi
+
+#---------------------------------------------------------------------------
 # Default action: render main page HTML
 # Settings are embedded in the same page and shown/hidden via JS.
 #---------------------------------------------------------------------------
@@ -938,6 +1164,15 @@ _txt_status_unsupported=$(txt common status_unsupported "Not supported")
 _txt_status_data_detected=$(txt common status_data_detected "Detected")
 _txt_status_disabled=$(txt common status_disabled "Disabled")
 _txt_status_unknown=$(txt common status_unknown "Unknown")
+_txt_data_scrubbing=$(txt common data_scrubbing "Data Scrubbing")
+_txt_storage_pool=$(txt common storage_pool "Storage Pool")
+_txt_volume_size=$(txt common volume_size "Volume Size")
+_txt_storage_status=$(txt common storage_status "Storage Status")
+_txt_status_degraded=$(txt common status_degraded "Degraded")
+_txt_status_crashed=$(txt common status_crashed "Crashed")
+_txt_status_repairing=$(txt common status_repairing "Repairing")
+_txt_status_rebuilding=$(txt common status_rebuilding "Rebuilding")
+_txt_status_read_only=$(txt common status_read_only "Read-only")
 _txt_temp=$(txt common temperature "Temperature")
 #_txt_temp=$(txt common temperature "°C")
 _txt_status=$(txt common status "Status")
@@ -2021,8 +2256,10 @@ function doSaveSettings(valid, validSaved, willCheckNas) {
 
 // ---------------------------------------------------------------------------
 // HA Passive node fetching
-// Reads both HA nodes' disk data via api.cgi?action=get_ha_passive, which
-// calls SYNO.SHA.Panel.Disk. Only present on SHA clusters running the 
+// Reads the passive node's own disk data (including system drives) plus
+// its hostname/IP/model/DSM version via api.cgi?action=get_ha_passive,
+// which combines SYNO.SHA.Panel.Overview with SYNO.Storage.CGI.Storage
+// relayed through SYNO.SHA.Util. Only present on SHA clusters running the
 // HighAvailability package.
 // ---------------------------------------------------------------------------
 function fetchHAPassive() {
@@ -2037,16 +2274,24 @@ function fetchHAPassive() {
         try { resp = JSON.parse(xhr.responseText); } catch(e) { return; }
         if (!resp || resp.ha !== 'passive' || !resp.passive_node) return;
 
-        var label = resp.passive_node.name || 'Passive Node';
+        var p = resp.passive_node;
+        var hostname = p.name || 'Passive Node';
+        // Mirrors fetchRemoteNAS's subtitle markup exactly (lines 2304-2309)
+        var subtitle = ' <span style="font-weight:normal;font-size:13px;color:#999;"> &nbsp; ' +
+            escHtml(p.ip || '') + ' &nbsp; ' + escHtml(p.model || '') + ' &nbsp; ' + escHtml(p.dsm_ver || '') +
+            '</span>';
 
         var section = document.createElement('div');
         section.className = 'remote-section';
         section.innerHTML =
-            '<h2>' + escHtml(label) +
-            ' <span style="font-weight:normal;font-size:11px;color:#999;">(Passive)</span>' +
-            '</h2>' +
-            buildHAPassiveTable(resp.passive_node.disks);
+            '<h2>' + escHtml(hostname) + subtitle + '</h2>' +
+            buildHAPassiveTable(p.disks);
         container.appendChild(section);
+
+        var volHtml = '';
+        if (document.getElementById('show_volume_info') && document.getElementById('show_volume_info').checked) {
+            volHtml = buildHAPassiveVolumeTable(p.volumes, p.storagePools, p.disks);
+        }
     };
     xhr.send();
 }
@@ -2139,13 +2384,98 @@ function buildHAPassiveTable(disks) {
             '<td class="size">' + escHtml(sizeText) + '</td>' +
             '<td class="serial">' + escHtml(serial) + '</td>' +
             '<td class="temp">' + escHtml(tempText) + '</td>' +
-            // Status is plain text here (no click-to-SMART), unlike the
-            // local-drive table - SYNO.SHA.Panel.Disk doesn't return actual
-            // SMART attribute values for the passive node's drives, so
-            // there's nothing for smart_info.sh to show.
-            '<td class="' + mapped.cls + '">' + escHtml(mapped.text) + '</td>' +
+            '<td class="' + mapped.cls + '"><button class="smart-btn ' + mapped.cls + '" onclick="showSmartPanel(this)" title="${_txt_smart_view}">' + escHtml(mapped.text) + '</button></td>' +
             '</tr>';
     }
+
+    html += '</tbody></table>';
+    return html;
+}
+
+function buildHAPassiveVolumeTable(volumes, storagePools, disks) {
+    volumes = volumes || [];
+    storagePools = storagePools || [];
+    disks = disks || [];
+    if (volumes.length === 0) return '';
+
+    var diskNameMap = {};
+    disks.forEach(function(d) { diskNameMap[d.id] = d.name || d.longName || d.id; });
+
+    var poolMap = {};
+    storagePools.forEach(function(p) { poolMap[p.id] = p; });
+
+    var RAID_MAP = {
+        basic: 'Basic', raid_linear: 'JBOD', raid_0: 'RAID 0', raid_1: 'RAID 1',
+        raid_5: 'RAID 5', raid_6: 'RAID 6', raid_10: 'RAID 10', raid_f1: 'RAID F1',
+        shr_without_disk_protect: 'SHR', shr_with_1_disk_protect: 'SHR',
+        shr_with_2_disk_protect: 'SHR2'
+    };
+
+    var STATUS_TEXT_MAP = {
+        normal:     {cls: 'status-healthy',  text: '${_txt_status_healthy}'},
+        degrade:    {cls: 'status-critical', text: '${_txt_status_degraded}'},
+        crashed:    {cls: 'status-critical', text: '${_txt_status_crashed}'},
+        repairing:  {cls: 'status-warning',  text: '${_txt_status_repairing}'},
+        rebuilding: {cls: 'status-warning',  text: '${_txt_status_rebuilding}'},
+        read_only:  {cls: 'status-warning',  text: '${_txt_status_read_only}'},
+        background: {cls: 'status-healthy',  text: '${_txt_status_healthy}'},
+        background_scrubbing: {cls: 'status-healthy', text: '${_txt_status_healthy}'}
+    };
+
+    function fmtSize(bytes) {
+        bytes = parseInt(bytes, 10);
+        if (isNaN(bytes)) return '';
+        var tib = bytes / Math.pow(1024, 4), gib = bytes / Math.pow(1024, 3), mib = bytes / Math.pow(1024, 2);
+        if (tib >= 1) return tib.toFixed(1) + ' ${_txt_size_tb}';
+        if (gib >= 1) return gib.toFixed(1) + ' ${_txt_size_gb}';
+        return mib.toFixed(1) + ' ${_txt_size_mb}';
+    }
+
+    var html = '<table><thead><tr>' +
+        '<th>${_txt_volume}</th><th>${_txt_storage_pool}</th><th>${_txt_raid}</th>' +
+        '<th>${_txt_volume_size}</th><th>${_txt_status}</th><th>${_txt_storage_status}</th>' +
+        '</tr></thead><tbody>';
+
+    volumes.slice().sort(function(a, b) { return (a.num_id || 0) - (b.num_id || 0); }).forEach(function(v) {
+        var volLabel = '${_txt_volume} ' + v.num_id;
+        var pool = poolMap[v.pool_path] || {};
+        var poolLabel = '${_txt_storage_pool} ' + (pool.num_id !== undefined ? pool.num_id : '');
+        var raidStr = RAID_MAP[pool.device_type] || pool.device_type || '';
+        var poolDiskNames = (pool.disks || []).map(function(id) { return diskNameMap[id] || id; }).join(', ');
+        var sizeStr = fmtSize(v.size && v.size.total);
+
+        var vStatusKey = v.summary_status || v.status || '';
+        var vMapped = STATUS_TEXT_MAP[vStatusKey] || {cls: 'status', text: vStatusKey || '-'};
+        var vStatusText = vMapped.text;
+        if ((vStatusKey === 'repairing' || vStatusKey === 'rebuilding') &&
+            v.progress && v.progress.percent !== undefined && v.progress.percent !== -1) {
+            vStatusText += ' (' + Math.round(v.progress.percent) + '%)';
+        }
+
+        // Scrub suffix appended BEFORE case-lookup, matching get_volume_info's
+        // own behavior exactly - falls through to raw/untranslated status
+        // prefix when scrubbing (only the suffix itself is translated).
+        var scrubSuffix = (pool.scrubbingStatus === 'scrubbing') ? ' - ${_txt_data_scrubbing}' : '';
+        var pStatusKey = (pool.status || '') + scrubSuffix;
+        var pMapped = STATUS_TEXT_MAP[pStatusKey];
+        var pStatusText = pMapped ? pMapped.text : pStatusKey;
+        var pCls = pMapped ? pMapped.cls : 'status';
+        if ((pStatusKey === 'repairing' || pStatusKey === 'rebuilding' ||
+             pStatusKey === 'background' || pStatusKey === 'background_scrubbing') &&
+            pool.progress && pool.progress.percent !== undefined && pool.progress.percent !== -1) {
+            pStatusText += ' (' + Math.round(pool.progress.percent) + '%)';
+        }
+
+        html +=
+            '<tr>' +
+            '<td>' + escHtml(volLabel) + '</td>' +
+            '<td title="' + escHtml(poolDiskNames) + '">' + escHtml(poolLabel) + '</td>' +
+            '<td>' + escHtml(raidStr) + '</td>' +
+            '<td>' + escHtml(sizeStr) + '</td>' +
+            '<td class="' + vMapped.cls + '">' + escHtml(vStatusText) + '</td>' +
+            '<td class="' + pCls + '">' + escHtml(pStatusText) + '</td>' +
+            '</tr>';
+    });
 
     html += '</tbody></table>';
     return html;
@@ -2409,6 +2739,8 @@ function escHtml(s) {
 function showSmartPanel(btn) {
     var row = btn.closest('tr');
     var device = row.cells[0].textContent.trim();
+    var isPassive = !!btn.closest('#ha-passive-container');
+    var action = isPassive ? 'get_ha_passive_smart' : 'get_smart';
     var section = btn.closest('[data-api-base]');
     var apiBase = section ? section.dataset.apiBase : 'api.cgi';
     var content = document.getElementById('smart-panel-content');
@@ -2417,7 +2749,7 @@ function showSmartPanel(btn) {
     document.getElementById('smart-overlay').classList.add('open');
 
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', apiBase + '?action=get_smart&device=' + encodeURIComponent(device) + '&lang=' + encodeURIComponent(viewer_lang), true);
+    xhr.open('GET', apiBase + '?action=' + action + '&device=' + encodeURIComponent(device) + '&lang=' + encodeURIComponent(viewer_lang), true);
     xhr.timeout = 60000;
     xhr.onreadystatechange = function() {
         if (xhr.readyState !== 4) return;

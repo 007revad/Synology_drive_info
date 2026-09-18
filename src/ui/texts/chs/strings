@@ -76,7 +76,6 @@ status_repairing	=	修复中
 status_read_only	=	只读
 status_crashed	=	已损毁
 storage_status	=	存储状态
-status_repairing	=	"修复中"
 data_scrubbing	=	数据清理
 smart_name	=	S.M.A.R.T.
 smart_view	=	"查看 S.M.A.R.T."

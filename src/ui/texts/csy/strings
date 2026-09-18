@@ -75,7 +75,6 @@ status_repairing	=	Oprava
 status_read_only	=	Jen pro čtení
 status_crashed	=	Zhroucení
 storage_status	=	Stav úložiště
-status_repairing	=	"Opravuje se"
 data_scrubbing	=	Scrubbing dat
 smart_name	=	S.M.A.R.T.
 smart_view	=	"Zobrazit S.M.A.R.T."

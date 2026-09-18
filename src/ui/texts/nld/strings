@@ -75,7 +75,6 @@ status_repairing	=	Herstellen
 status_read_only	=	Alleen-lezen
 status_crashed	=	Vastgelopen
 storage_status	=	Opslagstatus
-status_repairing	=	"Wordt gerepareerd"
 data_scrubbing	=	Gegevens opschonen
 smart_name	=	S.M.A.R.T.
 smart_view	=	"S.M.A.R.T. bekijken"

@@ -75,7 +75,6 @@ status_repairing	=	Восстановление
 status_read_only	=	Только для чтения
 status_crashed	=	Повреждение
 storage_status	=	Состояние системы хранения
-status_repairing	=	"Восстановление"
 data_scrubbing	=	Исправление ошибок данных
 smart_name	=	S.M.A.R.T.
 smart_view	=	"Просмотр S.M.A.R.T."

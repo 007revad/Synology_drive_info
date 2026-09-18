@@ -75,7 +75,6 @@ status_repairing	=	Onarıyor
 status_read_only	=	Salt okunur
 status_crashed	=	Çöktü
 storage_status	=	Depolama Durumu
-status_repairing	=	"Onarılıyor"
 data_scrubbing	=	Veri Düzeltme
 smart_name	=	S.M.A.R.T.
 smart_view	=	"S.M.A.R.T. görüntüle"

@@ -1,3 +1,13 @@
+v2.2.51
+- Now gets HD6500 passive node's System Drive info.
+- Now shows the same header info for a passive node instead of just "hostname (Passive)".
+- Now shows passive node's volume/storage pool info.
+- Now gets passive node's SMART info.
+
+Notes: 
+A Synology High Availability passive node's drive info is only visible in Drive Info on the active node.
+Currently unable to get a passive node's volume used percentage.
+
 v2.2.50
 - Bug fix for Settings button not working and other Synology's drive info not appearing.
 
