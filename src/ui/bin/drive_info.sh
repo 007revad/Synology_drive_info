@@ -122,6 +122,21 @@ if [[ "$dsm" -ge "7" ]]; then
     fi
 fi
 
+# Add smart_passive_info entries to sudoers.d if missing
+if [[ "$dsm" -ge "7" ]]; then
+    if ! grep -q "smart_passive_info.sh --dev=/dev/sata" /etc/sudoers.d/drive_info 2>/dev/null; then
+        pkg=drive_info
+        file=/etc/sudoers.d/drive_info
+        script=/var/packages/drive_info/target/ui/bin/smart_passive_info.sh
+        for dev in sata sas nvme; do
+            echo "$pkg ALL=(root) NOPASSWD: $script --dev=/dev/${dev}*" >> "$file"
+            echo "$pkg ALL=(root) NOPASSWD: $script -a --dev=/dev/${dev}*" >> "$file"
+        done
+        chmod 0440 "$file"
+        replace_sudoers="yes"
+    fi
+fi
+
 # Remove duplicate lines from sudoers.d file
 if [[ "$dsm" -ge "7" && "${replace_sudoers:-}" == "yes" ]]; then
     awk '!seen[$0]++' /etc/sudoers.d/drive_info > /tmp/drive_info.clean
@@ -270,8 +285,10 @@ get_drive_num(){
         location="$eunit"
     elif synodisk --enum -t sys | grep -q "/dev/$drive"; then
         # HD6500 system drives
-        drive_num="$drive_label $disk_id"
-        location="$system_drive_label"
+        #drive_num="$drive_label $disk_id"  # Shows 'Drive N' as drive id
+        #location="$system_drive_label"     # Shows 'System Drive' as location
+        drive_num="$system_drive_label $disk_id"  # Shows 'System Drive N' as drive id
+        location=""                               # Empty location
     else
         # All other drives
         drive_num="$drive_label $disk_id"

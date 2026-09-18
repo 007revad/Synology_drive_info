@@ -2347,6 +2347,17 @@ function buildHAPassiveTable(disks, diskTooltipMap) {
 
     if (disks.length === 0) return '<p class="remote-err">No drive data available.</p>';
 
+    var rowData = disks.map(function(d) {
+        var location = '';
+        if (d.disk_location === 'System') {
+            location = '${_txt_system_drive}';
+        } else if (d.disk_location && d.disk_location !== 'Main') {
+            location = d.disk_location;
+        }
+        return {d: d, location: location};
+    });
+    var hasLocation = rowData.some(function(r) { return r.location !== ''; });
+
     var STATUS_MAP = {
         normal:            {cls: 'status-healthy',  text: '${_txt_status_healthy}'},
         healthy:           {cls: 'status-healthy',  text: '${_txt_status_healthy}'},
@@ -2361,12 +2372,12 @@ function buildHAPassiveTable(disks, diskTooltipMap) {
     };
 
     var html = '<table><colgroup>' +
-        '<col class="id"><col class="num"><col class="location"><col class="model">' +
+        '<col class="id"><col class="num">' + (hasLocation ? '<col class="location">' : '') + '<col class="model">' +
         '<col class="size"><col class="serial"><col class="temp"><col class="status">' +
         '</colgroup><thead><tr>' +
         '<th class="id">${_txt_id}</th>' +
         '<th class="num">${_txt_slot}</th>' +
-        '<th class="location">${_txt_location}</th>' +
+        (hasLocation ? '<th class="location">${_txt_location}</th>' : '') +
         '<th class="model">${_txt_model}</th>' +
         '<th class="size">${_txt_size}</th>' +
         '<th class="serial">${_txt_serial}</th>' +
@@ -2374,13 +2385,13 @@ function buildHAPassiveTable(disks, diskTooltipMap) {
         '<th class="status">${_txt_status}</th>' +
         '</tr></thead><tbody>';
 
-    for (var i = 0; i < disks.length; i++) {
-        var d = disks[i];
+    for (var i = 0; i < rowData.length; i++) {
+        var d = rowData[i].d;
         var id       = d.id    || '';
         var tooltip = (diskTooltipMap && diskTooltipMap[id]) || '';
         var numAttr = tooltip ? ' title="' + escHtml(tooltip) + '"' : '';
         var label    = d.name || d.longName || '';
-        var location = d.has_system ? '${_txt_system_drive}' : '';  // stays blank until system drives ever appear in this data
+        var location = rowData[i].location;
         var model    = d.model || '';
         var serial   = d.ui_serial || d.serial || '';
 
@@ -2411,7 +2422,7 @@ function buildHAPassiveTable(disks, diskTooltipMap) {
             '<tr>' +
             '<td class="id">' + escHtml(id) + '</td>' +
             '<td class="num"' + numAttr + '>' + escHtml(label) + '</td>' +
-            '<td class="location">' + escHtml(location) + '</td>' +
+            (hasLocation ? '<td class="location">' + escHtml(location) + '</td>' : '') +
             '<td class="model">' + escHtml(model) + '</td>' +
             '<td class="size">' + escHtml(sizeText) + '</td>' +
             '<td class="serial">' + escHtml(serial) + '</td>' +
