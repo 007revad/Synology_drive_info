@@ -1,7 +1,12 @@
+v2.2.52
+- Now shows "Volume N Cache" tooltip for cache drives.
+- Added drives tooltip for passive node's Volume table.
+- Bug fix for not showing passive node's drive info.
+
 v2.2.51
 - Now gets HD6500 passive node's System Drive info.
 - Now shows the same header info for a passive node instead of just "hostname (Passive)".
-- Now shows passive node's volume/storage pool info.
+- Now shows passive node's volume/storage pool info when "Show volume information" is enabled.
 - Now gets passive node's SMART info.
 
 Notes: 

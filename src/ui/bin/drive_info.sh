@@ -142,11 +142,17 @@ fi
 if [[ "$1" == "get_ha_passive" ]]; then
     if [[ "$dsm" -le "6" ]]; then
         _overview_json=$(synowebapi --exec api=SYNO.SHA.Panel.Overview method=load version=1 2>/dev/null)
+        sleep 1
         _storage_json=$(synowebapi --exec api=SYNO.SHA.Util method=send_remote_webapi version=1 remote_api="\"SYNO.Storage.CGI.Storage\"" remote_method="\"load_info\"" remote_version=1 2>/dev/null)
     else
         _overview_json=$(synowebapi -s --exec api=SYNO.SHA.Panel.Overview method=load version=1 2>/dev/null)
+        sleep 1
         _storage_json=$(synowebapi -s --exec api=SYNO.SHA.Util method=send_remote_webapi version=1 remote_api="\"SYNO.Storage.CGI.Storage\"" remote_method="\"load_info\"" remote_version=1 2>/dev/null)
     fi
+
+    [[ -z "$_overview_json" ]] && _overview_json='{"success":false,"error":"empty_overview_response"}'
+    [[ -z "$_storage_json" ]] && _storage_json='{"success":false,"error":"empty_storage_response"}'
+
     jq -n --argjson overview "$_overview_json" --argjson storage "$_storage_json" \
         '{overview: $overview, storage: $storage}' 2>/dev/null
     exit 0
@@ -611,6 +617,25 @@ if [[ -n "$storage_json" ]]; then
     done < <(echo "$storage_json" | jq -r '.data.storagePools[] | "\(.num_id)|\(.disks | join(","))"')
 fi
 
+# Also map SSD cache disks to their volume (e.g. "nvme0n1" -> "Volume 1 Cache")
+if [[ -n "$storage_json" ]]; then
+    cache_label_prefix="$(txt common cache "Cache")"
+    volume_label_prefix="$(txt common volume "Volume")"
+    while IFS='|' read -r vol_num_id cache_disks_raw; do
+        [[ -z "$cache_disks_raw" ]] && continue
+        IFS=',' read -ra _cache_disk_ids <<< "$cache_disks_raw"
+        for _did in "${_cache_disk_ids[@]}"; do
+            [[ -z "$_did" ]] && continue
+            disk_pool_map["$_did"]="$volume_label_prefix $vol_num_id $cache_label_prefix"
+        done
+    done < <(echo "$storage_json" | jq -r '
+        (.data.ssdCaches // []) | INDEX(.id) as $cache_by_id |
+        (.data.volumes // [])[] |
+        select(.cache != null and .cache.id != null and .cache.id != "") |
+        "\(.num_id)|\(($cache_by_id[.cache.id].disks // []) | join(","))"
+    ')
+fi
+
 # Add drives to drives array
 for d in /sys/block/*; do
     # $d is /sys/block/sata1 etc
@@ -901,11 +926,19 @@ get_volume_info(){
 
         # Append member disks after an @@ sentinel so api.cgi can turn it into
         # a hover tooltip. Stripped when running in a terminal (no hover there).
+        # Show pool disks tooltip for RAID column
         local pool_disks
         pool_disks="${pool_disks_map[$pool_path]}"
         [[ -n "$pool_disks" ]] && raid_str="${raid_str}@@${pool_disks}"
         if [[ -t 1 ]]; then  # Running in terminal
             raid_str="${raid_str%%@@*}"
+        fi
+
+        # Append member disks after an @@ sentinel so api.cgi can turn it into
+        # a hover tooltip. Stripped when running in a terminal (no hover there).
+        # Show pool disks tooltip for Storage Pool column
+        if [[ ! -t 1 ]]; then  # Not running in terminal
+            [[ -n "$pool_disks" ]] && pool_label="${pool_label}@@${pool_disks}"
         fi
 
         # Format total size (auto TiB/GiB/MiB)

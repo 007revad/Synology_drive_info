@@ -585,7 +585,8 @@ if [[ "$_action" == "get_ha_passive" ]]; then
                     dsm_ver: $p.dsm_ver,
                     disks: .storage.data.disks,
                     volumes: (.storage.data.volumes // []),
-                    storagePools: (.storage.data.storagePools // [])
+                    storagePools: (.storage.data.storagePools // []),
+                    ssdCaches: (.storage.data.ssdCaches // [])
                     }
             }
         end
@@ -1177,6 +1178,7 @@ _txt_temp=$(txt common temperature "Temperature")
 #_txt_temp=$(txt common temperature "°C")
 _txt_status=$(txt common status "Status")
 _txt_volume=$(txt common volume "Volume")
+_txt_cache=$(txt common cache "Cache")
 _txt_smart_view=$(txt common smart_view "View S.M.A.R.T.")
 _txt_show_volume_info=$(txt settings show_volume_info "Show volume information")
 _txt_show_smart_important=$(txt settings show_smart_important "Show only important S.M.A.R.T. values")
@@ -1681,7 +1683,16 @@ while IFS= read -r line; do
             if [[ "$table_type" == "volume" ]]; then
                 case $c in
                     0) echo "<td class=\"vol-name\">$val</td>" ;;
-                    1) echo "<td class=\"vol-pool\">$val</td>" ;;
+                    1)
+                        if [[ "$val" == *"@@"* ]]; then
+                            pool_label="${val%%@@*}"
+                            pool_disks="${val#*@@}"
+                            pool_disks="${pool_disks//\"/&quot;}"
+                            echo "<td class=\"vol-pool\" title=\"${pool_disks}\">${pool_label}</td>"
+                        else
+                            echo "<td class=\"vol-pool\">$val</td>"
+                        fi
+                        ;;
                     2)
                         if [[ "$val" == *"@@"* ]]; then
                             raid_label="${val%%@@*}"
@@ -2283,9 +2294,10 @@ function fetchHAPassive() {
 
         var section = document.createElement('div');
         section.className = 'remote-section';
+        var diskTooltipMap = buildDiskTooltipMap(p.storagePools, p.volumes, p.ssdCaches);
         section.innerHTML =
             '<h2>' + escHtml(hostname) + subtitle + '</h2>' +
-            buildHAPassiveTable(p.disks);
+            buildHAPassiveTable(p.disks, diskTooltipMap);
         container.appendChild(section);
 
         var volHtml = '';
@@ -2307,7 +2319,25 @@ function naturalIdCompare(a, b) {
     return (parseInt(ma[2], 10) || 0) - (parseInt(mb[2], 10) || 0);
 }
 
-function buildHAPassiveTable(disks) {
+function buildDiskTooltipMap(storagePools, volumes, ssdCaches) {
+    var map = {};
+    (storagePools || []).forEach(function(pool) {
+        var label = '${_txt_storage_pool} ' + (pool.num_id !== undefined ? pool.num_id : '');
+        (pool.disks || []).forEach(function(id) { map[id] = label; });
+    });
+    var cacheById = {};
+    (ssdCaches || []).forEach(function(c) { cacheById[c.id] = c; });
+    (volumes || []).forEach(function(v) {
+        if (!v.cache || !v.cache.id) return;
+        var cache = cacheById[v.cache.id];
+        if (!cache) return;
+        var label = '${_txt_volume} ' + v.num_id + ' ${_txt_cache}';
+        (cache.disks || []).forEach(function(id) { map[id] = label; });
+    });
+    return map;
+}
+
+function buildHAPassiveTable(disks, diskTooltipMap) {
     // The API's own array order is arbitrary (not physical-bay order), so
     // sort by id the same way drive_info.sh's sort -V "${drives[@]}"
     // orders the local table.
@@ -2347,6 +2377,8 @@ function buildHAPassiveTable(disks) {
     for (var i = 0; i < disks.length; i++) {
         var d = disks[i];
         var id       = d.id    || '';
+        var tooltip = (diskTooltipMap && diskTooltipMap[id]) || '';
+        var numAttr = tooltip ? ' title="' + escHtml(tooltip) + '"' : '';
         var label    = d.name || d.longName || '';
         var location = d.has_system ? '${_txt_system_drive}' : '';  // stays blank until system drives ever appear in this data
         var model    = d.model || '';
@@ -2378,7 +2410,7 @@ function buildHAPassiveTable(disks) {
         html +=
             '<tr>' +
             '<td class="id">' + escHtml(id) + '</td>' +
-            '<td class="num">' + escHtml(label) + '</td>' +
+            '<td class="num"' + numAttr + '>' + escHtml(label) + '</td>' +
             '<td class="location">' + escHtml(location) + '</td>' +
             '<td class="model">' + escHtml(model) + '</td>' +
             '<td class="size">' + escHtml(sizeText) + '</td>' +
@@ -2470,6 +2502,7 @@ function buildHAPassiveVolumeTable(volumes, storagePools, disks) {
             '<tr>' +
             '<td>' + escHtml(volLabel) + '</td>' +
             '<td title="' + escHtml(poolDiskNames) + '">' + escHtml(poolLabel) + '</td>' +
+            '<td title="' + escHtml(poolDiskNames) + '">' + escHtml(raidStr) + '</td>' +
             '<td>' + escHtml(raidStr) + '</td>' +
             '<td>' + escHtml(sizeStr) + '</td>' +
             '<td class="' + vMapped.cls + '">' + escHtml(vStatusText) + '</td>' +
