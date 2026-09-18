@@ -142,19 +142,16 @@ fi
 if [[ "$1" == "get_ha_passive" ]]; then
     if [[ "$dsm" -le "6" ]]; then
         _overview_json=$(synowebapi --exec api=SYNO.SHA.Panel.Overview method=load version=1 2>/dev/null)
-        sleep 1
         _storage_json=$(synowebapi --exec api=SYNO.SHA.Util method=send_remote_webapi version=1 remote_api="\"SYNO.Storage.CGI.Storage\"" remote_method="\"load_info\"" remote_version=1 2>/dev/null)
     else
         _overview_json=$(synowebapi -s --exec api=SYNO.SHA.Panel.Overview method=load version=1 2>/dev/null)
-        sleep 1
         _storage_json=$(synowebapi -s --exec api=SYNO.SHA.Util method=send_remote_webapi version=1 remote_api="\"SYNO.Storage.CGI.Storage\"" remote_method="\"load_info\"" remote_version=1 2>/dev/null)
     fi
 
     [[ -z "$_overview_json" ]] && _overview_json='{"success":false,"error":"empty_overview_response"}'
     [[ -z "$_storage_json" ]] && _storage_json='{"success":false,"error":"empty_storage_response"}'
 
-    jq -n --argjson overview "$_overview_json" --argjson storage "$_storage_json" \
-        '{overview: $overview, storage: $storage}' 2>/dev/null
+    printf '%s\n%s\n' "$_overview_json" "$_storage_json" | jq -s '{overview: .[0], storage: .[1]}' 2>/dev/null
     exit 0
 fi
 
