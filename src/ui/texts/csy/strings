@@ -99,3 +99,4 @@ volume_used	=	Využito
 in_sync	=	Synchronizováno
 unsynced	=	Probíhá synchronizace
 inherited_active	=	"Zděděno z aktivního uzlu"
+cache	=	Mezipaměť SSD

@@ -98,4 +98,4 @@ volume_size	=	"ボリュームサイズ"
 volume_used	=	使用中
 in_sync	=	同期化されました
 unsynced	=	同期中
-inherited_active	=	"アクティブノードから継承"
+inherited_active	=	"アクティブノードから継承"cache	=	SSD キャッシュ

@@ -647,10 +647,10 @@ if [[ -n "$storage_json" ]]; then
             disk_pool_map["$_did"]="$volume_label_prefix $vol_num_id $cache_label_prefix"
         done
     done < <(echo "$storage_json" | jq -r '
-        (.data.ssdCaches // []) | INDEX(.id) as $cache_by_id |
+        ((.data.ssdCaches // []) | map({(.id): (.disks // [])}) | add // {}) as $cache_by_id |
         (.data.volumes // [])[] |
         select(.cache != null and .cache.id != null and .cache.id != "") |
-        "\(.num_id)|\(($cache_by_id[.cache.id].disks // []) | join(","))"
+        "\(.num_id)|\(($cache_by_id[.cache.id] // []) | join(","))"
     ')
 fi
 

@@ -99,3 +99,4 @@ volume_used	=	Kullanılan
 in_sync	=	Senkronize edildi
 unsynced	=	Senkronize ediliyor
 inherited_active	=	"Aktif düğümden devralındı"
+cache	=	SSD Önbellek

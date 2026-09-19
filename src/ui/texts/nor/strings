@@ -99,3 +99,4 @@ volume_used	=	Brukt
 in_sync	=	Synkronisert
 unsynced	=	Synkroniserer
 inherited_active	=	"Arvet fra aktivt knutepunkt"
+cache	=	SSD-hurtigbuffer

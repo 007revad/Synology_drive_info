@@ -99,3 +99,4 @@ volume_used	=	Utilizado
 in_sync	=	Sincronizado
 unsynced	=	A Sincronizar
 inherited_active	=	"Herdado do nó ativo"
+cache	=	Cache SSD

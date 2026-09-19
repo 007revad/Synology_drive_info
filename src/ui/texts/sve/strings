@@ -99,3 +99,4 @@ volume_used	=	Använt
 in_sync	=	Synkroniserad
 unsynced	=	Synkroniserar
 inherited_active	=	"Ärvt från aktivt nod"
+cache	=	SSD-cache

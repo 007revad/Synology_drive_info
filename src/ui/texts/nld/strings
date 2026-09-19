@@ -99,3 +99,4 @@ volume_used	=	Gebruikt
 in_sync	=	Gesynchroniseerd
 unsynced	=	Bezig met synchroniseren
 inherited_active	=	"Overgenomen van actief knooppunt"
+cache	=	SSD-cache

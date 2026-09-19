@@ -99,3 +99,4 @@ volume_used	=	Használt
 in_sync	=	Szinkronizálva
 unsynced	=	Szinkronizálás
 inherited_active	=	"Aktív csomóponttól örökölt"
+cache	=	SSD cache

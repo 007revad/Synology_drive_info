@@ -99,3 +99,4 @@ volume_used	=	Używane
 in_sync	=	Zsynchronizowano
 unsynced	=	Trwa synchronizacja
 inherited_active	=	"Odziedziczone z aktywnego węzła"
+cache	=	Pamięć podręczna SSD

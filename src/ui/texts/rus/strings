@@ -99,3 +99,4 @@ volume_used	=	Использовано
 in_sync	=	Синхронизировано
 unsynced	=	Синхронизация
 inherited_active	=	"Унаследовано от активного узла"
+cache	=	Кэш SSD

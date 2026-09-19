@@ -99,3 +99,4 @@ volume_used	=	已使用
 in_sync	=	已同步
 unsynced	=	同步中
 inherited_active	=	"繼承自作用中節點"
+cache	=	SSD 快取

@@ -99,3 +99,4 @@ volume_used	=	ใช้แล้ว
 in_sync	=	ซิงค์แล้ว
 unsynced	=	กำลังซิงค์
 inherited_active	=	"รับค่าจากโหนดที่ใช้งานอยู่"
+cache	=	แคช SSD

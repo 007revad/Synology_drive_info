@@ -99,3 +99,4 @@ volume_used	=	사용된 공간
 in_sync	=	동기화됨
 unsynced	=	동기화 중
 inherited_active	=	"활성 노드에서 상속됨"
+cache	=	SSD 캐시

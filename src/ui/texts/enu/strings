@@ -101,3 +101,4 @@ usb_drive	=	"USB Drive"
 volume	=	Volume
 volume_size	=	"Volume Size"
 volume_used	=	"Used"
+cache	=	SSD Cache
