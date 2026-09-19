@@ -3,7 +3,7 @@ v2.2.55
   - Used percentage will show as unsynced if the passive node is currently out of sync.
 - Added missing "Location" translation for Swedish.
 - Set minimum width and height for the main window.
-- Bug fix for "Volume N Cache" tooltip for cache drives not showing.
+- Bug fix for "Volume N Cache" tooltip for cache drives not showing for non-SHA-passive cache SSDs.
 - Bug fix for missing "Volume N SSD Cache" translations.
 - Bug fix for SMART "Increased by" text showing in the wrong place.
 - Bug fix for SMART emails not being sent when SMART values had increased.
