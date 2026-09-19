@@ -128,7 +128,7 @@ if [[ "$dsm" -ge "7" ]]; then
         pkg=drive_info
         file=/etc/sudoers.d/drive_info
         script=/var/packages/drive_info/target/ui/bin/smart_passive_info.sh
-        for dev in sata sas nvme; do
+        for dev in sata sas nvme sd; do
             echo "$pkg ALL=(root) NOPASSWD: $script --dev=/dev/${dev}*" >> "$file"
             echo "$pkg ALL=(root) NOPASSWD: $script -a --dev=/dev/${dev}*" >> "$file"
         done

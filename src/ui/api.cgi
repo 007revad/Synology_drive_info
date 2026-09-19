@@ -877,8 +877,8 @@ if [[ "$_action" == "get_ha_passive_smart" ]]; then
     fi
 
     # Validate device - passive-cluster device types only (sas/sata/nvme;
-    # no sd/hd/usb/nvc, which aren't relevant to a remote HA node's bays)
-    if [[ ! "$_device" =~ ^(sata[0-9]+|sas[0-9]+|nvme[0-9]+n[0-9]+)$ ]]; then
+    # no hd/usb/nvc, which aren't relevant to a remote HA node's bays)
+    if [[ ! "$_device" =~ ^(sd[a-z]+|sata[0-9]+|sas[0-9]+|nvme[0-9]+n[0-9]+)$ ]]; then
         echo "<p class=\"err\">$(txt errors err_invalid_device "Invalid device.")</p>"
         exit 0
     fi

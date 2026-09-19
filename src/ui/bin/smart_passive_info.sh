@@ -49,6 +49,11 @@ if options="$(getopt -o i -l dev:,all,increased -- "$@")"; then
                             device="$_devarg"
                         fi
                     ;;
+                    sd*)
+                        if [[ $_devarg =~ sd[a-z][a-z]?$ ]]; then
+                            device="$_devarg"
+                        fi
+                    ;;
                     nvme*)
                         if [[ $_devarg =~ nvme[0-9][0-9]?n[0-9][0-9]?$ ]]; then
                             device="$_devarg"

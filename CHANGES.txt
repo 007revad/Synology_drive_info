@@ -5,6 +5,10 @@ v2.2.55
 - Set minimum width and height for the main window.
 - Bug fix for "Volume N Cache" tooltip for cache drives not showing.
 - Bug fix for missing "Volume N SSD Cache" translations.
+- Bug fix for SMART "Increased by" text showing in the wrong place.
+- Bug fix for SMART emails not being sent when SMART values had increased.
+- Bug fix for error for SHA passive node's SMART info when device ids are sda, sdb etc.
+- Bug fix for smart_passive_info.sh not being set as executable during package installation.
 
 v2.2.54
 - Changed to show HD6500 system drives as "System Drive N" as the "Drive id" instead of "Drive N" as the Drive id and "System Drive" as the Location.
