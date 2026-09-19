@@ -578,8 +578,9 @@ if [[ "$_action" == "get_ha_passive" ]]; then
             (if .overview.data.lnode.role == "passive" then .overview.data.lnode else .overview.data.rnode end) as $p |
             {
                 ha: "passive",
+                passive_data_unsynced: (.overview.data.ha.passive_data_unsynced // false),
                 passive_node: {
-                name: $p.hostname,
+                    name: $p.hostname,
                     ip: $p.ip,
                     model: $p.model,
                     dsm_ver: $p.dsm_ver,
@@ -587,7 +588,10 @@ if [[ "$_action" == "get_ha_passive" ]]; then
                     volumes: (.storage.data.volumes // []),
                     storagePools: (.storage.data.storagePools // []),
                     ssdCaches: (.storage.data.ssdCaches // [])
-                    }
+                },
+                active_node: {
+                    volumes: (.local_storage.data.volumes // [])
+                }
             }
         end
     ' 2>/dev/null)
@@ -1180,6 +1184,10 @@ _txt_status=$(txt common status "Status")
 _txt_volume=$(txt common volume "Volume")
 _txt_cache=$(txt common cache "Cache")
 _txt_smart_view=$(txt common smart_view "View S.M.A.R.T.")
+_txt_volume_used=$(txt common volume_used "Used")
+_txt_inherited_active=$(txt common inherited_active "Inherited from active node")
+_txt_in_sync=$(txt common in_sync "Synced")
+_txt_unsynced=$(txt common unsynced "Syncing")
 _txt_show_volume_info=$(txt settings show_volume_info "Show volume information")
 _txt_show_smart_important=$(txt settings show_smart_important "Show only important S.M.A.R.T. values")
 _txt_smart_schedule_enable=$(txt settings smart_schedule_enable "Schedule daily S.M.A.R.T. emails (midnight)")
@@ -2302,7 +2310,7 @@ function fetchHAPassive() {
 
         var volHtml = '';
         if (document.getElementById('show_volume_info') && document.getElementById('show_volume_info').checked) {
-            volHtml = buildHAPassiveVolumeTable(p.volumes, p.storagePools, p.disks);
+            volHtml = buildHAPassiveVolumeTable(p.volumes, p.storagePools, p.disks, resp.active_node && resp.active_node.volumes, resp.passive_data_unsynced);
         }
     };
     xhr.send();
@@ -2435,11 +2443,15 @@ function buildHAPassiveTable(disks, diskTooltipMap) {
     return html;
 }
 
-function buildHAPassiveVolumeTable(volumes, storagePools, disks) {
+function buildHAPassiveVolumeTable(volumes, storagePools, disks, activeVolumes, passiveDataUnsynced) {
     volumes = volumes || [];
     storagePools = storagePools || [];
     disks = disks || [];
+    activeVolumes = activeVolumes || [];
     if (volumes.length === 0) return '';
+
+    var activeVolByNumId = {};
+    activeVolumes.forEach(function(av) { activeVolByNumId[av.num_id] = av; });
 
     var diskNameMap = {};
     disks.forEach(function(d) { diskNameMap[d.id] = d.name || d.longName || d.id; });
@@ -2476,7 +2488,7 @@ function buildHAPassiveVolumeTable(volumes, storagePools, disks) {
 
     var html = '<table><thead><tr>' +
         '<th>${_txt_volume}</th><th>${_txt_storage_pool}</th><th>${_txt_raid}</th>' +
-        '<th>${_txt_volume_size}</th><th>${_txt_status}</th><th>${_txt_storage_status}</th>' +
+        '<th>${_txt_volume_size}</th><th>${_txt_volume_used}</th><th>${_txt_status}</th><th>${_txt_storage_status}</th>' +
         '</tr></thead><tbody>';
 
     volumes.slice().sort(function(a, b) { return (a.num_id || 0) - (b.num_id || 0); }).forEach(function(v) {
@@ -2485,7 +2497,32 @@ function buildHAPassiveVolumeTable(volumes, storagePools, disks) {
         var poolLabel = '${_txt_storage_pool} ' + (pool.num_id !== undefined ? pool.num_id : '');
         var raidStr = RAID_MAP[pool.device_type] || pool.device_type || '';
         var poolDiskNames = (pool.disks || []).map(function(id) { return diskNameMap[id] || id; }).join(', ');
-        var sizeStr = fmtSize(v.size && v.size.total);
+
+        // Volume Size and Used are inherited from the active node's own
+        // matching volume (same num_id) - the passive side's volume isn't
+        // mounted, so its own size.total/used are always 0. Size is safe
+        // to inherit unconditionally (HA requires matching block-level
+        // storage); Used depends on sync state.
+        var activeVol = activeVolByNumId[v.num_id];
+        var sizeStr = '';
+        var sizeAttr = '';
+        if (activeVol && activeVol.size) {
+            sizeStr = fmtSize(activeVol.size.total);
+            sizeAttr = ' title="${_txt_inherited_active}"';
+        }
+
+        var usedStr = '';
+        var usedAttr = '';
+        if (passiveDataUnsynced) {
+            usedStr = '${_txt_unsynced}';
+        } else if (activeVol && activeVol.size) {
+            var total = parseInt(activeVol.size.total, 10);
+            var used = parseInt(activeVol.size.used, 10);
+            if (!isNaN(total) && total > 0 && !isNaN(used)) {
+                usedStr = Math.round((used / total) * 100) + '%';
+                usedAttr = ' title="${_txt_in_sync}"';
+            }
+        }
 
         var vStatusKey = v.summary_status || v.status || '';
         var vMapped = STATUS_TEXT_MAP[vStatusKey] || {cls: 'status', text: vStatusKey || '-'};
@@ -2495,9 +2532,6 @@ function buildHAPassiveVolumeTable(volumes, storagePools, disks) {
             vStatusText += ' (' + Math.round(v.progress.percent) + '%)';
         }
 
-        // Scrub suffix appended BEFORE case-lookup, matching get_volume_info's
-        // own behavior exactly - falls through to raw/untranslated status
-        // prefix when scrubbing (only the suffix itself is translated).
         var scrubSuffix = (pool.scrubbingStatus === 'scrubbing') ? ' - ${_txt_data_scrubbing}' : '';
         var pStatusKey = (pool.status || '') + scrubSuffix;
         var pMapped = STATUS_TEXT_MAP[pStatusKey];
@@ -2512,10 +2546,10 @@ function buildHAPassiveVolumeTable(volumes, storagePools, disks) {
         html +=
             '<tr>' +
             '<td>' + escHtml(volLabel) + '</td>' +
-            '<td title="' + escHtml(poolDiskNames) + '">' + escHtml(poolLabel) + '</td>' +
+            '<td>' + escHtml(poolLabel) + '</td>' +
             '<td title="' + escHtml(poolDiskNames) + '">' + escHtml(raidStr) + '</td>' +
-            '<td>' + escHtml(raidStr) + '</td>' +
-            '<td>' + escHtml(sizeStr) + '</td>' +
+            '<td' + sizeAttr + '>' + escHtml(sizeStr) + '</td>' +
+            '<td' + usedAttr + '>' + escHtml(usedStr) + '</td>' +
             '<td class="' + vMapped.cls + '">' + escHtml(vStatusText) + '</td>' +
             '<td class="' + pCls + '">' + escHtml(pStatusText) + '</td>' +
             '</tr>';
