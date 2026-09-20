@@ -1,3 +1,6 @@
+v2.2.57
+- Bug fix for getting SMART info for SHA passive node when "Show only important S.M.A.R.T. values" is not enabled.
+
 v2.2.56
 - Bug fixes for getting SMART info for SHA passive node.
 

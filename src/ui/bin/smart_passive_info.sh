@@ -25,7 +25,7 @@ dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
 #-----------------------------------------------------------------------
 all="no"
 important="no"
-if options="$(getopt -o i -l dev:,all,increased -- "$@")"; then
+if options="$(getopt -o ai -l dev:,all,increased -- "$@")"; then
     eval set -- "$options"
     while true; do
         case "${1,,}" in
