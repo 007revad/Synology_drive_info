@@ -124,7 +124,9 @@ fi
 
 # Add smart_passive_info entries to sudoers.d if missing
 if [[ "$dsm" -ge "7" ]]; then
-    if ! grep -q "smart_passive_info.sh --dev=/dev/sata" /etc/sudoers.d/drive_info 2>/dev/null; then
+    if ! grep -q "smart_passive_info.sh --dev=/dev/sata" /etc/sudoers.d/drive_info 2>/dev/null || \
+        ! grep -qF "smart_passive_info.sh --dev=/dev/sd*" /etc/sudoers.d/drive_info 2>/dev/null; then
+
         pkg=drive_info
         file=/etc/sudoers.d/drive_info
         script=/var/packages/drive_info/target/ui/bin/smart_passive_info.sh

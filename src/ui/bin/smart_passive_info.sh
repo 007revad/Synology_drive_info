@@ -61,14 +61,13 @@ if options="$(getopt -o i -l dev:,all,increased -- "$@")"; then
                     ;;
                 esac
                 shift
-            ;;
+                ;;
             -a|--all)           # Show all SMART attributes
                 all=yes
                 ;;
             -i|--increased)     # Only display increased attributes
                 increased=yes
                 ;;
-            ;;
             --)
                 shift
                 break
