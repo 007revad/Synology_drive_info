@@ -107,7 +107,7 @@ Off=""
 #-----------------------------------------------------------------------
 # Fetch SMART data via the relay
 #-----------------------------------------------------------------------
-_device_json_arg="{\\\"device\\\":\\\"${device}\\\"}"
+_device_json_arg="{\"device\":\"${device}\"}"
 if [[ "$dsm" -le "6" ]]; then
     _smart_result=$(synowebapi --exec api=SYNO.SHA.Util method=send_remote_webapi version=1 \
         remote_api="\"SYNO.Storage.CGI.Smart\"" remote_method="\"get_health_info\"" remote_version=1 \
