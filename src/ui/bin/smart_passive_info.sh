@@ -150,35 +150,59 @@ echo ""
 #-----------------------------------------------------------------------
 # Attribute table
 #-----------------------------------------------------------------------
-important_ids="1 5 7 9 10 187 188 190 194 195 197 198 199 200 252"
-
-if [[ "$all" != "yes" ]]; then
-    # Important mode: no header (parser auto-generates one). Row shape:
-    # "<id> blue::<name-padded> <raw>" - matches short_attibutes' pattern,
-    # 28-char name padding for plain-text/email readability.
-    echo "$_smart_result" | jq -r --arg ids "$important_ids" '
-        (.data.healthInfo.smartInfo // [])[] |
-        select(($ids | split(" ") | index(.id)) != null) |
-        "\(.id)\t\(.name)\t\(.raw)\t\(.status)"
-    ' | while IFS=$'\t' read -r id name raw status; do
-        raw_out="$raw"
-        [[ "$status" != "OK" ]] && raw_out="${LiteRed}${raw}${Off}"
-        printf "%-4s${Yellow}%-28s${Off} %s\n" "$id" "$name" "$raw_out"
-    done
+if [[ "$(echo "$_smart_result" | jq -r '.data.healthInfo.overview.isNVMeDisk // false')" == "true" ]]; then
+    # NVMe: colon-separated key:value output, matching smart_info.sh's
+    # own nvme-CLI-based formatting - avoids the space-in-name column
+    # splitting that the SATA/SAS 8-column format relies on, since NVMe
+    # attribute names (from this JSON) genuinely contain spaces.
+    nvme_important_map='{"1":"Critical_Warning","2":"Temperature","5":"Percentage_Used","12":"Power_On_Hours","13":"Unsafe_Shutdowns","14":"Media_Errors"}'
+    if [[ "$all" != "yes" ]]; then
+        echo "$_smart_result" | jq -r --argjson labels "$nvme_important_map" '
+            (.data.healthInfo.smartInfo // [])[] |
+            select(($labels | has(.id))) |
+            "\($labels[.id])\t\(.raw)\t\(.status)"
+        ' | while IFS=$'\t' read -r label raw status; do
+            raw_out="$raw"
+            [[ "$status" != "OK" ]] && raw_out="${LiteRed}${raw}${Off}"
+            echo -e "${label}${Off}:${raw_out}"
+        done
+    else
+        echo "$_smart_result" | jq -r '
+            (.data.healthInfo.smartInfo // [])[] |
+            "\(.name): \(.raw)"
+        '
+    fi
 else
-    # Full mode: header must literally contain ATTRIBUTE_NAME and FLAGS
-    # for the parser to select 8-column mode. No FLAGS field exists in
-    # this JSON, so it's a fixed placeholder. Never colorized - matches
-    # the local view's plain-text full table.
-    printf "%-4s %-32s %-8s %6s %6s %7s %6s %s\n" \
-        "ID#" "ATTRIBUTE_NAME" "FLAGS" "VALUE" "WORST" "THRESH" "FAIL" "RAW_VALUE"
-    echo "$_smart_result" | jq -r '
-        (.data.healthInfo.smartInfo // [])[] |
-        "\(.id)\t\(.name)\t\(.current)\t\(.worst)\t\(.threshold)\t\(.status)\t\(.raw)"
-    ' | while IFS=$'\t' read -r id name current worst threshold status raw; do
-        fail="-"
-        [[ "$status" != "OK" ]] && fail="$status"
-        printf "%-4s %-32s %-8s %6s %6s %7s %6s %s\n" "$id" "$name" "-" "$current" "$worst" "$threshold" "$fail" "$raw"
-    done
+    important_ids="1 5 7 9 10 187 188 190 194 195 197 198 199 200 252"
+
+    if [[ "$all" != "yes" ]]; then
+        # Important mode: no header (parser auto-generates one). Row shape:
+        # "<id> blue::<name-padded> <raw>" - matches short_attibutes' pattern,
+        # 28-char name padding for plain-text/email readability.
+        echo "$_smart_result" | jq -r --arg ids "$important_ids" '
+            (.data.healthInfo.smartInfo // [])[] |
+            select(($ids | split(" ") | index(.id)) != null) |
+            "\(.id)\t\(.name)\t\(.raw)\t\(.status)"
+        ' | while IFS=$'\t' read -r id name raw status; do
+            raw_out="$raw"
+            [[ "$status" != "OK" ]] && raw_out="${LiteRed}${raw}${Off}"
+            printf "%-4s${Yellow}%-28s${Off} %s\n" "$id" "$name" "$raw_out"
+        done
+    else
+        # Full mode: header must literally contain ATTRIBUTE_NAME and FLAGS
+        # for the parser to select 8-column mode. No FLAGS field exists in
+        # this JSON, so it's a fixed placeholder. Never colorized - matches
+        # the local view's plain-text full table.
+        printf "%-4s %-32s %-8s %6s %6s %7s %6s %s\n" \
+            "ID#" "ATTRIBUTE_NAME" "FLAGS" "VALUE" "WORST" "THRESH" "FAIL" "RAW_VALUE"
+        echo "$_smart_result" | jq -r '
+            (.data.healthInfo.smartInfo // [])[] |
+            "\(.id)\t\(.name)\t\(.current)\t\(.worst)\t\(.threshold)\t\(.status)\t\(.raw)"
+        ' | while IFS=$'\t' read -r id name current worst threshold status raw; do
+            fail="-"
+            [[ "$status" != "OK" ]] && fail="$status"
+            printf "%-4s %-32s %-8s %6s %6s %7s %6s %s\n" "$id" "$name" "-" "$current" "$worst" "$threshold" "$fail" "$raw"
+        done
+    fi
 fi
 

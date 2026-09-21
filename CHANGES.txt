@@ -1,3 +1,8 @@
+v2.2.60
+- Bug fix for volumes' Used percentage difference for active and passive node's compared to Drive Info on another NAS with active nodes as an Additional NAS.
+- Bug fix for M.2 drive's SMART info formatting.
+- Bug fix for passive node's "Volume N" in it's volume table missing it's cyan color.
+
 v2.2.59
 - Bug fix for SHA passive node's volume table not showing.
 

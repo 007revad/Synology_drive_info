@@ -2521,7 +2521,7 @@ function buildHAPassiveVolumeTable(volumes, storagePools, disks, activeVolumes, 
             var total = parseInt(activeVol.size.total, 10);
             var used = parseInt(activeVol.size.used, 10);
             if (!isNaN(total) && total > 0 && !isNaN(used)) {
-                usedStr = Math.round((used / total) * 100) + '%';
+                usedStr = Math.floor((used / total) * 100) + '%';
                 usedAttr = ' title="${_txt_in_sync}"';
             }
         }
@@ -2547,7 +2547,7 @@ function buildHAPassiveVolumeTable(volumes, storagePools, disks, activeVolumes, 
 
         html +=
             '<tr>' +
-            '<td>' + escHtml(volLabel) + '</td>' +
+            '<td class="smart-cyan">' + escHtml(volLabel) + '</td>' +
             '<td>' + escHtml(poolLabel) + '</td>' +
             '<td title="' + escHtml(poolDiskNames) + '">' + escHtml(raidStr) + '</td>' +
             '<td' + sizeAttr + '>' + escHtml(sizeStr) + '</td>' +
