@@ -1,3 +1,6 @@
+v2.2.59
+- Bug fix for SHA passive node's volume table not showing.
+
 v2.2.58
 - Another bug fix for getting SMART info for SHA passive node.
 

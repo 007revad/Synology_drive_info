@@ -2303,15 +2303,17 @@ function fetchHAPassive() {
         var section = document.createElement('div');
         section.className = 'remote-section';
         var diskTooltipMap = buildDiskTooltipMap(p.storagePools, p.volumes, p.ssdCaches);
-        section.innerHTML =
-            '<h2>' + escHtml(hostname) + subtitle + '</h2>' +
-            buildHAPassiveTable(p.disks, diskTooltipMap);
-        container.appendChild(section);
 
         var volHtml = '';
         if (document.getElementById('show_volume_info') && document.getElementById('show_volume_info').checked) {
             volHtml = buildHAPassiveVolumeTable(p.volumes, p.storagePools, p.disks, resp.active_node && resp.active_node.volumes, resp.passive_data_unsynced);
         }
+
+        section.innerHTML =
+            '<h2>' + escHtml(hostname) + subtitle + '</h2>' +
+            buildHAPassiveTable(p.disks, diskTooltipMap) +
+            volHtml;
+        container.appendChild(section);
     };
     xhr.send();
 }

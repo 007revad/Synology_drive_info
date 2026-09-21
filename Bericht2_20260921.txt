@@ -1,0 +1,341 @@
+root@HD6500-Cluster:~# sudo synowebapi -s --exec api=SYNO.SHA.Util method=send_remote_webapi version=1 remote_api="\"SYNO.Storage.CGI.Smart\"" remote_method="\"get_health_info\"" remote_version=1 remote_params="{\"device\":\"/dev/sas1\"}"
+{
+   "data" : {
+      "healthInfo" : {
+         "count" : 15,
+         "history" : {
+            "incremental" : {
+               "idnf" : [
+                  [ 0, 0 ],
+                  [ 1, 0 ],
+                  [ 2, 0 ],
+                  [ 3, 0 ],
+                  [ 4, 0 ],
+                  [ 5, 0 ],
+                  [ 6, 0 ],
+                  [ 7, 0 ],
+                  [ 8, 0 ],
+                  [ 9, 0 ],
+                  [ 10, 0 ],
+                  [ 11, 0 ]
+               ],
+               "offset" : 9,
+               "remainLife" : [
+                  [ 0, 98 ],
+                  [ 1, 98 ],
+                  [ 2, 98 ],
+                  [ 3, 98 ],
+                  [ 4, 98 ],
+                  [ 5, 98 ],
+                  [ 6, 98 ],
+                  [ 7, 98 ],
+                  [ 8, 98 ],
+                  [ 9, 98 ],
+                  [ 10, 98 ],
+                  [ 11, 98 ]
+               ],
+               "retry" : [
+                  [ 0, 0 ],
+                  [ 1, 0 ],
+                  [ 2, 0 ],
+                  [ 3, 0 ],
+                  [ 4, 0 ],
+                  [ 5, 0 ],
+                  [ 6, 0 ],
+                  [ 7, 0 ],
+                  [ 8, 0 ],
+                  [ 9, 0 ],
+                  [ 10, 0 ],
+                  [ 11, 0 ]
+               ],
+               "unc" : [
+                  [ 0 ],
+                  [ 1 ],
+                  [ 2 ],
+                  [ 3 ],
+                  [ 4 ],
+                  [ 5 ],
+                  [ 6 ],
+                  [ 7 ],
+                  [ 8 ],
+                  [ 9 ],
+                  [ 10 ],
+                  [ 11, -1 ]
+               ]
+            },
+            "single" : {
+               "idnf" : [
+                  [ 0, 0 ],
+                  [ 1, 0 ],
+                  [ 2, 0 ],
+                  [ 3, 0 ],
+                  [ 4, 0 ],
+                  [ 5, 0 ],
+                  [ 6, 0 ],
+                  [ 7, 0 ],
+                  [ 8, 0 ],
+                  [ 9, 0 ],
+                  [ 10, 0 ],
+                  [ 11, 0 ]
+               ],
+               "offset" : 9,
+               "remainLife" : [
+                  [ 0, -1 ],
+                  [ 1, 0 ],
+                  [ 2, 0 ],
+                  [ 3, 0 ],
+                  [ 4, 0 ],
+                  [ 5, 0 ],
+                  [ 6, 0 ],
+                  [ 7, 0 ],
+                  [ 8, 0 ],
+                  [ 9, 0 ],
+                  [ 10, 0 ],
+                  [ 11, 0 ]
+               ],
+               "retry" : [
+                  [ 0, 0 ],
+                  [ 1, 0 ],
+                  [ 2, 0 ],
+                  [ 3, 0 ],
+                  [ 4, 0 ],
+                  [ 5, 0 ],
+                  [ 6, 0 ],
+                  [ 7, 0 ],
+                  [ 8, 0 ],
+                  [ 9, 0 ],
+                  [ 10, 0 ],
+                  [ 11, 0 ]
+               ],
+               "unc" : [
+                  [ 0 ],
+                  [ 1 ],
+                  [ 2 ],
+                  [ 3 ],
+                  [ 4 ],
+                  [ 5 ],
+                  [ 6 ],
+                  [ 7 ],
+                  [ 8 ],
+                  [ 9 ],
+                  [ 10 ],
+                  [ 11 ]
+               ]
+            }
+         },
+         "overview" : {
+            "adv_key" : "",
+            "adv_modifiable" : false,
+            "adv_modified" : false,
+            "adv_progress" : "",
+            "adv_scheduled" : false,
+            "adv_section" : "",
+            "adv_status" : "not_support",
+            "adv_test_code" : "",
+            "allocation_role" : "shared_cache_1",
+            "below_remain_life_mail_notify_thr" : false,
+            "below_remain_life_show_thr" : false,
+            "below_remain_life_thr" : false,
+            "compatibility" : "support",
+            "disk_code" : "",
+            "drive_status_category" : "health",
+            "drive_status_key" : "normal",
+            "idnf" : 0,
+            "ihm_schedule_list" : [],
+            "io_err_info" : {
+               "sector" : 0,
+               "time" : 0,
+               "type" : ""
+            },
+            "isNVMeDisk" : false,
+            "isSataDisk" : true,
+            "isSsd" : true,
+            "isSynoDrive" : true,
+            "is_bundle_ssd" : true,
+            "is_raid_error_disk" : false,
+            "low_performance_in_raid" : "normal",
+            "low_performance_in_raid_disk_list" : "",
+            "overview_status" : "normal",
+            "overview_weight" : 0,
+            "poweron" : "20107",
+            "read_only" : false,
+            "remain_life" : {
+               "trustable" : true,
+               "value" : 98
+            },
+            "remain_life_attr" : "SSD_Life_Left",
+            "remain_life_danger" : false,
+            "remain_life_disable" : 0,
+            "remain_life_suppress" : 0,
+            "retry" : 0,
+            "sb_days_left" : 47532,
+            "sb_days_left_below_show_thres" : false,
+            "sb_days_left_critical" : false,
+            "sb_days_left_warning" : false,
+            "scheduled" : false,
+            "seq_status" : "normal",
+            "smart" : "normal",
+            "smartInfo_support" : true,
+            "smart_disable" : 0,
+            "smart_fail" : [],
+            "smart_fail_critical" : false,
+            "smart_fail_past" : false,
+            "smart_fail_repeat" : false,
+            "smart_info" : "normal",
+            "smart_progress" : "",
+            "smart_schedule_list" : [],
+            "smart_suppress" : 0,
+            "smart_test" : "normal",
+            "smart_test_disable" : 0,
+            "smart_test_limit" : 0,
+            "smart_test_suppress" : 0,
+            "ssd_bad_block_over_thr" : false,
+            "unc" : -1,
+            "wdda_disable" : 0,
+            "wdda_modifiable" : false,
+            "wdda_status" : "not_support",
+            "wdda_suppress" : 0
+         },
+         "smartInfo" : [
+            {
+               "current" : "100",
+               "id" : "1",
+               "name" : "Host_UNC_Error_Count",
+               "raw" : "0",
+               "status" : "OK",
+               "threshold" : "050",
+               "worst" : "100"
+            },
+            {
+               "current" : "100",
+               "id" : "9",
+               "name" : "Power_on_hours",
+               "raw" : "20107",
+               "status" : "OK",
+               "threshold" : "000",
+               "worst" : "100"
+            },
+            {
+               "current" : "100",
+               "id" : "12",
+               "name" : "Power_on/off_cycles",
+               "raw" : "8",
+               "status" : "OK",
+               "threshold" : "000",
+               "worst" : "100"
+            },
+            {
+               "current" : "100",
+               "id" : "164",
+               "name" : "Vendor_Specific",
+               "raw" : "115",
+               "status" : "OK",
+               "threshold" : "000",
+               "worst" : "100"
+            },
+            {
+               "current" : "100",
+               "id" : "168",
+               "name" : "SATA_PHY_error_count",
+               "raw" : "0",
+               "status" : "OK",
+               "threshold" : "000",
+               "worst" : "100"
+            },
+            {
+               "current" : "100",
+               "id" : "170",
+               "name" : "Vendor_Specific",
+               "raw" : "178",
+               "status" : "OK",
+               "threshold" : "000",
+               "worst" : "100"
+            },
+            {
+               "current" : "100",
+               "id" : "173",
+               "name" : "Vendor_Specific",
+               "raw" : "170",
+               "status" : "OK",
+               "threshold" : "000",
+               "worst" : "100"
+            },
+            {
+               "current" : "100",
+               "id" : "192",
+               "name" : "Unexpected_Power_Loss_Count",
+               "raw" : "2",
+               "status" : "OK",
+               "threshold" : "000",
+               "worst" : "100"
+            },
+            {
+               "current" : "097",
+               "id" : "194",
+               "name" : "Temperature",
+               "raw" : "30",
+               "status" : "OK",
+               "threshold" : "000",
+               "worst" : "095"
+            },
+            {
+               "current" : "100",
+               "id" : "196",
+               "name" : "Vendor_Specific",
+               "raw" : "0",
+               "status" : "OK",
+               "threshold" : "000",
+               "worst" : "100"
+            },
+            {
+               "current" : "100",
+               "id" : "218",
+               "name" : "CRC_Error_Count",
+               "raw" : "0",
+               "status" : "OK",
+               "threshold" : "050",
+               "worst" : "100"
+            },
+            {
+               "current" : "098",
+               "id" : "231",
+               "name" : "SSD_Life_Left",
+               "raw" : "0",
+               "status" : "OK",
+               "threshold" : "000",
+               "worst" : "100"
+            },
+            {
+               "current" : "100",
+               "id" : "233",
+               "name" : "Vendor_Specific",
+               "raw" : "264836348672",
+               "status" : "OK",
+               "threshold" : "000",
+               "worst" : "100"
+            },
+            {
+               "current" : "100",
+               "id" : "241",
+               "name" : "Host_Write",
+               "raw" : "200596871948",
+               "status" : "OK",
+               "threshold" : "000",
+               "worst" : "100"
+            },
+            {
+               "current" : "100",
+               "id" : "250",
+               "name" : "Vendor_Specific",
+               "raw" : "90",
+               "status" : "OK",
+               "threshold" : "000",
+               "worst" : "100"
+            }
+         ]
+      }
+   },
+   "httpd_restart" : false,
+   "success" : true
+}
+root@HD6500-Cluster:~# 
