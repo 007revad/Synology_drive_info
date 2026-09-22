@@ -1,6 +1,6 @@
 v2.2.63
 - Now shows "Volume N SSD Cache" tooltip for cache drives.
-- Now shows storage pool tooltip on "Storage Pool N" (as well as RAID type for backward compatibility).
+- Now shows storage pool tooltip when hovering over "Storage Pool N" (as well as RAID type for backward compatibility).
 - Added missing "Location" translation for Swedish.
 - Set minimum width and height for the main window.
 - Changed to show HD6500 system drives as "System Drive N" as the Drive id instead of "Drive N" as the Drive id and "System Drive" as the Location.
