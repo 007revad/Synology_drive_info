@@ -1,3 +1,7 @@
+v2.2.61
+- Added note that SMART info is not available for SAS drives.
+- Bug fix for jq error "Cannot index array with string id" when "Show only important S.M.A.R.T. values" is enabled.
+
 v2.2.60
 - Bug fix for volumes' Used percentage 1% difference between active and passive nodes compared to Drive Info on another NAS with the active node as an Additional NAS.
 - Bug fix for M.2 drive's SMART info formatting.
