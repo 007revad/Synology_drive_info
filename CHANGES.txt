@@ -3,7 +3,7 @@ v2.2.63
 - Now shows storage pool tooltip on "Storage Pool N" (as well as RAID type for backward compatibility).
 - Added missing "Location" translation for Swedish.
 - Set minimum width and height for the main window.
-- Changed to show HD6500 system drives as "System Drive N" as the "Drive id" instead of "Drive N" as the Drive id and "System Drive" as the Location.
+- Changed to show HD6500 system drives as "System Drive N" as the Drive id instead of "Drive N" as the Drive id and "System Drive" as the Location.
 - Synology High Availability
   - Now shows SHA passive server's drive info - including HD6500 passive node's System Drive info.
   - Now shows SHA passive node's volume/storage pool info when "Show volume information" is enabled.
