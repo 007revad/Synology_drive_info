@@ -1,3 +1,6 @@
+v2.2.62
+- Bug fix for jq error "Cannot index array with string id" when "Show only important S.M.A.R.T. values" is enabled.
+
 v2.2.61
 - Added note that SMART attribute info is not available for SHA passive node SAS drives.
 - Bug fix for jq error "Cannot index array with string id" when "Show only important S.M.A.R.T. values" is enabled.

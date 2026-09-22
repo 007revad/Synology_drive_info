@@ -124,12 +124,6 @@ if [[ "$_success" != "true" ]]; then
     exit 1
 fi
 
-_smart_support=$(echo "$_smart_result" | jq -r '.data.healthInfo.overview.smartInfo_support // false')
-if [[ "$_smart_support" != "true" ]]; then
-    echo -e "${LiteRed}SMART attribute data is not available for this drive type${Off}"
-    exit 0
-fi
-
 #---------------------------------------------------------------------------
 # Overall health result - hardcoded English, matching smart_info.sh
 # (smartctl output is English-only, so surrounding labels stay English too)
@@ -154,6 +148,16 @@ fi
 echo ""
 
 #-----------------------------------------------------------------------
+# Warn and exit if SAS drive from passive node
+# No SMART info available for SAS drives from passive node API
+#-----------------------------------------------------------------------
+_smart_support=$(echo "$_smart_result" | jq -r '.data.healthInfo.overview.smartInfo_support // false')
+if [[ "$_smart_support" != "true" ]]; then
+    echo -e "${LiteRed}SMART attribute data is not available for this drive type${Off}"
+    exit 0
+fi
+
+#-----------------------------------------------------------------------
 # Attribute table
 #-----------------------------------------------------------------------
 if [[ "$(echo "$_smart_result" | jq -r '.data.healthInfo.overview.isNVMeDisk // false')" == "true" ]]; then
@@ -163,12 +167,11 @@ if [[ "$(echo "$_smart_result" | jq -r '.data.healthInfo.overview.isNVMeDisk // 
     # attribute names (from this JSON) genuinely contain spaces.
     nvme_important_map='{"1":"Critical_Warning","2":"Temperature","5":"Percentage_Used","12":"Power_On_Hours","13":"Unsafe_Shutdowns","14":"Media_Errors"}'
     if [[ "$all" != "yes" ]]; then
-        echo "$_smart_result" | jq -r --arg ids "$important_ids" '
+        echo "$_smart_result" | jq -r --argjson labels "$nvme_important_map" '
             (.data.healthInfo.smartInfo // [])[] |
-            .id as $attr_id |
-            select(($ids | split(" ") | index($attr_id)) != null) |
-            "\(.id)\t\(.name)\t\(.raw)\t\(.status)"
-        ' | while IFS=$'\t' read -r id name raw status; do
+            select(($labels | has(.id))) |
+            "\($labels[.id])\t\(.raw)\t\(.status)"
+        ' | while IFS=$'\t' read -r label raw status; do
             raw_out="$raw"
             [[ "$status" != "OK" ]] && raw_out="${LiteRed}${raw}${Off}"
             echo -e "${label}${Off}:${raw_out}"
@@ -188,7 +191,8 @@ else
         # 28-char name padding for plain-text/email readability.
         echo "$_smart_result" | jq -r --arg ids "$important_ids" '
             (.data.healthInfo.smartInfo // [])[] |
-            select(($ids | split(" ") | index(.id)) != null) |
+            .id as $attr_id |
+            select(($ids | split(" ") | index($attr_id)) != null) |
             "\(.id)\t\(.name)\t\(.raw)\t\(.status)"
         ' | while IFS=$'\t' read -r id name raw status; do
             raw_out="$raw"
