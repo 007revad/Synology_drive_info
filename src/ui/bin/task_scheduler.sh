@@ -4,10 +4,10 @@
 #
 # api.cgi runs as the non-root 'drive_info' package user, and
 # SYNO.Core.TaskScheduler only succeeds when synowebapi is run with root/
-# admin context. This script is called via sudo (see /etc/sudoers.d/drive_info)
-# so it runs as root, then calls synowebapi directly. create's -s handling
-# follows smart_info.sh's DSM7 (-s) vs DSM6 (no -s) pattern - delete does
-# NOT (see DELETE_WEBAPI_FLAG below), since that pattern doesn't hold for it.
+# admin context. This script is called via a setuid helperudo so it runs
+# as root, then calls synowebapi directly. create's -s handling follows
+# smart_info.sh's DSM7 (-s) vs DSM6 (no -s) pattern - delete does NOT
+# (see DELETE_WEBAPI_FLAG below), since that pattern doesn't hold for it.
 #
 # Always creates/deletes a daily-at-midnight, owner=root task - that's the
 # only schedule this package currently needs (Drive Info SMART Schedule).

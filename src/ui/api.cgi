@@ -7,7 +7,7 @@ SCRIPT="${TARGET_DIR}/ui/bin/drive_info.sh"
 SMART_SCRIPT="${TARGET_DIR}/ui/bin/smart_info.sh"
 CHECK_IP_SCRIPT="${TARGET_DIR}/ui/bin/check_ip_port.sh"
 TASK_SCHEDULER_SCRIPT="${TARGET_DIR}/ui/bin/task_scheduler.sh"
-SUDOERS_FILE="/etc/sudoers.d/${PKG_NAME}"
+HELPER="$TARGET_DIR/bin/helper/driveinfo-helper"
 
 # Get DSM major version
 dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
@@ -243,10 +243,18 @@ if [[ "$_action" == "save_settings" ]]; then
                 # running check_ip_port.sh as root via sudo. Running server-
                 # side avoids the CORS block a browser-based check hit against
                 # DSM 7's own webapi.
-                if ! sudo -n "$CHECK_IP_SCRIPT" --ip="${_val_ip}" --port="${_val_port}" >/dev/null 2>&1; then
-                    _val_h_esc=${_val_h//\"/\\\"}
-                    [[ -n "$_failed_json" ]] && _failed_json+=','
-                    _failed_json+="{\"hostname\":\"${_val_h_esc}\",\"ip\":\"${_val_ip}\",\"port\":\"${_val_port}\"}"
+                if [[ "$dsm" -ge "7" ]]; then
+                    if ! "$HELPER" check_ip_port --ip="$_val_ip" --port="$_val_port" >/dev/null 2>&1; then
+                        _val_h_esc=${_val_h//\"/\\\"}
+                        [[ -n "$_failed_json" ]] && _failed_json+=','
+                        _failed_json+="{\"hostname\":\"${_val_h_esc}\",\"ip\":\"${_val_ip}\",\"port\":\"${_val_port}\"}"
+                    fi
+                else
+                    if ! bash "$CHECK_IP_SCRIPT" --ip="${_val_ip}" --port="${_val_port}" >/dev/null 2>&1; then
+                        _val_h_esc=${_val_h//\"/\\\"}
+                        [[ -n "$_failed_json" ]] && _failed_json+=','
+                        _failed_json+="{\"hostname\":\"${_val_h_esc}\",\"ip\":\"${_val_ip}\",\"port\":\"${_val_port}\"}"
+                    fi
                 fi
             fi
         fi
@@ -394,7 +402,11 @@ if [[ "$_action" == "save_settings" ]]; then
         _delete_ok=true
         if [[ -n "$_existing_task_id" ]]; then
             _delete_ok=false
-            _delete_result=$(sudo "$TASK_SCHEDULER_SCRIPT" delete "$_existing_task_id" "$_existing_owner" 2>&1)
+            if [[ "$dsm" -ge "7" ]]; then
+                _delete_result=$("$HELPER" task_scheduler delete "$_existing_task_id" "$_existing_owner" 2>&1)
+            else
+                _delete_result=$(sudo "$TASK_SCHEDULER_SCRIPT" delete "$_existing_task_id" "$_existing_owner" 2>&1)
+            fi
             _delete_success=$(printf '%s' "$_delete_result" | _strip_webapi_trace | jq -r '.success // false' 2>/dev/null)
             # TEMP DEBUG - remove once confirmed working reliably
             {
@@ -439,9 +451,15 @@ if [[ "$_action" == "save_settings" ]]; then
                 _smart_script_cmd="${SMART_SCRIPT} -e -a"
             fi
 
-            _create_result=$(sudo "$TASK_SCHEDULER_SCRIPT" create \
-                "Drive Info SMART Schedule" "$_smart_script_cmd" \
-                "$_notify_enable" "$_smart_notify_error_only" "$_smart_notify_email" 2>&1)
+            if [[ "$dsm" -ge "7" ]]; then
+                _create_result=$("$HELPER" task_scheduler create \
+                    "Drive Info SMART Schedule" "$_smart_script_cmd" \
+                    "$_notify_enable" "$_smart_notify_error_only" "$_smart_notify_email" 2>&1)
+            else
+                _create_result=$(sudo "$TASK_SCHEDULER_SCRIPT" create \
+                    "Drive Info SMART Schedule" "$_smart_script_cmd" \
+                    "$_notify_enable" "$_smart_notify_error_only" "$_smart_notify_email" 2>&1)
+            fi
             # TEMP DEBUG: log raw output (incl. stderr) so failures are visible.
             # cmd= is logged too so we can see exactly what flags were sent
             # for a given save, independent of what Task Scheduler shows.
@@ -527,7 +545,11 @@ if [[ "$_action" == "check_schedule" ]]; then
     _healed="false"
 
     if [[ -n "$_tracked_task_id" ]]; then
-        _list_result=$(sudo "$TASK_SCHEDULER_SCRIPT" list 2>&1)
+        if [[ "$dsm" -ge "7" ]]; then
+            _list_result=$("$HELPER" task_scheduler list 2>&1)
+        else
+            _list_result=$(sudo "$TASK_SCHEDULER_SCRIPT" list 2>&1)
+        fi
         _task_exists=$(printf '%s' "$_list_result" | _strip_webapi_trace | \
             jq -r --arg id "$_tracked_task_id" '(.data.tasks // []) | any(.id == ($id | tonumber)) // false' 2>/dev/null)
         {
@@ -569,7 +591,11 @@ if [[ "$_action" == "get_ha_passive" ]]; then
         exit 0
     fi
 
-    _sha_result=$(sudo "$SCRIPT" get_ha_passive 2>&1)
+    if [[ "$dsm" -ge "7" ]]; then
+        _sha_result=$("$HELPER" drive_info get_ha_passive 2>&1)
+    else
+        _sha_result=$(sudo "$SCRIPT" get_ha_passive 2>&1)
+    fi
 
     _ha_json=$(printf '%s' "$_sha_result" | _strip_webapi_trace | jq -c '
         if (.overview.success != true) or (.storage.success != true) or (.storage.data.disks == null) then
@@ -639,7 +665,7 @@ if [[ "$_action" == "get_smart" ]]; then
     [[ "$_smart_important" != "true" ]] && SMART_FLAGS+=("-a")
 
     if [[ "$dsm" -ge "7" ]]; then
-        SMART_OUTPUT=$(sudo "$SMART_SCRIPT" "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
+        SMART_OUTPUT=$("$HELPER" smart_info "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
     else
         SMART_OUTPUT=$(bash "$SMART_SCRIPT" "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
     fi
@@ -896,7 +922,7 @@ if [[ "$_action" == "get_ha_passive_smart" ]]; then
     [[ "$_smart_important" != "true" ]] && SMART_FLAGS+=("-a")
 
     if [[ "$dsm" -ge "7" ]]; then
-        SMART_OUTPUT=$(sudo "$SMART_PASSIVE_SCRIPT" "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
+        SMART_OUTPUT=$("$HELPER" smart_passive_info "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
     else
         SMART_OUTPUT=$(bash "$SMART_PASSIVE_SCRIPT" "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
     fi
@@ -1405,11 +1431,10 @@ fi
 
 # Check sudo permission
 if [[ "$dsm" -ge "7" ]]; then
-    if ! sudo -n -l "$SCRIPT" >/dev/null 2>&1; then
+    if [[ ! -u "$HELPER" ]]; then
         cat << NOPERMS
 <h2 style="color:#c00;">$(txt errors err_noperms_title "Permissions not configured")</h2>
 <p>$(txt errors err_noperms_desc "This package needs elevated permissions to read drive information.")</p>
-<p>$(txt errors err_see_details "See <a href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\" target=\"_blank\">set_package_permissions.md</a> for full details.")</p>
 </div>
 <script>document.getElementById("nav-btn").disabled=false;document.getElementById("reload-btn").disabled=false;</script>
 NOPERMS
@@ -1443,7 +1468,11 @@ dd if=/dev/zero bs=4096 count=1 2>/dev/null | tr '\0' ' '
 
 # Run drive_info.sh as root via sudo
 STDERR_TMP=$(mktemp)
-OUTPUT=$(sudo "${SCRIPT}" "$_lang" 2>"$STDERR_TMP")
+if [[ "$dsm" -ge "7" ]]; then
+    OUTPUT=$("$HELPER" drive_info "$_lang" 2>"$STDERR_TMP")
+else
+    OUTPUT=$(sudo "${SCRIPT}" "$_lang" 2>"$STDERR_TMP")
+fi
 
 EXIT_CODE=$?
 STDERR_OUT=$(cat "$STDERR_TMP")
@@ -1451,20 +1480,6 @@ rm -f "$STDERR_TMP"
 
 # Clear spinner and enable settings button
 echo '<script>document.getElementById("loading").style.display="none";document.getElementById("nav-btn").disabled=false;document.getElementById("reload-btn").disabled=false;</script>'
-
-# Check if sudo failed
-if [[ "$dsm" -ge "7" ]]; then
-    if echo "$STDERR_OUT" | grep -qi "not in the sudoers\|sudoers file\|not allowed\|password is required"; then
-        cat << SUDOFAIL
-<h2 style="color:#c00;">$(txt errors err_sudofail_title "Permissions not configured correctly")</h2>
-<p>$(txt errors err_sudofail_desc "The sudoers entry exists but sudo failed. Check the entry is correct:")</p>
-<pre>cat $SUDOERS_FILE</pre>
-<p>$(txt errors err_see_details "See <a href=\"https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md\" target=\"_blank\">set_package_permissions.md</a> for full details.")</p>
-</div>
-SUDOFAIL
-        exit 0
-    fi
-fi
 
 if [[ $EXIT_CODE -ne 0 ]]; then
     echo "<p class=\"err\">drive_info.sh exited with code $EXIT_CODE.</p>"

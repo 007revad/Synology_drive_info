@@ -8,29 +8,51 @@ MODULES_DIR="$TARGET_DIR/ui/modules"
 TEXTS_DIR="$TARGET_DIR/ui/texts"
 SETTINGS_DIR="/var/packages/${PKG_NAME}/etc"
 
+# Get DSM major version
+dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
+if [[ $dsm -ge 7 ]]; then
+    VAR_DIR="/var/packages/${PKG_NAME}/var"
+else
+    VAR_DIR="/var/packages/${PKG_NAME}/etc"
+fi
+
+# Log function
+log_message() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$VAR_DIR/install.log" 2>/dev/null || echo "$1"
+}
+
+echo "" >> "$VAR_DIR/install.log"
+
+log_message "Post-installation starting for package: $PKG_NAME"
+log_message "Running as $(id -un) (uid=$(id -u), gid=$(id -g))"
+
+echo "" >> "$VAR_DIR/api.log"
+
 # Remove spurious files injected by the package builder
 rm -f "$UI_DIR/Makefile"
 rm -f "$UI_DIR/ui"         # self-referencing symlink
 rm -f "$TEXTS_DIR/strings" # strings file template
+log_message "Removed spurious package builder files"
 
-# Make scripts and CGI executable
-chmod 755 "$UI_DIR/api.cgi"
-chmod 755 "$UI_DIR/bin/drive_info.sh"
-chmod 755 "$UI_DIR/bin/smart_info.sh"
-chmod 755 "$UI_DIR/bin/check_ip_port.sh"
-chmod 755 "$UI_DIR/bin/syno_discover.py"
-chmod 755 "$UI_DIR/bin/task_scheduler.sh"
-chmod 755 "$UI_DIR/modules/get_text.sh"
-chmod 755 "$UI_DIR/bin/smart_passive_info.sh"
+# Make scripts and CGI executable and secure
+chmod 555 "$UI_DIR/api.cgi"                       # Blocks injection exploit
+log_message "Set permissions for api.cgi"
+chmod 555 "$UI_DIR/bin/drive_info.sh"             # Blocks injection exploit
+log_message "Set permissions for drive_info.sh"
+chmod 555 "$UI_DIR/bin/smart_info.sh"             # Blocks injection exploit
+log_message "Set permissions for smart_info.sh"
+chmod 555 "$UI_DIR/bin/check_ip_port.sh"          # Blocks injection exploit
+log_message "Set permissions for ip_port.sh"
+chmod 555 "$UI_DIR/bin/syno_discover.py"          # Blocks injection exploit
+log_message "Set permissions for syno_discover.py"
+chmod 555 "$UI_DIR/bin/task_scheduler.sh"         # Blocks injection exploit
+log_message "Set permissions for task_scheduler.sh"
+chmod 555 "$UI_DIR/modules/get_text.sh"           # Blocks injection exploit
+log_message "Set permissions for get_text.sh"
+chmod 555 "$UI_DIR/bin/smart_passive_info.sh"     # Blocks injection exploit
+log_message "Set permissions for smart_passive_info.sh"
 
 chmod 644 "$UI_DIR/bin/smr_drive_list.txt"
-
-# For users who have already completed the one-time sudoers setup (see
-# set_package_permissions.md), refresh /etc/sudoers.d/drive_info on every
-# upgrade so newly added entries take effect immediately, instead of
-# waiting for the user to open the UI first. Calls the exact no-argument
-# command form that setup already grants.
-sudo "$UI_DIR/bin/drive_info.sh"
 
 # Create settings.conf with world-readable/writable permissions
 # DSM 7: in var/ (writable by drive_info via run-as:package)
@@ -43,4 +65,27 @@ else
     chmod 666 "${SETTINGS_CONF}"
 fi
 
+# Lock down target folder
+# Must be the last command (apart from logging and driveinfo-helper)
+chmod 555 "/var/packages/${PKG_NAME}/target" 2>/dev/null   # Blocks delete/recreate/rename exploit
+
+if [[ $dsm -ge 7 ]]; then
+    HELPER="$TARGET_DIR/bin/helper/driveinfo-helper"
+    if [[ -u "$HELPER" ]]; then
+        result="$("$HELPER" drive_info selfheal 2>&1)"
+        rc=$?
+        log_message "Triggered self-heal via helper"
+        log_message "Drive Info postinst: selfheal exit=${rc} output: ${result}"
+    else
+        log_message "Helper not yet setuid-root - self-heal deferred to first UI open"
+    fi
+fi
+
+
+if [ -z "$ERRORS" ]; then
+    log_message "Post-installation completed successfully"
+else
+    log_message "Post-installation completed with warnings"
+fi
+echo >> "$VAR_DIR/install.log"
 exit 0

@@ -1,5 +1,8 @@
 ## How to set the package permissions
 
+**NOTE:**
+Only versions older than v2.3 need these steps.
+
 There are 2 ways you can set the required permissions for the package.
 
 ### Set package permissions via SSH

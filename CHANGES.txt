@@ -1,3 +1,10 @@
+v2.3.64
+- Changed to no longer need the user to set elevated permissions.
+  - Installation deletes the old sudoers file if it exists.
+- Changed so if another window is on top clicking anywhere in the visible part of Drive Info's window brings it to the front.
+  - Previously you had to click the Drive Info window's title bar.
+- Changed to remove scheduled task when uninstalling so not to leave an orphan scheduled task.
+
 v2.2.63
 - Now shows "Volume N SSD Cache" tooltip for cache drives.
 - Now shows storage pool tooltip when hovering over "Storage Pool N" (as well as RAID type for backward compatibility).

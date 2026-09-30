@@ -1,5 +1,14 @@
 name: Build n Release Drive Info Package
 
+env:
+  # --- Edit these when reusing for a different package ---
+  REPO_NAME: "Synology_drive_infoe"
+  SPK_PREFIX: "Drive_Info"
+  HELPER_NAME: "driveinfo"
+
+  # --- Runner config, shouldn't need to change ---
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   release:
     types: [published]
@@ -8,9 +17,6 @@ on:
 permissions:
   contents: write
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build-spk:
     name: Build Package
@@ -18,14 +24,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: ['kvmx64']
-        #arch: ['noarch']
-        #dsm: ['7.0','7.1','7.2','7.3']
+        # These 4 cover all models that can use DSM 7
+        arch: ['kvmx64', 'rtd1296', 'armada38x', 'evansport']
+        #dsm: ['7.0','7.1','7.2','7.3',"7.4"]
         dsm: ['7.0']
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Get release tag
         id: get_latest_tag
@@ -34,10 +40,12 @@ jobs:
             echo "new_tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
           else
             # Get most recent release including pre-releases
-            latest_tag=$(curl -s "https://api.github.com/repos/007revad/Synology_drive_info/releases?per_page=1" \
-              | jq -r '.[0].tag_name // empty')
+            response=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/007revad/${REPO_NAME}/releases?per_page=1")
+            latest_tag=$(echo "$response" | jq -r 'if type == "array" then .[0].tag_name // empty else empty end')
             if [ -z "$latest_tag" ]; then
-              echo "ERROR: Could not determine release tag" >&2
+              echo "ERROR: Could not determine release tag. API response:" >&2
+              echo "$response" >&2
               exit 1
             fi
             echo "new_tag=$latest_tag" >> $GITHUB_OUTPUT
@@ -59,18 +67,49 @@ jobs:
       - name: Check if SPKs already exist in release
         id: check_assets
         run: |
-          existing=$(curl -s "https://api.github.com/repos/007revad/Synology_drive_info/releases/tags/${{ steps.get_latest_tag.outputs.new_tag }}" \
+          existing=$(curl -s "https://api.github.com/repos/007revad/${REPO_NAME}/releases/tags/${{ steps.get_latest_tag.outputs.new_tag }}" \
             | jq -r '.assets[].name' | grep -c '\.spk' || true)
           echo "spk_count=$existing" >> $GITHUB_OUTPUT
 
+      # Synology's own platform codes (kvmx64, rtd1296, ...) aren't
+      # meaningful to someone picking a download - map to the arch
+      # label people actually recognize.
+      - name: Map arch to display label
+        id: arch_label
+        run: |
+          case "${{ matrix.arch }}" in
+            kvmx64) label="x86_64" ;;
+            rtd1296) label="armv8" ;;
+            armada38x) label="armv7" ;;
+            evansport) label="i686" ;;
+            *) echo "::error::No display label mapped for arch '${{ matrix.arch }}'"; exit 1 ;;
+          esac
+          echo "label=$label" >> $GITHUB_OUTPUT
 
-      #- name: Debug toolkit download
-      #  run: |
-      #    curl -L --fail -o /tmp/base_env-7.0.txz \
-      #      "https://github.com/007revad/synology-toolkit-cache/releases/download/7.0/base_env-7.0.txz"
-      #    ls -l /tmp/base_env-7.0.txz
-      #    sha256sum /tmp/base_env-7.0.txz
+      # NEW: what actually goes in INFO's arch= field
+      - name: Map arch to INFO install-arch list
+        id: install_arch
+        run: |
+          case "${{ matrix.arch }}" in
+            kvmx64) archlist="x86_x64" ;;
+            rtd1296) archlist="armv8" ;;
+            armada38x) archlist="alpine alpine4k armada370 armada375 armada38x armadaxp monaco comcerto2k" ;;
+            evansport) archlist="evansport" ;;
+            *) echo "::error::No install-arch list mapped for '${{ matrix.arch }}'"; exit 1 ;;
+          esac
+          echo "archlist=$archlist" >> $GITHUB_OUTPUT
 
+      - name: Version-stamp drive_info.js filename
+        # Also edits config to match new drive_info.js file name
+        # Forces DSM to load current file and not cached file after package update
+        if: steps.check_assets.outputs.spk_count == '0'
+        run: |
+          set -euo pipefail
+          version="${{ steps.get_latest_tag.outputs.new_tag }}"
+          version="${version#v}"   # v1.0.27 -> 1.0.27, to match SYNOPKG_PKGVER
+          mv src/ui/drive_info.js "src/ui/drive_info-${version}.js"
+          sed -i "s/\"drive_info\.js\":/\"drive_info-${version}.js\":/" src/ui/config
+          grep -o '"drive_info[^"]*\.js"' src/ui/config
 
       - name: Synology Package Builder Github Action
         if: steps.check_assets.outputs.spk_count == '0'
@@ -81,41 +120,91 @@ jobs:
           arch: ${{ matrix.arch }}
           output: ./dist
 
+      # SynoBuild/PkgCreate.py don't reliably fail the Action when our
+      # custom post-make helper-compile step (in stubs/SynoBuildConf/build)
+      # errors out - the log shows Synology's own tooling can still emit
+      # a .spk in that case. Check the actual built artifact instead of
+      # trusting the exit code chain through Synology's build driver.
+      - name: Verify setuid helper compiled correctly
+        if: steps.check_assets.outputs.spk_count == '0'
+        run: |
+          set -euo pipefail
+
+          case "${{ matrix.arch }}" in
+            kvmx64)    expect_arch="x86-64" ;;
+            rtd1296)   expect_arch="ARM aarch64" ;;
+            armada38x) expect_arch="ARM" ;;
+            evansport) expect_arch="Intel 80386" ;;
+            *) echo "::error::No expected ELF arch mapped for '${{ matrix.arch }}'"; exit 1 ;;
+          esac
+
+          spk=$(ls ./dist/*.spk | grep -v _debug | head -n1)
+          if [ -z "$spk" ]; then
+            echo "::error::No non-debug .spk found in ./dist"
+            exit 1
+          fi
+
+          workdir=$(mktemp -d)
+          tar -xf "$spk" -C "$workdir" package.tgz
+          tar -xf "$workdir/package.tgz" -C "$workdir" bin/helper/${HELPER_NAME}-helper
+
+          helper="$workdir/bin/helper/${HELPER_NAME}-helper"
+          if [ ! -s "$helper" ]; then
+            echo "::error::${HELPER_NAME}-helper missing or empty in $spk - helper compile likely failed silently"
+            exit 1
+          fi
+
+          file_out=$(file -b "$helper")
+          echo "${HELPER_NAME}-helper: $file_out"
+          case "$file_out" in
+            *"$expect_arch"*) echo "OK: matches expected arch '$expect_arch'" ;;
+            *)
+              echo "::error::${HELPER_NAME}-helper in $spk doesn't look like '$expect_arch' (got: $file_out) - wrong-arch compiler was likely used"
+              exit 1
+              ;;
+          esac
+
+          rm -rf "$workdir"
+
       - name: Remove debug spk and rename package
         if: steps.check_assets.outputs.spk_count == '0'
         run: |
           ls -l ./dist
           rm ./dist/*_debug.spk
           for f in ./dist/*.spk; do
-            mv "$f" "./dist/Drive_Info-x86_64-${{ steps.get_latest_tag.outputs.new_tag }}-${{ steps.dsm_suffix.outputs.suffix }}.spk"
+            mv "$f" "./dist/${SPK_PREFIX}-${{ steps.arch_label.outputs.label }}-${{ steps.get_latest_tag.outputs.new_tag }}-${{ steps.dsm_suffix.outputs.suffix }}.spk"
           done
           ls -l ./dist
 
-      - name: Create noarch package
-        if: steps.check_assets.outputs.spk_count == '0'
+      - name: Fix arch field in INFO for non-x86_64 DSM 7 platforms
+        if: steps.check_assets.outputs.spk_count == '0' && matrix.arch != 'kvmx64'
         run: |
-          for f in ./dist/Drive_Info-x86_64-*.spk; do
-            noarch="${f/x86_64/noarch}"
-            tmpdir=$(mktemp -d)
-            tar -xf "$f" -C "$tmpdir"
-            sed -i 's/arch="x86_64"/arch="noarch"/' "$tmpdir/INFO"
-            tar -cf "$noarch" -C "$tmpdir" $(ls "$tmpdir")
-            rm -rf "$tmpdir"
-          done
-          ls -l ./dist
+          set -euo pipefail
+          spk=$(ls ./dist/*.spk | head -n1)
+          tmpdir=$(mktemp -d)
+          tar -xf "$spk" -C "$tmpdir"
+          sed -i '/^arch=/s/.*/arch="${{ steps.install_arch.outputs.archlist }}"/' "$tmpdir/INFO"
+          tar -cf "$spk" -C "$tmpdir" $(ls "$tmpdir")
+          rm -rf "$tmpdir"
 
-      - name: Create DSM 6 package
-        if: steps.check_assets.outputs.spk_count == '0'
+      # Only needs to happen once - the noarch/DSM6 output doesn't
+      # depend on which arch built it, and running it per matrix leg
+      # would just produce duplicate, colliding artifacts.
+      - name: Create noarch package for DSM 6
+        if: steps.check_assets.outputs.spk_count == '0' && matrix.arch == 'kvmx64'
         run: |
-          for f in ./dist/Drive_Info-noarch-*.spk; do
-            dsm6="${f/${{ steps.dsm_suffix.outputs.suffix }}/DSM-6.x}"
+          for f in ./dist/${SPK_PREFIX}-${{ steps.arch_label.outputs.label }}-*.spk; do
+            dsm6="${f/${{ steps.arch_label.outputs.label }}/noarch}"
+            dsm6="${dsm6/${{ steps.dsm_suffix.outputs.suffix }}/DSM-6.x}"
             tmpdir=$(mktemp -d)
             tar -xf "$f" -C "$tmpdir"
-            rm -rf "$tmpdir/WIZARD_UIFILES"
-            rm -rf "$tmpdir/conf"
+            sed -i 's/arch=".*"/arch="noarch"/' "$tmpdir/INFO"
             sed -i -E 's/os_min_ver="7\.0-[0-9]+"/os_min_ver="6.0-7321"/' "$tmpdir/INFO"
             sed -i 's/os_max_ver="9.9-99999"/os_max_ver="6.9-99999"/' "$tmpdir/INFO"
             sed -i -E 's/install_dep_packages="[^"]*"/install_dep_packages="py3k>=3.8.6-0154"/' "$tmpdir/INFO"
+            rm -rf "$tmpdir/WIZARD_UIFILES"
+            rm -rf "$tmpdir/conf"
+            rm -rf "$tmpdir/helper"
             tar -cf "$dsm6" -C "$tmpdir" $(ls "$tmpdir")
             rm -rf "$tmpdir"
           done
@@ -123,9 +212,9 @@ jobs:
 
       - name: Upload Package
         if: steps.check_assets.outputs.spk_count == '0'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
-          name: Drive_Info-${{ steps.dsm_suffix.outputs.suffix }}
+          name: ${{ env.SPK_PREFIX }}-${{ steps.arch_label.outputs.label }}-${{ steps.dsm_suffix.outputs.suffix }}
           path: ./dist/*.spk
 
       - name: Release
@@ -144,10 +233,10 @@ jobs:
     if: github.event_name == 'release' && github.event.action == 'published'
     steps:
       - name: Checkout this repo (for synology/PACKAGE_ICON.PNG and package.json)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Checkout 007revad.github.io (for thumbnails/)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: 007revad/007revad.github.io
           token: ${{ secrets.SYNC_TOKEN }}

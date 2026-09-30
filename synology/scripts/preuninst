@@ -1,3 +1,61 @@
-#!/bin/sh
+#!/bin/bash
+
+PKG_NAME="drive_info"
+TARGET_DIR="/var/packages/${PKG_NAME}/target"
+BIN_DIR="${TARGET_DIR}/bin"
+
+# Get DSM major version
+dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
+if [[ $dsm -ge 7 ]]; then
+    VAR_DIR="/var/packages/${PKG_NAME}/var"
+else
+    VAR_DIR="/var/packages/${PKG_NAME}/etc"
+fi
+
+log_message() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "${VAR_DIR}/install.log" 2>/dev/null || true
+}
+
+# DSM runs preuninst/postuninst/preinst/postinst as part of an upgrade
+# too (SYNOPKG_PKG_STATUS=UPGRADE - confirmed 2026-09-29). Leave the
+# scheduled tasks and toolbox.conf's schedules_set alone in that case:
+# the tasks point at fixed paths under target/, which the upgrade
+# replaces in place, so they keep working, and the modules stay
+# enabled instead of being silently switched off by getstate's
+# reconciliation on the next page load.
+if [[ "${SYNOPKG_PKG_STATUS:-}" == "UPGRADE" ]]; then
+    log_message "preuninst: upgrade in progress - scheduled tasks left in place"
+    exit 0
+fi
+
+# Remove the scheduled task so uninstalling doesn't leave an orphaned
+# task pointing at a script that no longer exists (which would fail
+# silently, or email the user, on its next scheduled run).
+#
+# DSM 7: preuninst runs as the package user, so this has to go
+# through the setuid helper, same as everything else in this package.
+# DSM 6: preuninst runs as root already, so task_setup.sh can be
+# called directly.
+#
+# Either way, a failure here must never block the uninstall itself -
+# an orphaned task is a much smaller problem than a package the user
+# can no longer remove.
+if [[ $dsm -ge 7 ]]; then
+    HELPER="${BIN_DIR}/helper/driveinfo-helper"
+    if [[ -u "$HELPER" ]]; then
+        "$HELPER" task_scheduler delete >/dev/null 2>>"${VAR_DIR}/api.log"
+        log_message "preuninst: removed scheduled task via helper"
+    else
+        log_message "preuninst: helper missing or not setuid - scheduled task not removed"
+    fi
+else
+    TASK_SETUP="${BIN_DIR}/task_scheduler.sh"
+    if [[ -x "$TASK_SETUP" ]]; then
+        "$TASK_SETUP" delete >/dev/null 2>>"${VAR_DIR}/api.log"
+        log_message "preuninst: removed scheduled task directly (DSM6)"
+    else
+        log_message "preuninst: task_setup.sh missing - scheduled task not removed"
+    fi
+fi
 
 exit 0

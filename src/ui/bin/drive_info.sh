@@ -27,125 +27,126 @@ if [[ -t 1 ]]; then  # Running in terminal
     echo "Running in an interactive shell (user terminal)."
 fi
 
+PKG_NAME="drive_info"
+PKG_ROOT="/var/packages/${PKG_NAME}"
+BIN_DIR="${PKG_ROOT}/target/ui/bin"
+
 # Get DSM major version
 dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
+if ! [[ "$dsm" =~ ^[0-9]+$ ]]; then
+    echo '{"success":false,"message":"Unable to determine DSM version"}' >&2
+    exit 1
+fi
+if [[ $dsm -ge 7 ]]; then
+    VAR_DIR="${PKG_ROOT}/var"
+else
+    VAR_DIR="${PKG_ROOT}/etc"
+fi
+
+SCRIPT="${BIN_DIR}/drive_info.sh"
+CONF_FILE="${VAR_DIR}/settings.conf"
+LOG_FILE="${VAR_DIR}/drive_info.log"
+API_LOG_FILE="${VAR_DIR}/api.log"
+
+if [[ ! -f "$CONF_FILE" ]]; then
+    touch "$CONF_FILE"
+fi
 
 
-#--------------------------------------------------------
-# Update sudoers file
+# ---------------------------------------------------------------------
+# Self-heal file ownership.
+#
+# bin/ and bin/modules/ are locked to 555 by postinst, which blocks
+# create/delete/rename of files inside them - but postinst runs as
+# drive_info, not root (confirmed 2026-08-15), so it can never chown
+# anything. Every file under bin/ therefore starts out still owned by
+# drive_info. An owner can always chmod u+w their own file regardless
+# of the containing directory's permissions, then overwrite its
+# content in place - confirmed exploitable against conf_lib.sh on
+# DS218 2026-08-15 despite bin/ being 555.
+#
+# Since this script always runs as root (invoked only via
+# driveinfo-helper's setuid), it closes that gap on every single
+# invocation: chown root:root + re-lock any file that's still
+# drive_info-owned. Cheap enough to run unconditionally rather than
+# caching a "did we already do this" flag - a handful of stat calls.
+#
+# Targets are found by globbing bin/ directly. Since both directories 
+# are 555 (no new files can be created), globbing what's actually on 
+# disk covers every possible overwrite target without trusting content
+# that could be the attack itself.
+#
+# LIMITATION: This cannot protect this script (drive_info.sh)
+# itself if it's been replaced before this code runs, the replacement
+# executes instead and this check never fires - self-heal logic in the
+# original file doesn't help once the original file is gone. This is
+# a narrow, accepted gap: the window between postinst completing and
+# the first invocation of this script (which happens automatically on
+# first page load via getstate). Everything this function iterates
+# over is fully self-healing from that point forward; this file itself
+# is the one exception.
+self_heal() {
+    local f owner
+    for f in "$BIN_DIR"/*.sh "$BIN_DIR"/*.py "$0"; do
+        [[ -f "$f" ]] || continue
+        owner="$(stat -c '%U' "$f" 2>/dev/null)"
+        if [[ "$owner" != "root" ]]; then
+            chown root:root "$f" 2>/dev/null
+            chmod 555 "$f" 2>/dev/null
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Drive_Info: self-heal secured $f (was owned by $owner)" \
+                >> "${API_LOG_FILE}" 2>/dev/null
+        fi
+    done
 
-# Check if language entries exist in sudoers file, regardless of (ALL) vs (root)
-if [[ "$dsm" -ge "7" ]]; then
-    if ! grep -q "drive_info.sh enu" /etc/sudoers.d/drive_info 2>/dev/null; then
-        # Update sudoers to support language argument
-        pkg=drive_info
-        file=/etc/sudoers.d/drive_info
-        script=/var/packages/drive_info/target/ui/bin/drive_info.sh
-        echo -n "" > "$file"
-        for lang in chs cht csy dan enu fre ger hun ita jpn krn nld nor plk ptb ptg rus spn sve tha trk; do
-            echo "$pkg ALL=(root) NOPASSWD: $script $lang" >> "$file"
-        done
-        echo "$pkg ALL=(root) NOPASSWD: $script" >> "$file"
-        chmod 0440 "$file"
-        replace_sudoers="yes"
+    # syno_cpu_temp.conf is data, not code - root still writes it on every
+    # save. 600 rather than 555: no group/other bits at all, since
+    # root bypasses the mode entirely and the only thing left to
+    # control is whether drive_info can read config values (some are
+    # worth keeping off a wider read path even though nothing currently 
+    # depends on that confidentiality).
+    if [[ -f "$CONF_FILE" ]]; then
+        owner="$(stat -c '%U' "$CONF_FILE" 2>/dev/null)"
+        if [[ "$owner" != "root" ]]; then
+            chown root:root "$CONF_FILE" 2>/dev/null
+            chmod 600 "$CONF_FILE" 2>/dev/null
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Drive_Info: self-heal secured $CONF_FILE (was owned by $owner)" \
+                >> "${API_LOG_FILE}" 2>/dev/null
+        fi
     fi
-fi
 
-# Add smart_info entries to sudoers.d if missing
-if [[ "$dsm" -ge "7" ]]; then
-    if ! grep -q "smart_info.sh --dev=/dev/sd" /etc/sudoers.d/drive_info 2>/dev/null || \
-       ! grep -q "smart_info.sh --dev=/dev/usb" /etc/sudoers.d/drive_info 2>/dev/null; then
-        pkg=drive_info
-        file=/etc/sudoers.d/drive_info
-        script=/var/packages/drive_info/target/ui/bin/smart_info.sh
-        for flags in "" "-i" "-a" "-ia"; do
-            for dev in sd hd sata sas nvme nvc usb; do
-                if [[ -n "$flags" ]]; then
-                    echo "$pkg ALL=(root) NOPASSWD: $script $flags --dev=/dev/${dev}*" >> "$file"
-                else
-                    echo "$pkg ALL=(root) NOPASSWD: $script --dev=/dev/${dev}*" >> "$file"
-                fi
-            done
-        done
-        chmod 0440 "$file"
-        replace_sudoers="yes"
+    # Remove leftover sudoers rule from the pre-setuid-helper design.
+    # No longer independently exploitable once the scripts above are
+    # root-owned 555 (a NOPASSWD entry pointing at a script the
+    # invoking user can't write to isn't itself an escalation path),
+    # but it's unnecessary attack surface left behind on an in-place
+    # upgrade of an old install, and worth clearing rather than
+    # leaving as an inert-but-present entry. Only root can delete
+    # anything under /etc/sudoers.d/, so - same as the ownership
+    # fixes above - this only works from here, whether invoked via
+    # the helper (DSM7) or directly (DSM6).
+    SUDOERS_FILE="/etc/sudoers.d/${PKG_NAME}"
+    if [[ -f "$SUDOERS_FILE" ]]; then
+        rm -f "$SUDOERS_FILE"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Drive_Info: self-heal removed leftover sudoers file $SUDOERS_FILE" \
+            >> "${API_LOG_FILE}" 2>/dev/null
     fi
-fi
 
-# Add task_scheduler entries to sudoers.d if missing
-if [[ "$dsm" -ge "7" ]]; then
-    if ! grep -q "task_scheduler.sh " /etc/sudoers.d/drive_info 2>/dev/null; then
-        pkg=drive_info
-        file=/etc/sudoers.d/drive_info
-        script=/var/packages/drive_info/target/ui/bin/task_scheduler.sh
-        echo "$pkg ALL=(root) NOPASSWD: $script create *" >> "$file"
-        echo "$pkg ALL=(root) NOPASSWD: $script delete *" >> "$file"
-        chmod 0440 "$file"
-        replace_sudoers="yes"
+    # Ensure api.log itself is drive_info-owned, not root-owned. If this
+    # function's own writes above are what create api.log for the
+    # first time (e.g. postinst's selfheal call on a fresh @appdata,
+    # before api.cgi's own touch/chown ever runs), the file is created
+    # as root:drive_info - and once that happens, api.cgi's unprivileged
+    # chown can never fix it (EPERM: not the owner). Root can always
+    # chown here, so fix it unconditionally rather than checking first.
+    if [[ -f "$API_LOG_FILE" ]]; then
+        chown "${PKG_NAME}:${PKG_NAME}" "$API_LOG_FILE" 2>/dev/null
+        chmod 644 "$API_LOG_FILE" 2>/dev/null
     fi
-fi
+}
 
-# Add task_scheduler list entry to sudoers.d if missing
-if [[ "$dsm" -ge "7" ]]; then
-    if ! grep -q "task_scheduler.sh list" /etc/sudoers.d/drive_info 2>/dev/null; then
-        pkg=drive_info
-        file=/etc/sudoers.d/drive_info
-        script=/var/packages/drive_info/target/ui/bin/task_scheduler.sh
-        echo "$pkg ALL=(root) NOPASSWD: $script list" >> "$file"
-        chmod 0440 "$file"
-        replace_sudoers="yes"
-    fi
-fi
+self_heal
 
-# Add check_ip_port entry to sudoers.d if missing
-if [[ "$dsm" -ge "7" ]]; then
-    if ! grep -qF "check_ip_port.sh --ip=* --port=*" /etc/sudoers.d/drive_info 2>/dev/null; then
-        pkg=drive_info
-        file=/etc/sudoers.d/drive_info
-        script=/var/packages/drive_info/target/ui/bin/check_ip_port.sh
-        echo "$pkg ALL=(root) NOPASSWD: $script --ip=* --port=*" >> "$file"
-        chmod 0440 "$file"
-        replace_sudoers="yes"
-    fi
-fi
-
-# Add get_ha_passive entry to sudoers.d if missing
-if [[ "$dsm" -ge "7" ]]; then
-    if ! grep -q "drive_info.sh get_ha_passive" /etc/sudoers.d/drive_info 2>/dev/null; then
-        # Update sudoers to support get_ha_passive argument
-        pkg=drive_info
-        file=/etc/sudoers.d/drive_info
-        script=/var/packages/drive_info/target/ui/bin/drive_info.sh
-        echo "$pkg ALL=(root) NOPASSWD: $script get_ha_passive" >> "$file"
-        chmod 0440 "$file"
-        replace_sudoers="yes"
-    fi
-fi
-
-# Add smart_passive_info entries to sudoers.d if missing
-if [[ "$dsm" -ge "7" ]]; then
-    if ! grep -q "smart_passive_info.sh --dev=/dev/sata" /etc/sudoers.d/drive_info 2>/dev/null || \
-        ! grep -qF "smart_passive_info.sh --dev=/dev/sd*" /etc/sudoers.d/drive_info 2>/dev/null; then
-
-        pkg=drive_info
-        file=/etc/sudoers.d/drive_info
-        script=/var/packages/drive_info/target/ui/bin/smart_passive_info.sh
-        for dev in sata sas nvme sd; do
-            echo "$pkg ALL=(root) NOPASSWD: $script --dev=/dev/${dev}*" >> "$file"
-            echo "$pkg ALL=(root) NOPASSWD: $script -a --dev=/dev/${dev}*" >> "$file"
-        done
-        chmod 0440 "$file"
-        replace_sudoers="yes"
-    fi
-fi
-
-# Remove duplicate lines from sudoers.d file
-if [[ "$dsm" -ge "7" && "${replace_sudoers:-}" == "yes" ]]; then
-    awk '!seen[$0]++' /etc/sudoers.d/drive_info > /tmp/drive_info.clean
-    chmod 0440 /tmp/drive_info.clean
-    cp /tmp/drive_info.clean /etc/sudoers.d/drive_info
-    rm /tmp/drive_info.clean
-fi
+if [[ "$1" == "selfheal" ]]; then exit 0; fi
 
 
 #--------------------------------------------------------

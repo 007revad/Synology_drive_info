@@ -21,8 +21,31 @@ Ext.define("SYNO.SDS.drive_info.MainWindow", {
             height: 440,
             minWidth: 820,
             minHeight: 440,
-            html: '<iframe src="webman/3rdparty/drive_info/api.cgi?_ts=' + new Date().getTime() + '" style="width:100%;height:100%;border:none;margin:0;"></iframe>'
+            html: '<iframe src="webman/3rdparty/drive_info/api.cgi?_ts=' + new Date().getTime() + '" style="width:100%;height:100%;border:none;margin:0;"></iframe>',
+            listeners: {
+                afterrender: {
+                    fn: this.onAfterRender,
+                    scope: this
+                }
+            }
         }, a));
+    },
+    // Clicks inside the iframe never reach DSM's window manager, so forward them
+    onAfterRender: function() {
+        var me = this;
+        var frame = this.body.dom.querySelector("iframe");
+        if (!frame) {
+            return;
+        }
+        var attach = function() {
+            try {
+                frame.contentWindow.document.addEventListener("mousedown", function() {
+                    me.toFront();
+                }, true);
+            } catch (e) {}
+        };
+        frame.addEventListener("load", attach);
+        attach();
     },
     onClose: function() {
         SYNO.SDS.drive_info.MainWindow.superclass.onClose.apply(this, arguments);
