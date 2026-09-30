@@ -98,7 +98,7 @@ self_heal() {
         fi
     done
 
-    # syno_cpu_temp.conf is data, not code - root still writes it on every
+    # settings.conf is data, not code - root still writes it on every
     # save. 600 rather than 555: no group/other bits at all, since
     # root bypasses the mode entirely and the only thing left to
     # control is whether drive_info can read config values (some are
@@ -106,11 +106,14 @@ self_heal() {
     # depends on that confidentiality).
     if [[ -f "$CONF_FILE" ]]; then
         owner="$(stat -c '%U' "$CONF_FILE" 2>/dev/null)"
-        if [[ "$owner" != "root" ]]; then
-            chown root:root "$CONF_FILE" 2>/dev/null
-            chmod 600 "$CONF_FILE" 2>/dev/null
-            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Drive_Info: self-heal secured $CONF_FILE (was owned by $owner)" \
-                >> "${API_LOG_FILE}" 2>/dev/null
+        #if [[ "$owner" != "root" ]]; then
+        if [[ "$owner" != "drive_info" ]]; then
+            #chown root:root "$CONF_FILE" 2>/dev/null
+            chown drive_info:drive_info "$CONF_FILE" 2>/dev/null
+            #chmod 600 "$CONF_FILE" 2>/dev/null
+            chmod 660 "$CONF_FILE" 2>/dev/null
+            #echo "[$(date '+%Y-%m-%d %H:%M:%S')] Drive_Info: self-heal secured $CONF_FILE (was owned by $owner)" \
+            #    >> "${API_LOG_FILE}" 2>/dev/null
         fi
     fi
 

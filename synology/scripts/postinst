@@ -59,6 +59,8 @@ chmod 644 "$UI_DIR/bin/smr_drive_list.txt"
 # DSM 6: in etc/ (writable by system CGI user via 666 permissions)
 if [[ -d "${PKG_ROOT}/var" ]]; then
     SETTINGS_CONF="${PKG_ROOT}/var/settings.conf"
+    touch "${SETTINGS_CONF}"
+    chmod 660 "${SETTINGS_CONF}"
 else
     SETTINGS_CONF="${PKG_ROOT}/etc/settings.conf"
     touch "${SETTINGS_CONF}"

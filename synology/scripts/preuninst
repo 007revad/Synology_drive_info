@@ -18,7 +18,7 @@ log_message() {
 
 # DSM runs preuninst/postuninst/preinst/postinst as part of an upgrade
 # too (SYNOPKG_PKG_STATUS=UPGRADE - confirmed 2026-09-29). Leave the
-# scheduled tasks and toolbox.conf's schedules_set alone in that case:
+# scheduled tasks and settings.conf's schedules_set alone in that case:
 # the tasks point at fixed paths under target/, which the upgrade
 # replaces in place, so they keep working, and the modules stay
 # enabled instead of being silently switched off by getstate's
