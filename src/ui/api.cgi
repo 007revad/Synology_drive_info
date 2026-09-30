@@ -408,11 +408,13 @@ if [[ "$_action" == "save_settings" ]]; then
                 _delete_result=$(sudo "$TASK_SCHEDULER_SCRIPT" delete "$_existing_task_id" "$_existing_owner" 2>&1)
             fi
             _delete_success=$(printf '%s' "$_delete_result" | _strip_webapi_trace | jq -r '.success // false' 2>/dev/null)
+
             # TEMP DEBUG - remove once confirmed working reliably
-            {
-                echo "--- $(date) delete attempt (whoami: $(whoami)) id=${_existing_task_id} success=${_delete_success} ---"
-                echo "$_delete_result"
-            } >> "${PKG_VAR_DIR}/schedule_debug.log" 2>/dev/null
+            #{
+            #    echo "--- $(date) delete attempt (whoami: $(whoami)) id=${_existing_task_id} success=${_delete_success} ---"
+            #    echo "$_delete_result"
+            #} >> "${PKG_VAR_DIR}/schedule_debug.log" 2>/dev/null
+
             if [[ "$_delete_success" == "true" ]]; then
                 _delete_ok=true
                 synosetkeyvalue "$SETTINGS_CONF" smart_schedule_task_id ""
@@ -460,14 +462,15 @@ if [[ "$_action" == "save_settings" ]]; then
                     "Drive Info SMART Schedule" "$_smart_script_cmd" \
                     "$_notify_enable" "$_smart_notify_error_only" "$_smart_notify_email" 2>&1)
             fi
+
             # TEMP DEBUG: log raw output (incl. stderr) so failures are visible.
             # cmd= is logged too so we can see exactly what flags were sent
             # for a given save, independent of what Task Scheduler shows.
             # Remove once schedule create/delete is confirmed working reliably.
-            {
-                echo "--- $(date) create attempt (whoami: $(whoami)) cmd=${_smart_script_cmd} ---"
-                echo "$_create_result"
-            } >> "${PKG_VAR_DIR}/schedule_debug.log" 2>/dev/null
+            #{
+            #    echo "--- $(date) create attempt (whoami: $(whoami)) cmd=${_smart_script_cmd} ---"
+            #    echo "$_create_result"
+            #} >> "${PKG_VAR_DIR}/schedule_debug.log" 2>/dev/null
 
             _new_id=$(printf '%s' "$_create_result" | _strip_webapi_trace | jq -r '.data.id // .id // empty' 2>/dev/null)
             if [[ -n "$_new_id" ]]; then
@@ -552,10 +555,16 @@ if [[ "$_action" == "check_schedule" ]]; then
         fi
         _task_exists=$(printf '%s' "$_list_result" | _strip_webapi_trace | \
             jq -r --arg id "$_tracked_task_id" '(.data.tasks // []) | any(.id == ($id | tonumber)) // false' 2>/dev/null)
-        {
-            echo "--- $(date) reconcile check (whoami: $(whoami)) tracked_id=${_tracked_task_id} exists=${_task_exists} ---"
-            echo "$_list_result"
-        } >> "${PKG_VAR_DIR}/schedule_debug.log" 2>/dev/null
+
+        # TEMP DEBUG: log raw output (incl. stderr) so failures are visible.
+        # cmd= is logged too so we can see exactly what flags were sent
+        # for a given save, independent of what Task Scheduler shows.
+        # Remove once schedule create/delete is confirmed working reliably.
+        #{
+        #    echo "--- $(date) reconcile check (whoami: $(whoami)) tracked_id=${_tracked_task_id} exists=${_task_exists} ---"
+        #    echo "$_list_result"
+        #} >> "${PKG_VAR_DIR}/schedule_debug.log" 2>/dev/null
+
         if [[ "$_task_exists" != "true" ]]; then
             synosetkeyvalue "$SETTINGS_CONF" smart_schedule_enable "false"
             synosetkeyvalue "$SETTINGS_CONF" smart_schedule_task_id ""

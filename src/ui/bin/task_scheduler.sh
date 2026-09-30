@@ -15,6 +15,7 @@
 # Usage:
 #   task_scheduler.sh create <name> <script_cmd> <notify_enable> <notify_if_error> <notify_email>
 #   task_scheduler.sh delete <id> <owner>
+#   task_scheduler.sh delete_by_name <name>
 #   task_scheduler.sh list
 #--------------------------------------------------------
 
@@ -55,6 +56,40 @@ json_escape(){
     printf '%s' "$s"
 }
 
+# Prints the id of every task named $1, one per line. Runs as root (via
+# the helper), so python3 is available - same name -> id parsing as
+# Syno_Toolbox's task_setup.sh find_task_id (list JSON: data.tasks[].name
+# / .id). synowebapi's own trace line goes to stderr, so stderr is dropped
+# to leave clean JSON for the parser.
+find_task_ids(){
+    $SYNOWEBAPI $WEBAPI_FLAG --exec api=SYNO.Core.TaskScheduler method=list version=1 2>/dev/null \
+        | TASK_NAME="$1" python3 -c "
+import json, os, sys
+try:
+    data = json.loads(sys.stdin.read())
+except Exception:
+    sys.exit(0)
+for t in data.get('data', {}).get('tasks', []):
+    if t.get('name') == os.environ['TASK_NAME']:
+        print(t['id'])
+"
+}
+
+# delete_task <id> <owner> - the per-DSM-version delete call (see the
+# DELETE_* notes above).
+delete_task(){
+    local _tid="$1" _towner_json
+    _towner_json=$(json_escape "$2")
+
+    if [[ "$dsm" -ge 7 ]]; then
+        $SYNOWEBAPI $DELETE_WEBAPI_FLAG --exec api=SYNO.Core.TaskScheduler method=delete version=$DELETE_VERSION \
+            tasks="[{\"id\":${_tid},\"real_owner\":\"${_towner_json}\"}]"
+    else
+        $SYNOWEBAPI $DELETE_WEBAPI_FLAG --exec api=SYNO.Core.TaskScheduler method=delete version=$DELETE_VERSION \
+            task=${_tid}
+    fi
+}
+
 _action="${1:-}"
 
 case "$_action" in
@@ -90,15 +125,35 @@ case "$_action" in
             exit 1
         fi
 
-        _owner_json=$(json_escape "$_owner")
-
-        if [[ "$dsm" -ge 7 ]]; then
-            $SYNOWEBAPI $DELETE_WEBAPI_FLAG --exec api=SYNO.Core.TaskScheduler method=delete version=$DELETE_VERSION \
-                tasks="[{\"id\":${_id},\"real_owner\":\"${_owner_json}\"}]"
-        else
-            $SYNOWEBAPI $DELETE_WEBAPI_FLAG --exec api=SYNO.Core.TaskScheduler method=delete version=$DELETE_VERSION \
-                task=${_id}
+        delete_task "$_id" "$_owner"
+        ;;
+    delete_by_name)
+        # Used by preuninst: the package user can't parse list output, and
+        # only knows the (fixed) task name, not the id. Deletes every task
+        # with that name, then re-lists to confirm - synowebapi can report
+        # success without actually deleting.
+        _name="${2:-}"
+        if [[ -z "$_name" ]]; then
+            echo '{"success":false,"error":"missing task name"}'
+            exit 1
         fi
+
+        _ids=$(find_task_ids "$_name")
+        if [[ -z "$_ids" ]]; then
+            echo '{"success":true,"message":"no matching task"}'
+            exit 0
+        fi
+
+        for _id in $_ids; do
+            [[ "$_id" =~ ^[0-9]+$ ]] || continue
+            delete_task "$_id" root >&2
+        done
+
+        if [[ -n "$(find_task_ids "$_name")" ]]; then
+            echo '{"success":false,"error":"task still present after delete"}'
+            exit 1
+        fi
+        echo '{"success":true,"message":"task deleted"}'
         ;;
     list)
         # Read-only enumeration, used to reconcile our own tracked task_id

@@ -43,7 +43,7 @@ fi
 if [[ $dsm -ge 7 ]]; then
     HELPER="${BIN_DIR}/helper/driveinfo-helper"
     if [[ -u "$HELPER" ]]; then
-        "$HELPER" task_scheduler delete >/dev/null 2>>"${VAR_DIR}/api.log"
+        "$HELPER" task_scheduler delete "Drive Info SMART Schedule" >/dev/null 2>>"${VAR_DIR}/api.log"
         log_message "preuninst: removed scheduled task via helper"
     else
         log_message "preuninst: helper missing or not setuid - scheduled task not removed"
@@ -51,7 +51,7 @@ if [[ $dsm -ge 7 ]]; then
 else
     TASK_SETUP="${BIN_DIR}/task_scheduler.sh"
     if [[ -x "$TASK_SETUP" ]]; then
-        "$TASK_SETUP" delete >/dev/null 2>>"${VAR_DIR}/api.log"
+        "$TASK_SETUP" delete "Drive Info SMART Schedule" >/dev/null 2>>"${VAR_DIR}/api.log"
         log_message "preuninst: removed scheduled task directly (DSM6)"
     else
         log_message "preuninst: task_setup.sh missing - scheduled task not removed"

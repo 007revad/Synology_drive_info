@@ -17,6 +17,7 @@
  *   driveinfo-helper smart_passive_info   ARG1 [ARG2]
  *   driveinfo-helper task_scheduler create NAME CMD NOTIFY_ENABLE NOTIFY_ERROR_ONLY EMAIL
  *   driveinfo-helper task_scheduler delete TASK_ID OWNER
+ *   driveinfo-helper task_scheduler delete_by_name NAME
  *   driveinfo-helper task_scheduler list
  */
 
@@ -244,6 +245,7 @@ int main(int argc, char *argv[])
     else if (strcmp(sub, "task_scheduler") == 0) {
         /* task_scheduler create NAME CMD NOTIFY_ENABLE NOTIFY_ERROR_ONLY EMAIL  (5 args)
          * task_scheduler delete TASK_ID OWNER                                  (2 args)
+         * task_scheduler delete_by_name NAME                                   (1 arg)
          * task_scheduler list                                                  (0 args)  */
         if (argc < 3) {
             fprintf(stderr, "driveinfo-helper: task_scheduler requires an action\n");
@@ -301,6 +303,22 @@ int main(int argc, char *argv[])
             exec_argv[n++] = ts_action;
             exec_argv[n++] = argv[3];
             exec_argv[n++] = argv[4];
+        }
+        else if (strcmp(ts_action, "delete_by_name") == 0) {
+            /* Only the one fixed task name is ever accepted; the name ->
+             * id lookup happens inside task_scheduler.sh as root. */
+            if (argc != 4) {
+                fprintf(stderr, "driveinfo-helper: task_scheduler delete_by_name takes 1 argument\n");
+                return 1;
+            }
+            if (strcmp(argv[3], SCHEDULE_TASK_NAME) != 0) {
+                fprintf(stderr, "driveinfo-helper: rejected task_scheduler delete_by_name name\n");
+                return 1;
+            }
+            script = TASK_SCHEDULER_SCRIPT;
+            exec_argv[n++] = script;
+            exec_argv[n++] = ts_action;
+            exec_argv[n++] = argv[3];
         }
         else if (strcmp(ts_action, "list") == 0) {
             if (argc != 3) {
