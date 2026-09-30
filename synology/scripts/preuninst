@@ -4,6 +4,9 @@ PKG_NAME="drive_info"
 TARGET_DIR="/var/packages/${PKG_NAME}/target"
 BIN_DIR="${TARGET_DIR}/bin"
 
+# Must match SCHEDULE_TASK_NAME in driveinfo-helper.c / api.cgi
+TASK_NAME="Drive Info SMART Schedule"
+
 # Get DSM major version
 dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
 if [[ $dsm -ge 7 ]]; then
@@ -42,20 +45,22 @@ fi
 # can no longer remove.
 if [[ $dsm -ge 7 ]]; then
     HELPER="${BIN_DIR}/helper/driveinfo-helper"
-    if [[ -u "$HELPER" ]]; then
-        "$HELPER" task_scheduler delete "Drive Info SMART Schedule" >/dev/null 2>>"${VAR_DIR}/api.log"
-        log_message "preuninst: removed scheduled task via helper"
-    else
-        log_message "preuninst: helper missing or not setuid - scheduled task not removed"
+    if [[ ! -u "$HELPER" ]]; then
+        log_message "preuninst: helper not usable (running as $(id -un 2>&1), $(ls -l "$HELPER" 2>&1)) - scheduled task not removed"
+        exit 0
     fi
+    out=$("$HELPER" task_scheduler delete_by_name "$TASK_NAME" 2>&1)
+    rc=$?
 else
-    TASK_SETUP="${BIN_DIR}/task_scheduler.sh"
-    if [[ -x "$TASK_SETUP" ]]; then
-        "$TASK_SETUP" delete "Drive Info SMART Schedule" >/dev/null 2>>"${VAR_DIR}/api.log"
-        log_message "preuninst: removed scheduled task directly (DSM6)"
-    else
-        log_message "preuninst: task_setup.sh missing - scheduled task not removed"
+    TASK_SCRIPT="${TARGET_DIR}/ui/bin/task_scheduler.sh"
+    if [[ ! -x "$TASK_SCRIPT" ]]; then
+        log_message "preuninst: ${TASK_SCRIPT} missing or not executable - scheduled task not removed"
+        exit 0
     fi
+    out=$("$TASK_SCRIPT" delete_by_name "$TASK_NAME" 2>&1)
+    rc=$?
 fi
+
+log_message "preuninst: delete_by_name '${TASK_NAME}' exit=${rc} output: ${out}"
 
 exit 0
