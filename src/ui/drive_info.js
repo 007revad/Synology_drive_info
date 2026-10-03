@@ -49,7 +49,7 @@ Ext.define("SYNO.SDS.drive_info.MainWindow", {
     },
     onClose: function() {
         SYNO.SDS.drive_info.MainWindow.superclass.onClose.apply(this, arguments);
-        this.doClose();
+        // this.doClose();
         return true;
     }
 });

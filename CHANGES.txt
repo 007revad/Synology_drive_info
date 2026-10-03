@@ -1,3 +1,6 @@
+v2.3.65
+- Changed to prevent DSM wallpaper vanishing after closing Drive Info.
+
 v2.3.64
 - Changed to no longer need the user to set elevated permissions.
   - Installation deletes the old sudoers file if it exists.
