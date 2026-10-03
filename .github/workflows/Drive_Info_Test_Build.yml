@@ -87,17 +87,17 @@ jobs:
           esac
           echo "archlist=$archlist" >> $GITHUB_OUTPUT
 
-      - name: Version-stamp drive_info.js filename
-        # Also edits config to match new drive_info.js file name
+      - name: Version-stamp main.js filename
+        # Also edits config to match new main.js file name
         # Forces DSM to load current file and not cached file after package update
-        if: steps.check_assets.outputs.spk_count == '0'
         run: |
           set -euo pipefail
-          version="${{ steps.get_latest_tag.outputs.new_tag }}"
+          version="${{ steps.get_tag.outputs.new_tag }}"
           version="${version#v}"   # v1.0.27 -> 1.0.27, to match SYNOPKG_PKGVER
-          mv src/ui/drive_info.js "src/ui/drive_info-${version}.js"
-          sed -i "s/\"drive_info\.js\":/\"drive_info-${version}.js\":/" src/ui/config
-          grep -o '"drive_info[^"]*\.js"' src/ui/config
+          mv src/ui/${MAIN_JS_NAME}.js "src/ui/${MAIN_JS_NAME}-${version}.js"
+          sed -i "s/\"${MAIN_JS_NAME}\.js\":/\"${MAIN_JS_NAME}-${version}.js\":/" src/ui/config
+          grep -q "\"${MAIN_JS_NAME}-${version}\.js\"" src/ui/config \
+          || { echo "::error::config was not updated with ${MAIN_JS_NAME}-${version}.js"; exit 1; }
 
       - name: Synology Package Builder Github Action
         uses: 007revad/synology-package-builder@main
@@ -154,7 +154,7 @@ jobs:
       - name: Remove debug spk and rename package
         run: |
           ls -l ./dist
-          rm ./dist/*_debug.spk
+          rm -f ./dist/*_debug.spk
           for f in ./dist/*.spk; do
             mv "$f" "./dist/${SPK_PREFIX}-${{ steps.arch_label.outputs.label }}-${{ steps.get_tag.outputs.new_tag }}-${{ steps.dsm_suffix.outputs.suffix }}.spk"
           done
