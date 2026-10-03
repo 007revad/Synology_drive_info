@@ -2,9 +2,10 @@ name: TEST Build Drive Info Test Package
 
 env:
   # --- Edit these when reusing for a different package ---
-  REPO_NAME: "Synology_Drive_Info"
+  REPO_NAME: "Synology_drive_info"
   SPK_PREFIX: "Drive_Info"
   HELPER_NAME: "driveinfo"
+  MAIN_JS_NAME: "drive_info"
 
   # --- Runner config, shouldn't need to change ---
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

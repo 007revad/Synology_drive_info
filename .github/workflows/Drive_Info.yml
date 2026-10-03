@@ -2,7 +2,7 @@ name: Build n Release Drive Info Package
 
 env:
   # --- Edit these when reusing for a different package ---
-  REPO_NAME: "Synology_drive_infoe"
+  REPO_NAME: "Synology_drive_info"
   SPK_PREFIX: "Drive_Info"
   HELPER_NAME: "driveinfo"
   MAIN_JS_NAME: "drive_info"
