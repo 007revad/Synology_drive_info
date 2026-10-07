@@ -41,6 +41,30 @@ _strip_webapi_trace() {
 }
 
 #---------------------------------------------------------------------------
+# _urldecode - decode an application/x-www-form-urlencoded value.
+# '+' becomes a space first, then each %XX becomes its byte. The order
+# matters: a real '+' arrives as %2B, which is decoded in the loop, so it
+# isn't turned into a space. Handles every character encodeURIComponent
+# escapes (+ & = ? / # $ ^ ` { | } % @ , etc). Result goes to stdout.
+# A '%' not followed by two hex digits stops decoding; the rest is kept as is.
+#---------------------------------------------------------------------------
+_urldecode() {
+    local s="${1//+/ }" out="" hex
+    local re='^([^%]*)%([0-9A-Fa-f]{2})(.*)$'
+    while [[ "$s" =~ $re ]]; do
+        out+="${BASH_REMATCH[1]}"
+        printf -v hex "\\x${BASH_REMATCH[2]}"
+        out+="$hex"
+        s="${BASH_REMATCH[3]}"
+    done
+    printf '%s' "${out}${s}"
+}
+
+# Characters that must never be stored in a manual NAS entry (they would
+# break the JSON/JS the main page builds from settings.conf).
+_bad_chars_re='["\<>'"'"'&[:cntrl:]]'
+
+#---------------------------------------------------------------------------
 # JSON API actions - handled before any HTML output
 #---------------------------------------------------------------------------
 
@@ -227,10 +251,12 @@ if [[ "$_action" == "save_settings" ]]; then
     _failed_json=""
     for (( vi=1; vi<=_val_count; vi++ )); do
         if [[ "$_val_qs" =~ (^|&)"manual_nas${vi}"=([^&]*) ]]; then
-            _val_entry="${BASH_REMATCH[2]}"
-            _val_entry="${_val_entry//%2C/,}"
-            _val_entry="${_val_entry//%2c/,}"
-            _val_entry="${_val_entry//+/ }"
+            _val_entry=$(_urldecode "${BASH_REMATCH[2]}")
+
+            if [[ "$_val_entry" =~ $_bad_chars_re ]]; then
+                printf '{"ok":false,"error":"invalid_nas","failed":[]}\n'
+                exit 0
+            fi
 
             _val_h=$(echo "$_val_entry" | cut -d, -f1)
             _val_ip=$(echo "$_val_entry" | cut -d, -f2)
@@ -259,6 +285,19 @@ if [[ "$_action" == "save_settings" ]]; then
             fi
         fi
     done
+
+    # Validate the notification email before anything is written. It is
+    # embedded in HTML/JS on the main page, so reject anything that isn't a
+    # plain address (no whitespace/control characters).
+    if [[ "${QUERY_STRING:-}" =~ (^|&)smart_notify_email=([^&]*) ]]; then
+        _pre_email=$(_urldecode "${BASH_REMATCH[2]}")
+        if [[ -n "$_pre_email" ]] && \
+           { [[ "$_pre_email" =~ [[:cntrl:]] ]] || \
+             [[ ! "$_pre_email" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; }; then
+            printf '{"ok":false,"error":"invalid_email","failed":[]}\n'
+            exit 0
+        fi
+    fi
 
     if [[ -n "$_failed_json" ]]; then
         printf '{"ok":false,"error":"nas_unreachable","failed":[%s]}\n' "$_failed_json"
@@ -322,12 +361,10 @@ if [[ "$_action" == "save_settings" ]]; then
         _changed=true
     fi
 
-    # Parse smart_notify_email (URL-decode %40 -> @, + -> space, same style as manual_nasN)
+    # Parse smart_notify_email (fully URL-decoded, already validated above)
     _smart_notify_email=""
     if [[ "${QUERY_STRING:-}" =~ (^|&)smart_notify_email=([^&]*) ]]; then
-        _smart_notify_email="${BASH_REMATCH[2]}"
-        _smart_notify_email="${_smart_notify_email//%40/@}"
-        _smart_notify_email="${_smart_notify_email//+/ }"
+        _smart_notify_email=$(_urldecode "${BASH_REMATCH[2]}")
     fi
 
     # Only write smart_notify_email if value changed
@@ -497,15 +534,10 @@ if [[ "$_action" == "save_settings" ]]; then
     fi
 
     # Parse each manual_nasN entry - only write if changed
-    # URL-decode helper: replace %2C -> , and + -> space
     _qs="${QUERY_STRING:-}"
     for (( i=1; i<=_manual_count; i++ )); do
         if [[ "$_qs" =~ (^|&)"manual_nas${i}"=([^&]*) ]]; then
-            _entry="${BASH_REMATCH[2]}"
-            # URL decode %2C -> comma, + -> space
-            _entry="${_entry//%2C/,}"
-            _entry="${_entry//%2c/,}"
-            _entry="${_entry//+/ }"
+            _entry=$(_urldecode "${BASH_REMATCH[2]}")
             _cur_entry=$(synogetkeyvalue "$SETTINGS_CONF" "manual_nas${i}" 2>/dev/null || echo "")
             if [[ "$_cur_entry" != "$_entry" ]]; then
                 synosetkeyvalue "$SETTINGS_CONF" "manual_nas${i}" "$_entry"
@@ -1140,8 +1172,10 @@ _smart_email_important=$(synogetkeyvalue "$SETTINGS_CONF" smart_email_important 
 # Escape email for safe embedding in HTML attribute (value="...") and JS string literal
 _smart_notify_email_attr=${_smart_notify_email//&/&amp;}
 _smart_notify_email_attr=${_smart_notify_email_attr//\"/&quot;}
+_smart_notify_email_attr=${_smart_notify_email_attr//</\&lt;}
 _smart_notify_email_js=${_smart_notify_email//\\/\\\\}
 _smart_notify_email_js=${_smart_notify_email_js//\'/\\\'}
+_smart_notify_email_js=${_smart_notify_email_js//</\\x3c}
 
 # Build manual NAS JSON array for JS
 _manual_json="["

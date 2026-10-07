@@ -34,6 +34,11 @@ rm -f "$UI_DIR/ui"         # self-referencing symlink
 rm -f "$TEXTS_DIR/strings" # strings file template
 log_message "Removed spurious package builder files"
 
+if [[ $dsm -le 6 ]]; then
+    rm -f "$TARGET_DIR/bin/helper/driveinfo-helper"
+    log_message "Removed helper/driveinfo-helper (only needed for DSM 7)"   
+fi
+
 # Make scripts and CGI executable and secure
 chmod 555 "$UI_DIR/api.cgi"                       # Blocks injection exploit
 log_message "Set permissions for api.cgi"
