@@ -275,6 +275,22 @@ jobs:
               exit 1
             fi
 
+            # SRM's desktop is served from /webman/index.cgi, so the iframe's
+            # relative src="webman/3rdparty/..." resolves to /webman/webman/...
+            # and gives a 404. DSM 6/7 are served from / so they need the
+            # relative form; only the SRM package gets the absolute one.
+            js=$(ls "$pkgdir"/ui/${MAIN_JS_NAME}-*.js 2>/dev/null | head -n 1)
+            if [ -z "$js" ]; then
+              echo "::error::${MAIN_JS_NAME}-*.js not found in package"
+              exit 1
+            fi
+            sed -i 's|src="webman/3rdparty/|src="/webman/3rdparty/|' "$js"
+            if ! grep -q 'src="/webman/3rdparty/' "$js" \
+            || grep -q 'src="webman/3rdparty/' "$js"; then
+              echo "::error::iframe src in $js was not made absolute"
+              exit 1
+            fi
+
             # SRM needs gzip, not the xz that the package builder makes
             (cd "$pkgdir" && tar -czf "$tmpdir/package.tgz" $(ls -A))
             md5=$(md5sum "$tmpdir/package.tgz" | cut -d' ' -f1)
