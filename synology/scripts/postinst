@@ -1,4 +1,5 @@
 #!/bin/sh
+# shebang needs to be sh as SRM does not have bash
 
 PKG_NAME=$(basename "$SYNOPKG_PKGDEST")
 PKG_ROOT="/var/packages/${PKG_NAME}"
@@ -10,7 +11,7 @@ SETTINGS_DIR="/var/packages/${PKG_NAME}/etc"
 
 # Get DSM major version
 dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
-if [[ $dsm -ge 7 ]]; then
+if [ "$dsm" -ge 7 ]; then
     VAR_DIR="/var/packages/${PKG_NAME}/var"
 else
     VAR_DIR="/var/packages/${PKG_NAME}/etc"
@@ -34,7 +35,7 @@ rm -f "$UI_DIR/ui"         # self-referencing symlink
 rm -f "$TEXTS_DIR/strings" # strings file template
 log_message "Removed spurious package builder files"
 
-if [[ $dsm -le 6 ]]; then
+if [ "$dsm" -le 6 ]; then
     rm -f "$TARGET_DIR/bin/helper/driveinfo-helper"
     log_message "Removed helper/driveinfo-helper (only needed for DSM 7)"   
 fi
@@ -59,10 +60,71 @@ log_message "Set permissions for smart_passive_info.sh"
 
 chmod 644 "$UI_DIR/bin/smr_drive_list.txt"
 
+# SRM only: its BusyBox has no bash, so the SRM package bundles static bash
+# binaries and its scripts use #!/var/packages/drive_info/target/ui/bin/bash
+# The DSM 6 and DSM 7 packages don't contain these files, so this is skipped.
+# Run each candidate and keep the first one that works on this CPU/userland,
+# then point ui/bin/bash at it and delete the unused one.
+if [ -e "$UI_DIR/bin/bash-armv7-hf-static" ] || [ -e "$UI_DIR/bin/bash-aarch64-static" ]; then
+    case "$(uname -m)" in
+        aarch64|arm64) bash_candidates="bash-aarch64-static bash-armv7-hf-static" ;;
+        *)             bash_candidates="bash-armv7-hf-static bash-aarch64-static" ;;
+    esac
+    bundled_bash=""
+    for c in $bash_candidates; do
+        [ -f "$UI_DIR/bin/$c" ] || continue
+        chmod 555 "$UI_DIR/bin/$c"
+        if "$UI_DIR/bin/$c" -c ':' >/dev/null 2>&1; then
+            bundled_bash="$c"
+            break
+        fi
+    done
+    if [ -n "$bundled_bash" ]; then
+        ln -sf "$bundled_bash" "$UI_DIR/bin/bash"
+        for c in bash-armv7-hf-static bash-aarch64-static; do
+            [ "$c" = "$bundled_bash" ] || rm -f "$UI_DIR/bin/$c"
+        done
+        log_message "Using bundled bash: $bundled_bash ($("$UI_DIR/bin/bash" --version | head -n 1))"
+    else
+        ERRORS=1
+        log_message "ERROR: no bundled bash runs on this system (uname -m: $(uname -m))"
+    fi
+fi
+
+# SRM only: SRM has smartctl 6.5, which can't talk to USB NVMe bridges, so the
+# SRM package also bundles static smartctl 7.5 binaries. Same approach as bash:
+# keep the first one that runs, point ui/bin/smartctl7 at it, delete the other.
+# Not fatal if none run, because SATA drives still work with SRM's own smartctl.
+if [ -e "$UI_DIR/bin/smartctl-armv7-hf-static" ] || [ -e "$UI_DIR/bin/smartctl-aarch64-static" ]; then
+    case "$(uname -m)" in
+        aarch64|arm64) smartctl_candidates="smartctl-aarch64-static smartctl-armv7-hf-static" ;;
+        *)             smartctl_candidates="smartctl-armv7-hf-static smartctl-aarch64-static" ;;
+    esac
+    bundled_smartctl=""
+    for c in $smartctl_candidates; do
+        [ -f "$UI_DIR/bin/$c" ] || continue
+        chmod 555 "$UI_DIR/bin/$c"
+        if "$UI_DIR/bin/$c" --version >/dev/null 2>&1; then
+            bundled_smartctl="$c"
+            break
+        fi
+    done
+    if [ -n "$bundled_smartctl" ]; then
+        ln -sf "$bundled_smartctl" "$UI_DIR/bin/smartctl7"
+        for c in smartctl-armv7-hf-static smartctl-aarch64-static; do
+            [ "$c" = "$bundled_smartctl" ] || rm -f "$UI_DIR/bin/$c"
+        done
+        log_message "Using bundled smartctl: $bundled_smartctl ($("$UI_DIR/bin/smartctl7" --version | head -n 1))"
+    else
+        ERRORS=1
+        log_message "WARNING: no bundled smartctl runs on this system (uname -m: $(uname -m))"
+    fi
+fi
+
 # Create settings.conf with world-readable/writable permissions
 # DSM 7: in var/ (writable by drive_info via run-as:package)
 # DSM 6: in etc/ (writable by system CGI user via 666 permissions)
-if [[ -d "${PKG_ROOT}/var" ]]; then
+if [ -d "${PKG_ROOT}/var" ]; then
     SETTINGS_CONF="${PKG_ROOT}/var/settings.conf"
     touch "${SETTINGS_CONF}"
     chmod 660 "${SETTINGS_CONF}"
@@ -76,9 +138,9 @@ fi
 # Must be the last command (apart from logging and driveinfo-helper)
 chmod 555 "/var/packages/${PKG_NAME}/target" 2>/dev/null   # Blocks delete/recreate/rename exploit
 
-if [[ $dsm -ge 7 ]]; then
+if [ "$dsm" -ge 7 ]; then
     HELPER="$TARGET_DIR/bin/helper/driveinfo-helper"
-    if [[ -u "$HELPER" ]]; then
+    if [ -u "$HELPER" ]; then
         result="$("$HELPER" drive_info selfheal 2>&1)"
         rc=$?
         log_message "Triggered self-heal via helper"

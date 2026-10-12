@@ -96,6 +96,10 @@
 *.zip      binary
 *.zst      binary
 
+# Binary files
+bash-*-static binary
+smartctl-*-static binary
+
 # Text files where line endings should be preserved
 *.patch    -text
 

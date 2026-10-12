@@ -1,4 +1,6 @@
 #!/bin/sh
+# shebang needs to be sh as SRM does not have bash
+
 case $1 in
     start)
         exit 0

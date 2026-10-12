@@ -129,37 +129,37 @@ if options="$(getopt -o abcdefghijklmnopqrstuvwxyz0123456789 -l dev:,all,increas
                 fi
 
                 # Validate --dev arg value
-                case "$(basename -- "$_devarg")" in
+                case "$(basename "$_devarg")" in
                     sd*|hd*)
                         if [[ $_devarg =~ [hs]d[a-z][a-z]?$ ]]; then
                             if is_usb "$_devarg"; then  # Add USB drives except flash drives
                                 if not_flash_drive "$_devarg"; then
-                                    drives=("$(basename -- "$_devarg")")
+                                    drives=("$(basename "$_devarg")")
                                 fi
                             else
-                                drives=("$(basename -- "$_devarg")")  # Add all other drives
+                                drives=("$(basename "$_devarg")")  # Add all other drives
                             fi
                         fi
                     ;;
                     sata*|sas*)
                         if [[ $_devarg =~ (sas|sata)[0-9][0-9]?[0-9]?$ ]]; then
-                            drives=("$(basename -- "$_devarg")")
+                            drives=("$(basename "$_devarg")")
                         fi
                     ;;
                     nvme*)
                         if [[ $_devarg =~ nvme[0-9][0-9]?n[0-9][0-9]?$ ]]; then
-                            nvmes=("$(basename -- "$_devarg")")
+                            nvmes=("$(basename "$_devarg")")
                         fi
                     ;;
                     nvc*)  # M.2 SATA drives (in PCIe card only?)
                         if [[ $_devarg =~ nvc[0-9][0-9]?$ ]]; then
-                            drives=("$(basename -- "$_devarg")")
+                            drives=("$(basename "$_devarg")")
                         fi
                     ;;
                     usb*)
                         if [[ $_devarg =~ usb[0-9]?[0-9]?$ ]]; then
                             if not_flash_drive "$_devarg"; then
-                                drives=("$(basename -- "$_devarg")")
+                                drives=("$(basename "$_devarg")")
                             fi
                         fi
                     ;;
@@ -341,7 +341,7 @@ get_drive_num(){
         # eSATA drives
         #if [[ "$dsm" -le "6" ]]; then  # Might not just be DSM 6. It may be all models that don't have model.dtb
         if ! which syno_slot_mapping >/dev/null; then
-            drive_title=$(get_esata_title "$(basename -- "$drive")")
+            drive_title=$(get_esata_title "$(basename "$drive")")
             disk_id="$(echo "$drive_title" | cut -d" " -f3)"
             disk_id="${disk_id#Disk}"
         fi
@@ -376,7 +376,7 @@ get_nvme_num(){
         fi
         cardslot="$(echo "$nvme" | awk '{print $NF}')"
     else
-        pcislot="$(basename -- "$drive")"
+        pcislot="$(basename "$drive")"
         cardslot=""
     fi
     drive_num="$m2_drive $pcislot$cardslot  "
@@ -1377,37 +1377,37 @@ is_seagate(){
 if [[ $sch_task == "yes" ]]; then
     for d in /sys/block/*; do
         # $d is /sys/block/sata1 etc
-        case "$(basename -- "${d}")" in
+        case "$(basename "${d}")" in
             sd*|hd*)
                 if [[ $d =~ [hs]d[a-z][a-z]?$ ]]; then
                     if is_usb "$d"; then  # Add USB drives except flash drives
                         if not_flash_drive "$d"; then
-                            drives+=("$(basename -- "${d}")")
+                            drives+=("$(basename "${d}")")
                         fi
                     else
-                        drives+=("$(basename -- "${d}")")  # Add all other drives
+                        drives+=("$(basename "${d}")")  # Add all other drives
                     fi
                 fi
             ;;
             sata*|sas*)
                 if [[ $d =~ (sas|sata)[0-9][0-9]?[0-9]?$ ]]; then
-                    drives+=("$(basename -- "${d}")")
+                    drives+=("$(basename "${d}")")
                 fi
             ;;
             nvme*)
                 if [[ $d =~ nvme[0-9][0-9]?n[0-9][0-9]?$ ]]; then
-                    nvmes+=("$(basename -- "${d}")")
+                    nvmes+=("$(basename "${d}")")
                 fi
             ;;
             nvc*)  # M.2 SATA drives (in PCIe card only?)
                 if [[ $d =~ nvc[0-9][0-9]?$ ]]; then
-                    drives+=("$(basename -- "${d}")")
+                    drives+=("$(basename "${d}")")
                 fi
             ;;
             usb*)
                 if [[ $d =~ usb[0-9]?[0-9]?$ ]]; then
                     if not_flash_drive "$d"; then
-                        drives+=("$(basename -- "${d}")")
+                        drives+=("$(basename "${d}")")
                     fi
                 fi
             ;;

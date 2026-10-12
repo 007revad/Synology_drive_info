@@ -113,6 +113,23 @@ jobs:
           grep -q "\"${MAIN_JS_NAME}-${version}\.js\"" src/ui/config \
           || { echo "::error::config was not updated with ${MAIN_JS_NAME}-${version}.js"; exit 1; }
 
+      # SRM 1.3 has no bash (BusyBox ash only) and only has smartctl 6.5, so
+      # the SRM package bundles static bash 5.2 and static smartctl 7.5
+      # binaries (armv7-hf and aarch64). They live in srm/bash/ and
+      # srm/smartctl/ in the repo, outside src/, so the package builder never
+      # puts them in the DSM 6/7 packages. Fail early if one is missing.
+      - name: Check SRM bundled binaries
+        if: steps.check_assets.outputs.spk_count == '0' && matrix.arch == 'kvmx64'
+        run: |
+          set -euo pipefail
+          for f in srm/bash/bash-armv7-hf-static srm/bash/bash-aarch64-static \
+                   srm/smartctl/smartctl-armv7-hf-static srm/smartctl/smartctl-aarch64-static; do
+            if [ ! -f "$f" ]; then
+              echo "::error::$f is missing"
+              exit 1
+            fi
+          done
+
       - name: Synology Package Builder Github Action
         if: steps.check_assets.outputs.spk_count == '0'
         #uses: tomgrv/synology-package-builder@v1.3.0
@@ -209,6 +226,87 @@ jobs:
             rm -rf "$tmpdir/helper"
             tar -cf "$dsm6" -C "$tmpdir" $(ls "$tmpdir")
             rm -rf "$tmpdir"
+          done
+          ls -l ./dist
+
+      # SRM 1.3 package, made from the DSM 6 noarch package. Differences:
+      #  - INFO: SRM os_min_ver/os_max_ver and python310 install_dep_packages
+      #  - package.tgz is gzip (SRM can't unpack the xz that the builder makes)
+      #  - scripts use the bundled static bash (SRM has no bash), so their
+      #    shebangs point at ui/bin/bash, which postinst symlinks to the
+      #    binary that runs on that router
+      #  - static bash 5.2 is bundled (postinst symlinks ui/bin/bash)
+      #  - static smartctl 7.5 is bundled (postinst symlinks ui/bin/smartctl7)
+      #  - the DSM 7 helper (x86_64) is removed
+      # Keep package.tgz first in the tar, like the SRM package that installed.
+      - name: Create noarch package for SRM 1.3
+        if: steps.check_assets.outputs.spk_count == '0' && matrix.arch == 'kvmx64'
+        run: |
+          set -euo pipefail
+          PKG_ID="drive_info"   # same name that api.cgi and postinst use
+          BASH_PATH="/var/packages/${PKG_ID}/target/ui/bin/bash"
+
+          for f in ./dist/${SPK_PREFIX}-noarch-*-DSM-6.x.spk; do
+            srm="${f/DSM-6.x/SRM-1.3.x}"
+            tmpdir=$(mktemp -d)
+            pkgdir=$(mktemp -d)
+            tar -xf "$f" -C "$tmpdir"
+            tar -xf "$tmpdir/package.tgz" -C "$pkgdir"
+            rm -f "$tmpdir/package.tgz"
+
+            # DSM 7 helper is an x86_64 binary and is not used on SRM
+            rm -rf "$pkgdir/bin/helper"
+
+            # Bundled static bash and smartctl binaries. postinst keeps the
+            # one that runs on the router and symlinks ui/bin/bash and
+            # ui/bin/smartctl7 to it.
+            for b in bash-armv7-hf-static bash-aarch64-static; do
+              cp "$GITHUB_WORKSPACE/srm/bash/$b" "$pkgdir/ui/bin/$b"
+              chmod 555 "$pkgdir/ui/bin/$b"
+            done
+            for b in smartctl-armv7-hf-static smartctl-aarch64-static; do
+              cp "$GITHUB_WORKSPACE/srm/smartctl/$b" "$pkgdir/ui/bin/$b"
+              chmod 555 "$pkgdir/ui/bin/$b"
+            done
+
+            # Scripts that need bash
+            for s in ui/api.cgi ui/bin/drive_info.sh ui/bin/smart_info.sh \
+                     ui/bin/smart_passive_info.sh ui/bin/check_ip_port.sh \
+                     ui/bin/task_scheduler.sh ui/modules/get_text.sh; do
+              if [ ! -f "$pkgdir/$s" ]; then
+                echo "::error::$s not found in package"
+                exit 1
+              fi
+              sed -i "1s|^#!.*bash.*\$|#!${BASH_PATH}|" "$pkgdir/$s"
+              if [ "$(head -n 1 "$pkgdir/$s")" != "#!${BASH_PATH}" ]; then
+                echo "::error::shebang of $s was not updated"
+                exit 1
+              fi
+            done
+
+            # api.cgi runs three scripts with a bare "bash", which SRM can't find
+            sed -i 's/\bbash "\$\(CHECK_IP_SCRIPT\|SMART_SCRIPT\|SMART_PASSIVE_SCRIPT\)"/"$BASH" "$\1"/' "$pkgdir/ui/api.cgi"
+            if [ "$(grep -c '"\$BASH" "\$' "$pkgdir/ui/api.cgi")" -ne 3 ] \
+            || grep -qE '(^|[^A-Za-z_./"-])bash +"\$' "$pkgdir/ui/api.cgi"; then
+              echo "::error::api.cgi bash calls were not all updated"
+              exit 1
+            fi
+
+            # SRM needs gzip, not the xz that the package builder makes
+            (cd "$pkgdir" && tar -czf "$tmpdir/package.tgz" $(ls -A))
+            md5=$(md5sum "$tmpdir/package.tgz" | cut -d' ' -f1)
+
+            sed -i -E 's/^os_min_ver=".*"/os_min_ver="1.3-9193"/' "$tmpdir/INFO"
+            sed -i -E 's/^os_max_ver=".*"/os_max_ver="2.9-99999"/' "$tmpdir/INFO"
+            sed -i -E 's/^install_dep_packages=".*"/install_dep_packages="python310>=3.10.20-26:synocli-disk>=4.1-16"/' "$tmpdir/INFO"
+            sed -i -E "s/^checksum=\".*\"/checksum=\"${md5}\"/" "$tmpdir/INFO"
+            sed -i -E "s/^extractsize=\".*\"/extractsize=\"$(du -sk "$pkgdir" | cut -f1)\"/" "$tmpdir/INFO"
+            for k in os_min_ver os_max_ver install_dep_packages checksum extractsize; do
+              grep -q "^${k}=" "$tmpdir/INFO" || { echo "::error::$k missing from INFO"; exit 1; }
+            done
+
+            (cd "$tmpdir" && tar -cf "$OLDPWD/$srm" package.tgz INFO $(ls -A | grep -vxF -e package.tgz -e INFO))
+            rm -rf "$tmpdir" "$pkgdir"
           done
           ls -l ./dist
 

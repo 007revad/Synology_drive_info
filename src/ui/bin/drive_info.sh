@@ -10,6 +10,12 @@
 # https://github.com/JoeSchmuck/truenas-smr-check_2025
 #---------------------------------------------------------
 
+# SRM only (bundled bash is musl): make api.cgi and drive_info.sh count and pad
+# the non-ASCII degree sign the same way. Without a UTF-8 locale ${#var} and
+# printf count bytes, but api.cgi slices the table by characters, so the Status
+# column came out 2 characters out of place.
+[[ "$BASH" == /var/packages/drive_info/target/ui/bin/bash ]] && export LC_ALL=C.UTF-8
+
 if [[ -d /var/packages/drive_info/var ]]; then
     log="yes"
     #logfile=/var/packages/drive_info/var/drive_info_debug.log
@@ -283,7 +289,7 @@ get_drive_num(){
         # eSATA drives
         #if [[ "$dsm" -le "6" ]]; then  # Might not just be DSM 6. It may be all models that don't have model.dtb
         if ! which syno_slot_mapping >/dev/null; then
-            drive_title=$(get_esata_title "$(basename -- "$drive")")
+            drive_title=$(get_esata_title "$(basename "$drive")")
             disk_id="$(echo "$drive_title" | cut -d" " -f3)"
             disk_id="${disk_id#Disk}"
         fi
@@ -326,7 +332,7 @@ get_nvme_num(){
         fi
         cardslot="$(echo "$nvme" | awk '{print $NF}')"
     else
-        pcislot="$(basename -- "$drive")"
+        pcislot="$(basename "$drive")"
         cardslot=""
     fi
     drive_num="$label $pcislot$cardslot"
@@ -520,6 +526,19 @@ get_drive_temp(){
     # Tempeture is a Synology typo in synodisk output
     raw=$(synodisk --info /dev/"$drive" | grep 'Tempeture' | cut -d" " -f3)
     celsius="${raw%.*}"  # Remove decimal places that are always .00
+    if ! [[ "$celsius" =~ ^[0-9]+$ ]]; then
+        # synodisk gave no temperature (e.g. USB drives on SRM), so use smartctl
+        # ATA: attribute 190/194 raw value, NVMe: "Temperature: 35 Celsius",
+        # SCSI: "Current Drive Temperature: 35 C"
+        celsius=$("$smartctl" -A -d "${drive_type:-auto}" /dev/"$drive" 2>/dev/null | awk '
+            $1 ~ /^(190|194)$/ && $2 ~ /Temperature/ {print $10; exit}
+            /^Temperature:/ {print $2; exit}
+            /^Current Drive Temperature:/ {print $4; exit}')
+    fi
+    if ! [[ "$celsius" =~ ^[0-9]+$ ]]; then
+        temp="-"
+        return
+    fi
     c2f "$celsius"
     fahrenheit_rounded=$(printf '%.0f' "$fahrenheit")
     temp="${celsius}°C / ${fahrenheit_rounded}°F"
@@ -663,37 +682,37 @@ fi
 # Add drives to drives array
 for d in /sys/block/*; do
     # $d is /sys/block/sata1 etc
-    case "$(basename -- "${d}")" in
+    case "$(basename "${d}")" in
         sd*|hd*)
             if [[ $d =~ [hs]d[a-z][a-z]?$ ]]; then
                 if is_usb "$d"; then  # Add USB drives except flash drives
                     if not_flash_drive "$d"; then
-                        usbs+=("$(basename -- "${d}")")
+                        usbs+=("$(basename "${d}")")
                     fi
                 else
-                    drives+=("$(basename -- "${d}")")  # Add all other drives
+                    drives+=("$(basename "${d}")")  # Add all other drives
                 fi
             fi
         ;;
         sata*|sas*)
             if [[ $d =~ (sas|sata)[0-9][0-9]?[0-9]?$ ]]; then
-                drives+=("$(basename -- "${d}")")
+                drives+=("$(basename "${d}")")
             fi
         ;;
         nvme*)
             if [[ $d =~ nvme[0-9][0-9]?n[0-9][0-9]?$ ]]; then
-                nvmes+=("$(basename -- "${d}")")
+                nvmes+=("$(basename "${d}")")
             fi
         ;;
         nvc*)  # M.2 SATA drives (in PCIe card only?)
             if [[ $d =~ nvc[0-9][0-9]?$ ]]; then
-                nvcs+=("$(basename -- "${d}")")
+                nvcs+=("$(basename "${d}")")
             fi
         ;;
         usb*)
             if [[ $d =~ usb[0-9]?[0-9]?$ ]]; then
                 if not_flash_drive "$d"; then
-                    usbs+=("$(basename -- "${d}")")
+                    usbs+=("$(basename "${d}")")
                 fi
             fi
         ;;
@@ -701,10 +720,30 @@ for d in /sys/block/*; do
 done
 
 # Sort drives array numerically/version-aware
-IFS=$'\n' drives=($(printf '%s\n' "${drives[@]}" | sort -V))
-IFS=$'\n' nvmes=($(printf '%s\n' "${nvmes[@]}" | sort -V))
-IFS=$'\n' nvcs=($(printf '%s\n' "${nvcs[@]}" | sort -V))
-IFS=$'\n' usbs=($(printf '%s\n' "${usbs[@]}" | sort -V))
+# SRM's BusyBox sort has no -V (version sort). Use it when it works, otherwise
+# zero-pad every number in each line, sort, then remove the padding key.
+# Reads lines on stdin, writes them sorted on stdout.
+sort_v(){
+    if echo | sort -V >/dev/null 2>&1; then
+        sort -V
+        return
+    fi
+    local line rest key
+    while IFS= read -r line; do
+        key=""
+        rest="$line"
+        while [[ $rest =~ ^([^0-9]*)([0-9]+)(.*)$ ]]; do
+            key+="${BASH_REMATCH[1]}$(printf '%010d' "$((10#${BASH_REMATCH[2]}))")"
+            rest="${BASH_REMATCH[3]}"
+        done
+        printf '%s\t%s\n' "${key}${rest}" "$line"
+    done | sort | cut -f2-
+}
+
+IFS=$'\n' drives=($(printf '%s\n' "${drives[@]}" | sort_v))
+IFS=$'\n' nvmes=($(printf '%s\n' "${nvmes[@]}" | sort_v))
+IFS=$'\n' nvcs=($(printf '%s\n' "${nvcs[@]}" | sort_v))
+IFS=$'\n' usbs=($(printf '%s\n' "${usbs[@]}" | sort_v))
 
 # HDDs, SSDs and NVMe drives combined into one table
 if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\

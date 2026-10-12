@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/bin/sh
+# shebang needs to be sh as SRM does not have bash
 
 PKG_NAME="drive_info"
 TARGET_DIR="/var/packages/${PKG_NAME}/target"
@@ -9,7 +10,7 @@ TASK_NAME="Drive Info SMART Schedule"
 
 # Get DSM major version
 dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
-if [[ $dsm -ge 7 ]]; then
+if [ "$dsm" -ge 7 ]; then
     VAR_DIR="/var/packages/${PKG_NAME}/var"
 else
     VAR_DIR="/var/packages/${PKG_NAME}/etc"
@@ -26,7 +27,7 @@ log_message() {
 # replaces in place, so they keep working, and the modules stay
 # enabled instead of being silently switched off by getstate's
 # reconciliation on the next page load.
-if [[ "${SYNOPKG_PKG_STATUS:-}" == "UPGRADE" ]]; then
+if [ "${SYNOPKG_PKG_STATUS:-}" = "UPGRADE" ]; then
     log_message "preuninst: upgrade in progress - scheduled tasks left in place"
     exit 0
 fi
@@ -43,9 +44,9 @@ fi
 # Either way, a failure here must never block the uninstall itself -
 # an orphaned task is a much smaller problem than a package the user
 # can no longer remove.
-if [[ $dsm -ge 7 ]]; then
+if [ "$dsm" -ge 7 ]; then
     HELPER="${BIN_DIR}/helper/driveinfo-helper"
-    if [[ ! -u "$HELPER" ]]; then
+    if [ ! -u "$HELPER" ]; then
         log_message "preuninst: helper not usable (running as $(id -un 2>&1), $(ls -l "$HELPER" 2>&1)) - scheduled task not removed"
         exit 0
     fi
@@ -53,7 +54,7 @@ if [[ $dsm -ge 7 ]]; then
     rc=$?
 else
     TASK_SCRIPT="${TARGET_DIR}/ui/bin/task_scheduler.sh"
-    if [[ ! -x "$TASK_SCRIPT" ]]; then
+    if [ ! -x "$TASK_SCRIPT" ]; then
         log_message "preuninst: ${TASK_SCRIPT} missing or not executable - scheduled task not removed"
         exit 0
     fi

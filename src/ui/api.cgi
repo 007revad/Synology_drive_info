@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# SRM only (bundled bash is musl): make api.cgi and drive_info.sh count and pad
+# the non-ASCII degree sign the same way. Without a UTF-8 locale ${#var} and
+# printf count bytes, but api.cgi slices the table by characters, so the Status
+# column came out 2 characters out of place.
+[[ "$BASH" == /var/packages/drive_info/target/ui/bin/bash ]] && export LC_ALL=C.UTF-8
+
 PKG_NAME="drive_info"
 PKG_ROOT="/var/packages/${PKG_NAME}"
 TARGET_DIR="${PKG_ROOT}/target"
@@ -16,6 +22,7 @@ dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
 # Settings file location
 # DSM 7: var/ exists and is writable by drive_info (run-as: package)
 # DSM 6: var/ doesn't exist; use etc/ (chmod 666 set in postinst)
+# SRM 1: var/ doesn't exist; use etc/ (chmod 666 set in postinst)
 #---------------------------------------------------------------------------
 if [[ -d "${PKG_ROOT}/var" ]]; then
     SETTINGS_CONF="${PKG_ROOT}/var/settings.conf"
@@ -101,9 +108,9 @@ if [[ "$_action" == "info" ]]; then
     #_model=$(cat /proc/sys/kernel/syno_hw_version 2>/dev/null || echo "")
     #_version=$(grep -m1 'productversion=' /etc.defaults/VERSION 2>/dev/null \
     #            | cut -d= -f2 | tr -d '"')
-    
+
     # Get DSM info to show in ui
-    os_name=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION os_name)
+    os_name=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/synoinfo.conf os_name)
     if [[ -z "$os_name" ]]; then os_name="DSM"; fi 
     productversion=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION productversion)
     base=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION base)
@@ -276,7 +283,7 @@ if [[ "$_action" == "save_settings" ]]; then
                         _failed_json+="{\"hostname\":\"${_val_h_esc}\",\"ip\":\"${_val_ip}\",\"port\":\"${_val_port}\"}"
                     fi
                 else
-                    if ! bash "$CHECK_IP_SCRIPT" --ip="${_val_ip}" --port="${_val_port}" >/dev/null 2>&1; then
+                    if ! "$BASH" "$CHECK_IP_SCRIPT" --ip="${_val_ip}" --port="${_val_port}" >/dev/null 2>&1; then
                         _val_h_esc=${_val_h//\"/\\\"}
                         [[ -n "$_failed_json" ]] && _failed_json+=','
                         _failed_json+="{\"hostname\":\"${_val_h_esc}\",\"ip\":\"${_val_ip}\",\"port\":\"${_val_port}\"}"
@@ -708,7 +715,7 @@ if [[ "$_action" == "get_smart" ]]; then
     if [[ "$dsm" -ge "7" ]]; then
         SMART_OUTPUT=$("$HELPER" smart_info "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
     else
-        SMART_OUTPUT=$(bash "$SMART_SCRIPT" "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
+        SMART_OUTPUT=$("$BASH" "$SMART_SCRIPT" "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
     fi
     _smart_rc=$?
 
@@ -965,7 +972,7 @@ if [[ "$_action" == "get_ha_passive_smart" ]]; then
     if [[ "$dsm" -ge "7" ]]; then
         SMART_OUTPUT=$("$HELPER" smart_passive_info "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
     else
-        SMART_OUTPUT=$(bash "$SMART_PASSIVE_SCRIPT" "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
+        SMART_OUTPUT=$("$BASH" "$SMART_PASSIVE_SCRIPT" "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
     fi
     _smart_rc=$?
 
@@ -1510,7 +1517,10 @@ SPINNER
 dd if=/dev/zero bs=4096 count=1 2>/dev/null | tr '\0' ' '
 
 # Run drive_info.sh as root via sudo
-STDERR_TMP=$(mktemp)
+# SRM has no mktemp command, so make a private temp file without it.
+# noclobber makes the create fail if the name already exists (symlink safety).
+STDERR_TMP="/tmp/drive_info.$$.$RANDOM"
+( umask 077; set -o noclobber; : > "$STDERR_TMP" ) 2>/dev/null || STDERR_TMP="/dev/null"
 if [[ "$dsm" -ge "7" ]]; then
     OUTPUT=$("$HELPER" drive_info "$_lang" 2>"$STDERR_TMP")
 else
@@ -1519,7 +1529,7 @@ fi
 
 EXIT_CODE=$?
 STDERR_OUT=$(cat "$STDERR_TMP")
-rm -f "$STDERR_TMP"
+[[ "$STDERR_TMP" != "/dev/null" ]] && rm -f "$STDERR_TMP"
 
 # Clear spinner and enable settings button
 echo '<script>document.getElementById("loading").style.display="none";document.getElementById("nav-btn").disabled=false;document.getElementById("reload-btn").disabled=false;</script>'
@@ -1530,6 +1540,19 @@ if [[ $EXIT_CODE -ne 0 ]]; then
     echo "</div>"
     exit 0
 fi
+
+# Split a line into columns separated by two or more spaces (single spaces stay
+# inside a column). Result is in the SPLIT_COLS array. Pure bash: replaces
+# grep -oP '\S.*?(?=  |\s*$)', because SRM's BusyBox grep has no -P.
+split_cols() {
+    local s="$1"
+    SPLIT_COLS=()
+    while [[ "$s" =~ ^[[:space:]]*([^[:space:]]([^[:space:]]|\ [^[:space:]])*)(.*)$ ]]; do
+        SPLIT_COLS+=("${BASH_REMATCH[1]}")
+        s="${BASH_REMATCH[3]}"
+        [[ -z "${s//[[:space:]]/}" ]] && break
+    done
+}
 
 # Parse drive_info.sh plain-text output into HTML tables
 #echo "<h2>${_txt_drive_info}</h2>"  # Drive Information heading
@@ -1547,7 +1570,7 @@ fi
 [[ -z "$_local_model" ]] && _local_model=""
 
 # Get DSM version for the local NAS heading
-_local_os_name=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION os_name)
+_local_os_name=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/synoinfo.conf os_name)
 if [[ -z "$_local_os_name" ]]; then _local_os_name="DSM"; fi
 _local_productversion=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION productversion)
 _local_base=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION base)
@@ -1606,7 +1629,9 @@ while IFS= read -r line; do
     fi
 
     if [[ $scan_in_table -eq 1 ]] && [[ ${#scan_headers[@]} -eq 0 ]] && [[ -n "$trimmed" ]]; then
-        IFS=$'\n' read -r -d '' -a scan_headers <<< "$(echo "$trimmed" | grep -oP '\S.*?(?=  |\s*$)')" || true
+        # SRM's BusyBox grep rejects -P
+        #IFS=$'\n' read -r -d '' -a scan_headers <<< "$(echo "$trimmed" | grep -oP '\S.*?(?=  |\s*$)')" || true
+        split_cols "$trimmed"; scan_headers=("${SPLIT_COLS[@]}")
         scan_col_count=${#scan_headers[@]}
         # Only check Location for drive tables (first header is not "Volume")
         if [[ "${scan_headers[0]}" == "$_txt_volume" ]]; then
@@ -1679,7 +1704,9 @@ while IFS= read -r line; do
 
     # Header row
     if [[ $in_table -eq 1 ]] && [[ ${#headers[@]} -eq 0 ]] && [[ -n "$trimmed" ]]; then
-        IFS=$'\n' read -r -d '' -a headers <<< "$(echo "$trimmed" | grep -oP '\S.*?(?=  |\s*$)')" || true
+        # SRM's BusyBox grep rejects -P
+        #IFS=$'\n' read -r -d '' -a headers <<< "$(echo "$trimmed" | grep -oP '\S.*?(?=  |\s*$)')" || true
+        split_cols "$trimmed"; headers=("${SPLIT_COLS[@]}")
         col_count=${#headers[@]}
 
         col_starts=()
@@ -1864,6 +1891,12 @@ if [[ $in_table -eq 1 ]]; then
     else
         echo "</tbody></table>"
     fi
+fi
+
+# drive_info.sh found no drives or volumes (it prints no table at all), e.g. a
+# router with no USB drive attached. Say so instead of showing a blank window.
+if [[ "$OUTPUT" != *"----"* ]]; then
+    echo "<p>$(txt errors err_no_drives "No drives found.")</p>"
 fi
 
 # Remote NAS container - populated by JS after page load

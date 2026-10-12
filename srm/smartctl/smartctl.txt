@@ -1,0 +1,34 @@
+Static smartctl 7.5 (smartmontools) binaries for Synology routers (SRM 1.3)
+
+  smartctl-armv7-hf-static   ARMv7-A, Thumb-2, VFPv3-D16, hard-float
+                             RT2600ac (ipq806x), MR2200ac (dakota), WRX560 (hawkeye)
+  smartctl-aarch64-static    AArch64
+                             RT6600ax (cypress)
+
+SRM ships smartctl 6.5, which can't read USB NVMe drives. smartctl 7.x adds the
+sntasmedia, sntjmicron and sntrealtek USB-NVMe bridge types. SynoCommunity's SynoCli Disk
+Tools has smartctl 7 for some platforms only (no cypress or hawkeye) and is 25 MB.
+These binaries are self-contained: no libraries from the firmware or from another package.
+The drive database is built in (7.5, dated 2025-04-27). No drivedb.h file is needed.
+
+SOURCE
+  smartmontools 7.5, unmodified (release tarball, SVN rev 5714)
+  https://github.com/smartmontools/smartmontools/releases/download/RELEASE_7_5/smartmontools-7.5.tar.gz
+  sha256 690b83ca331378da9ea0d9d61008c4b22dde391387b9bbad7f29387f2595f76e
+
+HOW THEY WERE BUILT
+  build-smartctl.sh (included) cross-compiles both binaries on x86_64 Linux with
+  Zig 0.17.0 (clang + musl libc). Statically linked. libcap-ng, SELinux and systemd
+  support are disabled. Only smartctl is built, not smartd.
+  Running build-smartctl.sh from two different directories gives byte-identical
+  binaries:
+
+    5650c0ba0d52bdc6c79bd312b5371b8ef3f74c0b692ad694f69e71ada01b9979  smartctl-armv7-hf-static
+    6b056368863a8cd5857de53f308016d42f87be30e2159b01d9047411c9563cd9  smartctl-aarch64-static
+
+  Tested under QEMU user-mode only (--version, drive database, option parsing).
+  Not yet tested on a router or with a real drive.
+
+LICENCES
+  smartmontools: GNU General Public License v2 or later - see COPYING-smartmontools
+  musl libc (statically linked into both binaries): MIT - see COPYRIGHT-musl

@@ -1,0 +1,28 @@
+Static bash 5.2 binaries for Synology routers (SRM 1.3)
+
+  bash-armv7-hf-static   ARMv7-A, Thumb-2, VFPv3-D16, hard-float
+                         RT2600ac (ipq806x), MR2200ac (dakota), WRX560 (hawkeye)
+  bash-aarch64-static    AArch64
+                         RT6600ax (cypress)
+
+SRM's BusyBox has no bash, so Drive Info bundles these.
+The ELF type of each router's /bin/busybox in SRM 1.3.1-9346 was used to pick the
+two targets. Tested on RT2600ac only; the others are untested on real hardware.
+
+SOURCE
+  GNU Bash 5.2, unmodified
+  https://github.com/mirror/bash  tag bash-5.2
+  commit 74091dd4e8086db518b30df7f222691524469998
+
+HOW THEY WERE BUILT
+  build-bash.sh (included) cross-compiles both binaries on x86_64 Linux with
+  Zig 0.17.0 (clang + musl libc). Statically linked; readline and history are
+  disabled (Drive Info runs bash non-interactively).
+  Running build-bash.sh from a clean directory gives byte-identical binaries:
+
+    46fe305ea58c64b4779361c5a04979acba2e88c7051573104fd2aa17fa03b58b  bash-armv7-hf-static
+    a6a96a07d9d865de03290c5a28cf5a918cde204814083c21ba8802f216414f3d  bash-aarch64-static
+
+LICENCES
+  Bash: GNU General Public License v3 or later - see COPYING
+  musl libc (statically linked into both binaries): MIT - see COPYRIGHT-musl

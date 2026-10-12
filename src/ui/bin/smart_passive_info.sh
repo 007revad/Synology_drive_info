@@ -43,7 +43,7 @@ if options="$(getopt -o ai -l dev:,all,increased -- "$@")"; then
                     gui_lang="$(synogetkeyvalue /etc/synoinfo.conf maillang)"
                 fi
 
-                case "$(basename -- "$_devarg")" in
+                case "$(basename "$_devarg")" in
                     sata*|sas*)
                         if [[ $_devarg =~ (sas|sata)[0-9][0-9]?[0-9]?$ ]]; then
                             device="$_devarg"
