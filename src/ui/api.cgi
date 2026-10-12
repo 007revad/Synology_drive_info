@@ -1537,6 +1537,8 @@ echo '<script>document.getElementById("loading").style.display="none";document.g
 if [[ $EXIT_CODE -ne 0 ]]; then
     echo "<p class=\"err\">drive_info.sh exited with code $EXIT_CODE.</p>"
     [[ -n "$STDERR_OUT" ]] && echo "<pre>$(echo "$STDERR_OUT" | sed 's/</\&lt;/g;s/>/\&gt;/g')</pre>"
+    # drive_info.sh prints its own error messages to stdout, which was being discarded
+    [[ -n "$OUTPUT" ]] && echo "<pre>$(echo "$OUTPUT" | head -n 20 | sed 's/</\&lt;/g;s/>/\&gt;/g')</pre>"
     echo "</div>"
     exit 0
 fi

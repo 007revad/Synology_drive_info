@@ -122,7 +122,7 @@ case "$_action" in
 
         if [[ -z "$_id" ]] || [[ ! "$_id" =~ ^[0-9]+$ ]]; then
             echo '{"success":false,"error":"missing or invalid task id"}'
-            exit 1
+            exit 2
         fi
 
         delete_task "$_id" "$_owner"
@@ -135,7 +135,7 @@ case "$_action" in
         _name="${2:-}"
         if [[ -z "$_name" ]]; then
             echo '{"success":false,"error":"missing task name"}'
-            exit 1
+            exit 3
         fi
 
         _ids=$(find_task_ids "$_name")
@@ -151,7 +151,7 @@ case "$_action" in
 
         if [[ -n "$(find_task_ids "$_name")" ]]; then
             echo '{"success":false,"error":"task still present after delete"}'
-            exit 1
+            exit 4
         fi
         echo '{"success":true,"message":"task deleted"}'
         ;;
@@ -168,6 +168,6 @@ case "$_action" in
         ;;
     *)
         echo '{"success":false,"error":"unknown action"}'
-        exit 1
+        exit 5
         ;;
 esac

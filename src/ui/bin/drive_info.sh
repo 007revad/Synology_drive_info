@@ -41,7 +41,7 @@ BIN_DIR="${PKG_ROOT}/target/ui/bin"
 dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
 if ! [[ "$dsm" =~ ^[0-9]+$ ]]; then
     echo '{"success":false,"message":"Unable to determine DSM version"}' >&2
-    exit 1
+    exit 2
 fi
 if [[ $dsm -ge 7 ]]; then
     VAR_DIR="${PKG_ROOT}/var"
@@ -265,8 +265,11 @@ get_drive_num(){
     eunit=""
     location=""
     # Get Drive number
-    disk_id=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk id:' | awk '{print $NF}')
-    disk_cnr=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk cnr:' | awk '{print $NF}')
+    # SRM's synodisk (DSM 5.2 based) has no --get_location_form
+    if [[ "$dsm" -ge 6 ]]; then
+        disk_id=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk id:' | awk '{print $NF}')
+        disk_cnr=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk cnr:' | awk '{print $NF}')
+    fi
 
     # Get eunit model and port number
     # Only device tree models have syno_slot_mapping so we use different method

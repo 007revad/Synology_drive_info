@@ -28,17 +28,32 @@ detect_scheduler(){
     return 1
 }
 
+# SRM has no python3 in PATH but does have python2.
+# The python code below runs on both python 2.7 and python 3.
+if ! command -v python3 >/dev/null 2>&1; then
+    for _py in /bin/python3 /usr/local/bin/python3 /bin/python2 /bin/python; do
+        if [[ -x "$_py" ]]; then
+            python3() { "$_py" "$@"; }
+            break
+        fi
+    done
+fi
+
 # Check if script is running in an interactive shell or from schedule
-if [[ -t 1 ]]; then  # Running in terminal
-    echo "Running in an interactive shell (user terminal)."
-else
-    # Check if running via task scheduler
-    if detect_scheduler; then
-        sch_task="yes"
-        color="no"
-        #echo "DEBUG: Running via task scheduler"
-    #else
-    #    echo "DEBUG: Not running in terminal or via task scheduler"
+os_name="$(synogetkeyvalue /etc.defaults/synoinfo.conf os_name)"
+# Skip if SRM as it has no task scheduler
+if [[ ! "$os_name" == SRM ]]; then
+    if [[ -t 1 ]]; then  # Running in terminal
+        echo "Running in an interactive shell (user terminal)."
+    else
+        # Check if running via task scheduler
+        if detect_scheduler; then
+            sch_task="yes"
+            color="no"
+            #echo "DEBUG: Running via task scheduler"
+        #else
+        #    echo "DEBUG: Not running in terminal or via task scheduler"
+        fi
     fi
 fi
 
@@ -207,7 +222,7 @@ else
     else
         echo "err::invalid_option"
     fi
-    exit 3
+    exit 2
 fi
 
 # Load translated strings if running from within the installed package.
@@ -315,8 +330,11 @@ get_drive_num(){
     eunit=""
     is_system_drive=""
     # Get Drive number
-    disk_id=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk id:' | awk '{print $NF}')
-    disk_cnr=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk cnr:' | awk '{print $NF}')
+    # SRM's synodisk (DSM 5.2 based) has no --get_location_form
+    if [[ "$dsm" -ge 6 ]]; then
+        disk_id=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk id:' | awk '{print $NF}')
+        disk_cnr=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk cnr:' | awk '{print $NF}')
+    fi
     #disk_cnridx=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk cnridx:' | awk '{print $NF}')
 
     # Get eunit model and port number
@@ -383,6 +401,13 @@ get_nvme_num(){
 }
 
 log_drive(){ 
+    # SRM has get_section_key_value but not set_section_key_value, so the
+    # "increased/decreased" logging can't be done there.
+    if ! command -v set_section_key_value >/dev/null 2>&1; then
+        show_increased=""
+        first_run=""
+        return
+    fi
     # $1 is "$serial"
     # $2 is "$drive_num"
     # $3 is "$model"
@@ -518,10 +543,10 @@ def format_smart_line():
     fail = fields[flags_idx + 4]
     raw_value = ' '.join(fields[flags_idx + 5:]) if len(fields) > flags_idx + 5 else ''
     
-    formatted_line = f'{id_field:<4} {attr_name:<32} {flags:<8} {value:>6} {worst:>6} {thresh:>7} {fail:>6} {raw_value}'
+    formatted_line = '{0:<4} {1:<32} {2:<8} {3:>6} {4:>6} {5:>7} {6:>6} {7}'.format(id_field, attr_name, flags, value, worst, thresh, fail, raw_value)
     
     if color_enabled and id_num in COLOR_IDS:
-        print(f'{YELLOW}{formatted_line}{OFF}')
+        print(YELLOW + formatted_line + OFF)
     else:
         print(formatted_line)
 
@@ -685,6 +710,13 @@ smart_all(){
 }
 
 log_bad(){ 
+    # SRM has get_section_key_value but not set_section_key_value, so the
+    # "increased/decreased" logging can't be done there.
+    if ! command -v set_section_key_value >/dev/null 2>&1; then
+        show_increased=""
+        first_run=""
+        return
+    fi
     # $1 is "197 Current_Pending_Sector  0x0032   200   200   000    Old_age   Always       -       52"
     # $1 for SAS is "Elements in grown defect list: 0"
     local var1
@@ -735,6 +767,13 @@ log_bad(){
 }
 
 log_bad_nvme(){ 
+    # SRM has get_section_key_value but not set_section_key_value, so the
+    # "increased/decreased" logging can't be done there.
+    if ! command -v set_section_key_value >/dev/null 2>&1; then
+        show_increased=""
+        first_run=""
+        return
+    fi
     # $1 is smart attribute name
     # $2 is smart attribute value
     local var1_trimmed

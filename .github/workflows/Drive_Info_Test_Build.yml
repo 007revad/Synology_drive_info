@@ -213,7 +213,7 @@ jobs:
           ls -l ./dist
 
       # SRM 1.3 package, made from the DSM 6 noarch package. Differences:
-      #  - INFO: SRM os_min_ver/os_max_ver and python310 install_dep_packages
+      #  - INFO: SRM os_min_ver/os_max_ver and install_dep_packages=""
       #  - package.tgz is gzip (SRM can't unpack the xz that the builder makes)
       #  - scripts use the bundled static bash (SRM has no bash), so their
       #    shebangs point at ui/bin/bash, which postinst symlinks to the
@@ -297,7 +297,7 @@ jobs:
 
             sed -i -E 's/^os_min_ver=".*"/os_min_ver="1.3-9193"/' "$tmpdir/INFO"
             sed -i -E 's/^os_max_ver=".*"/os_max_ver="2.9-99999"/' "$tmpdir/INFO"
-            sed -i -E 's/^install_dep_packages=".*"/install_dep_packages="python310>=3.10.20-26:synocli-disk>=4.1-16"/' "$tmpdir/INFO"
+            sed -i -E 's/^install_dep_packages=".*"/install_dep_packages=""/' "$tmpdir/INFO"
             sed -i -E "s/^checksum=\".*\"/checksum=\"${md5}\"/" "$tmpdir/INFO"
             sed -i -E "s/^extractsize=\".*\"/extractsize=\"$(du -sk "$pkgdir" | cut -f1)\"/" "$tmpdir/INFO"
             for k in os_min_ver os_max_ver install_dep_packages checksum extractsize; do

@@ -79,7 +79,7 @@ fi
 
 if [[ -z "$device" ]]; then
     echo -e "\nERROR --dev must be a valid passive-node device path (e.g. /dev/sas1, /dev/sata1)\n"
-    exit 1
+    exit 2
 fi
 
 # Load translated strings if running from within the installed package.
@@ -121,7 +121,7 @@ fi
 _success=$(echo "$_smart_result" | jq -r '.success // false' 2>/dev/null)
 if [[ "$_success" != "true" ]]; then
     echo -e "${LiteRed}ERROR: Could not retrieve SMART data for $device from passive node${Off}"
-    exit 1
+    exit 3
 fi
 
 #---------------------------------------------------------------------------
