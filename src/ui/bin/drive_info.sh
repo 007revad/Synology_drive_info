@@ -186,6 +186,10 @@ if [[ "$1" == "get_ha_passive" ]]; then
     exit 0
 fi
 
+# SynoCli Disk Tools links smartctl7 in /usr/local/bin, which is not in
+# the PATH when run from the web page or task scheduler
+case ":$PATH:" in *:/usr/local/bin:*) ;; *) PATH="$PATH:/usr/local/bin"; export PATH ;; esac
+
 # Get smartctl location and check if version 7
 if which smartctl7 >/dev/null; then
     # smartmontools 7 from SynoCli Disk Tools is installed
@@ -481,14 +485,27 @@ get_drive_health6(){
 
 detect_dtype(){ 
     # Default to SAT
-    local dtype="sat"
+    local dtype="sat" info t
+
+    info="$("$smartctl" -i /dev/"$drive" 2>/dev/null)"
 
     # If SAS appears at least once, treat as SCSI
-    if [ "$("$smartctl" -i /dev/"$drive" 2>/dev/null | grep -c SAS)" -gt 0 ]; then
+    if grep -q SAS <<< "$info"; then
         dtype="scsi"
     # Else if SATA appears at least once, treat as SAT
-    elif [ "$("$smartctl" -i /dev/"$drive" 2>/dev/null | grep -c SATA)" -gt 0 ]; then
+    elif grep -q SATA <<< "$info"; then
         dtype="sat"
+    # Else if a USB drive that is not a real SATA drive, it may be a NVMe drive
+    # in a USB enclosure (their bridge chips fake an ATA identity for -d sat).
+    # smartctl 7 can read these if told the bridge chip type.
+    elif [[ $drive == usb* ]] &&\
+        ! "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
+        for t in sntrealtek sntjmicron sntasmedia; do
+            if "$smartctl" -d "$t" -i /dev/"$drive" 2>/dev/null | grep -q '^NVMe Version:'; then
+                dtype="$t"
+                break
+            fi
+        done
     fi
 
     echo "$dtype"
@@ -875,6 +892,14 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         drive_type=$(detect_dtype)
         if [[ -z "$serial" ]]; then
             serial=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
+        fi
+        if [[ $drive_type == snt* ]]; then
+            # NVMe drive in a USB enclosure. sysfs only has the bridge chip's fake serial
+            nvme_info="$("$smartctl" -i -d "$drive_type" /dev/"$drive" 2>/dev/null)"
+            nvme_model="$(awk -F: '/^Model Number:/ {print $2; exit}' <<< "$nvme_info" | xargs)"
+            nvme_serial="$(awk -F: '/^Serial Number:/ {print $2; exit}' <<< "$nvme_info" | xargs)"
+            [[ -n $nvme_model ]] && model="$(fixdrivemodel "$nvme_model")"
+            [[ -n $nvme_serial ]] && serial="$nvme_serial"
         fi
 
         get_drive_size

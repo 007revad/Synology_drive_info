@@ -84,6 +84,10 @@ else
     logpath="/var/packages/drive_info/etc/"
 fi
 
+# SynoCli Disk Tools links smartctl7 in /usr/local/bin, which is not in
+# the PATH when run from the web page or task scheduler
+case ":$PATH:" in *:/usr/local/bin:*) ;; *) PATH="$PATH:/usr/local/bin"; export PATH ;; esac
+
 # Get smartctl location and check if version 7
 if which smartctl7 >/dev/null; then
     # smartmontools 7 from SynoCli Disk Tools is installed
@@ -288,14 +292,27 @@ decreased_txt="$(txt common smart_decreased "Deccreased by")"
 
 detect_dtype(){ 
     # Default to SAT
-    local dtype="sat"
+    local dtype="sat" info t
+
+    info="$("$smartctl" -i /dev/"$drive" 2>/dev/null)"
 
     # If SAS appears at least once, treat as SCSI
-    if [ "$("$smartctl" -i /dev/"$drive" 2>/dev/null | grep -c SAS)" -gt 0 ]; then
+    if grep -q SAS <<< "$info"; then
         dtype="scsi"
     # Else if SATA appears at least once, treat as SAT
-    elif [ "$("$smartctl" -i /dev/"$drive" 2>/dev/null | grep -c SATA)" -gt 0 ]; then
+    elif grep -q SATA <<< "$info"; then
         dtype="sat"
+    # Else if a USB drive that is not a real SATA drive, it may be a NVMe drive
+    # in a USB enclosure (their bridge chips fake an ATA identity for -d sat).
+    # smartctl 7 can read these if told the bridge chip type.
+    elif [[ $drive == usb* ]] &&\
+        ! "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
+        for t in sntrealtek sntjmicron sntasmedia; do
+            if "$smartctl" -d "$t" -i /dev/"$drive" 2>/dev/null | grep -q '^NVMe Version:'; then
+                dtype="$t"
+                break
+            fi
+        done
     fi
 
     echo "$dtype"
@@ -444,6 +461,16 @@ show_drive_model(){
         serial=$(cat "/sys/block/$drive/device/syno_disk_serial")
     fi
     serial=$(printf "%s" "$serial" | xargs)  # trim leading and trailing white space
+
+    # NVMe drive in a USB enclosure. sysfs only has the bridge chip's model and a fake serial
+    if [[ -n $nvme_dtype ]]; then
+        local nvme_info nvme_model nvme_serial
+        nvme_info="$("$smartctl" -i -d "$nvme_dtype" /dev/"$drive" 2>/dev/null)"
+        nvme_model="$(awk -F: '/^Model Number:/ {print $2; exit}' <<< "$nvme_info" | xargs)"
+        nvme_serial="$(awk -F: '/^Serial Number:/ {print $2; exit}' <<< "$nvme_info" | xargs)"
+        [[ -n $nvme_model ]] && model="$nvme_model"
+        [[ -n $nvme_serial ]] && serial="$nvme_serial"
+    fi
 
     # Get drive serial number with smartctl for USB drives
 #    if [[ -z "$serial" && "${drive:0:4}" != "nvme" ]]; then
@@ -1190,8 +1217,14 @@ smart_nvme(){
     if [[ $1 == "error-log" ]]; then
         # Retrieve Error Log and show error count
         #errlog="$(nvme error-log "/dev/$drive" | grep error_count | uniq)"
-        errlog="$(nvme error-log "/dev/$drive" | grep error_count | head -1)"
-        errcount="$(echo "$errlog" | awk '{print $3}')"
+        if [[ -n $nvme_dtype ]]; then
+            # NVMe drive in a USB enclosure. The nvme command can't be used
+            errcount="$("$smartctl" -A -d "$nvme_dtype" "/dev/$drive" 2>/dev/null |\
+                awk -F: '/^Error Information Log Entries:/ {gsub(/[ ,]/,"",$2); print $2; exit}')"
+        else
+            errlog="$(nvme error-log "/dev/$drive" | grep error_count | head -1)"
+            errcount="$(echo "$errlog" | awk '{print $3}')"
+        fi
 
         if [[ $errcount =~ ^[0-9]+$ ]]; then
             log_bad_nvme "SMART_Error_Counter_Log" "$errcount"
@@ -1225,7 +1258,7 @@ smart_nvme(){
         if [[ $smartversion -gt "6" ]]; then
             # smartctl7 is installed
             #readarray -t nvme_health_array < <(smartctl7 -A /dev/"$drive" | awk '/=== START OF SMART DATA SECTION ===/{flag=1;next}flag')
-            readarray -t nvme_health_array < <(smartctl7 -A /dev/"$drive" | awk '/Health Information/{flag=1;next}flag')
+            readarray -t nvme_health_array < <("$smartctl" -A ${nvme_dtype:+-d $nvme_dtype} /dev/"$drive" | awk '/Health Information/{flag=1;next}flag')
         else
             # smartctl is not v7 so we need to use nvme command
             readarray -t nvme_health_array < <(nvme smart-log "/dev/$drive" | awk '/Smart Log for NVME/{flag=1;next}flag')
@@ -1373,7 +1406,29 @@ show_health_nvme(){
     # $drive is nvme0 etc
 
     # Show only important SMART attributes
-    readarray -t smart_atts < <(nvme smart-log /dev/"$drive")
+    if [[ -n $nvme_dtype ]]; then
+        # NVMe drive in a USB enclosure. The nvme command can't be used so convert
+        # the smartctl output to the "name : value" lines that nvme smart-log gives
+        local line key val
+        smart_atts=()
+        while IFS= read -r line; do
+            key="${line%%:*}"
+            val="$(echo "${line#*:}" | xargs)"
+            val="${val//,/}"
+            case "$key" in
+                "Critical Warning")
+                    if [[ $val =~ ^0x[0-9a-fA-F]+$ ]]; then val=$((16#${val#0x})); fi
+                    smart_atts+=("critical_warning : $val") ;;
+                "Temperature")                      smart_atts+=("temperature : $val") ;;
+                "Percentage Used")                  smart_atts+=("percentage_used : $val") ;;
+                "Power On Hours")                   smart_atts+=("power_on_hours : $val") ;;
+                "Unsafe Shutdowns")                 smart_atts+=("unsafe_shutdowns : $val") ;;
+                "Media and Data Integrity Errors")  smart_atts+=("media_errors : $val") ;;
+            esac
+        done < <("$smartctl" -A -d "$nvme_dtype" /dev/"$drive" 2>/dev/null)
+    else
+        readarray -t smart_atts < <(nvme smart-log /dev/"$drive")
+    fi
     for strIn in "${smart_atts[@]}"; do
         nvme_att="$(echo "$strIn" | cut -d":" -f1 | xargs)"
 
@@ -1397,6 +1452,45 @@ show_health_nvme(){
             short_attibutes_nvme "media_errors" zero " 14" "Media_Errors                "
         fi
     done
+}
+
+show_nvme_overall_health(){ 
+    # Show SMART overall health if smartctl7 is installed
+    # $nvme_dtype is set if it's a NVMe drive in a USB enclosure
+    local strIn
+    if [[ $smartversion -gt "6" ]]; then
+        strIn=$("$smartctl" -H ${nvme_dtype:+-d $nvme_dtype} /dev/"$drive" | grep 'health')
+        if $(echo "$strIn" | grep -qi PASSED); then
+            if [[ $increased != "yes" ]]; then
+                echo -e "SMART overall-health self-assessment test result: ${LiteGreen}PASSED${Off}"
+            fi
+        elif $(echo "$strIn" | grep -qi 'Health Status: OK'); then
+            if [[ $increased != "yes" ]]; then
+                echo -e "SMART Health Status: ${LiteGreen}OK${Off}"
+            fi
+        else
+            if [[ $increased != "yes" ]]; then
+                echo "$strIn"
+            fi
+        fi
+    fi
+}
+
+show_usb_nvme_health(){ 
+    # NVMe drive in a USB enclosure
+    # $drive is usb1 etc and $nvme_dtype is sntrealtek, sntjmicron or sntasmedia
+    show_nvme_overall_health
+
+    smart_nvme error-log
+    if [[ $errcount -gt "0" ]]; then
+        errtotal=$((errtotal +errcount))
+    fi
+
+    if [[ $errcount -gt "0" ]] || [[ $all == "yes" ]]; then
+        smart_nvme smart-log
+    else
+        show_health_nvme
+    fi
 }
 
 is_seagate(){ 
@@ -1592,6 +1686,15 @@ for d in "${drives_sorted[@]}"; do
     changed_atts=()
     new_atts=()
 
+    # Check if a NVMe drive in a USB enclosure
+    nvme_dtype=""
+    if [[ $drive == usb* ]]; then
+        usb_dtype="$(detect_dtype)"
+        if [[ $usb_dtype == snt* ]]; then
+            nvme_dtype="$usb_dtype"
+        fi
+    fi
+
     # Show drive model and serial
     get_drive_num
     show_drive_model
@@ -1604,7 +1707,10 @@ for d in "${drives_sorted[@]}"; do
     fi
 
     # Show SATA/SAS drive SMART info
-    if [[ $dsm -gt "6" ]]; then
+    if [[ -n $nvme_dtype ]]; then
+        # NVMe drive in a USB enclosure
+        show_usb_nvme_health
+    elif [[ $dsm -gt "6" ]]; then
         # DSM 7 or newer
 
         # Show SMART test status if SMART test running
@@ -1686,6 +1792,7 @@ for d in "${nvmes_sorted[@]}"; do
     drive="${d#*,}"         # Get contents of variable after comma
 
     # Empty the arrays
+    nvme_dtype=""
     changed_atts=()
     new_atts=()
 
@@ -1694,22 +1801,8 @@ for d in "${nvmes_sorted[@]}"; do
     show_drive_model
 
     # Show SMART overall health if smartctl7 is installed
-    if [[ $smartversion -gt "6" ]]; then
-        strIn=$("$smartctl" -H /dev/"$drive" | grep 'health')
-        if $(echo "$strIn" | grep -qi PASSED); then
-            if [[ $increased != "yes" ]]; then
-                echo -e "SMART overall-health self-assessment test result: ${LiteGreen}PASSED${Off}"
-            fi
-        elif $(echo "$strIn" | grep -qi 'Health Status: OK'); then
-            if [[ $increased != "yes" ]]; then
-                echo -e "SMART Health Status: ${LiteGreen}OK${Off}"
-            fi
-        else
-            if [[ $increased != "yes" ]]; then
-                echo "$strIn"
-            fi
-        fi
-    fi
+    nvme_dtype=""
+    show_nvme_overall_health
 
     smart_nvme error-log
     if [[ $errcount -gt "0" ]]; then
