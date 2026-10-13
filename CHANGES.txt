@@ -1,5 +1,6 @@
 v2.4.66
-- SMART info and drive temperature for USB NVMe drives now works - needs smartcl7 installed.
+- SMART info, serial number and drive temperature for USB NVMe drives now works.
+  - Needs smartcl7 installed (included in SynoCommunity's synoCli Disk Tools package).
 - Changed package's icon to be larger.
 - Added support for Synology routers running SRM 1.3.
   - The SRM package includes bash 5.2 and smartctl 7.5.

@@ -305,7 +305,7 @@ detect_dtype(){
     # Else if a USB drive that is not a real SATA drive, it may be a NVMe drive
     # in a USB enclosure (their bridge chips fake an ATA identity for -d sat).
     # smartctl 7 can read these if told the bridge chip type.
-    elif [[ $drive == usb* ]] &&\
+    elif { [[ $drive == usb* ]] || is_usb "$drive"; } &&\
         ! "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
         for t in sntrealtek sntjmicron sntasmedia; do
             if "$smartctl" -d "$t" -i /dev/"$drive" 2>/dev/null | grep -q '^NVMe Version:'; then
@@ -1476,6 +1476,17 @@ show_nvme_overall_health(){
     fi
 }
 
+show_usb_nvme_hint(){ 
+    # Without smartctl 7 a NVMe drive in a USB enclosure can't be read, so show a hint
+    # below the SMART errors. Real SATA drives show "SATA Version is" with -d sat.
+    if { [[ $drive == usb* ]] || is_usb "$drive"; } && [[ $increased != "yes" && ${smartversion:-6} -lt 7 ]]; then
+        if ! "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
+            echo ""
+            echo "$(txt common usb_nvme_hint "This may be an NVMe drive in a USB enclosure. Install SynoCli Disk Tools so Drive Info can read its S.M.A.R.T. data.")"
+        fi
+    fi
+}
+
 show_usb_nvme_health(){ 
     # NVMe drive in a USB enclosure
     # $drive is usb1 etc and $nvme_dtype is sntrealtek, sntjmicron or sntasmedia
@@ -1688,7 +1699,7 @@ for d in "${drives_sorted[@]}"; do
 
     # Check if a NVMe drive in a USB enclosure
     nvme_dtype=""
-    if [[ $drive == usb* ]]; then
+    if [[ $drive == usb* ]] || is_usb "$drive"; then
         usb_dtype="$(detect_dtype)"
         if [[ $usb_dtype == snt* ]]; then
             nvme_dtype="$usb_dtype"
@@ -1739,6 +1750,8 @@ for d in "${drives_sorted[@]}"; do
             show_health
         fi
     fi
+
+    show_usb_nvme_hint
 
     if [[ $increased == "yes" ]]; then
         if [[ ${#changed_atts[@]} -gt "0" ]]; then

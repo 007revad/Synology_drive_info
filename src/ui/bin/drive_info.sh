@@ -498,7 +498,7 @@ detect_dtype(){
     # Else if a USB drive that is not a real SATA drive, it may be a NVMe drive
     # in a USB enclosure (their bridge chips fake an ATA identity for -d sat).
     # smartctl 7 can read these if told the bridge chip type.
-    elif [[ $drive == usb* ]] &&\
+    elif { [[ $drive == usb* ]] || is_usb "$drive"; } &&\
         ! "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
         for t in sntrealtek sntjmicron sntasmedia; do
             if "$smartctl" -d "$t" -i /dev/"$drive" 2>/dev/null | grep -q '^NVMe Version:'; then

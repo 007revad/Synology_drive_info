@@ -104,3 +104,4 @@ volume	=	Volume
 volume_size	=	"Volume Size"
 volume_used	=	"Used"
 cache	=	SSD Cache
+usb_nvme_hint   =   "This may be an NVMe drive in a USB enclosure. Install SynoCli Disk Tools so Drive Info can read its S.M.A.R.T. data."
