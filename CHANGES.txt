@@ -3,7 +3,7 @@ v2.4.66
   - Needs smartcl7 installed (included in SynoCommunity's synoCli Disk Tools package).
 - Hot Spare drives now show "Storage Pool N Hot Spare" when you hover over their drive id.
 - Unused drives now show Unused when you hover over their drive id.
-- Changed package's icon to be larger.
+- Changed package's icon to be larger. You may need to hard refresh the browser to clear it's cache.
 - Added support for Synology routers running SRM 1.3.
   - The SRM package includes bash 5.2 and smartctl 7.5.
 - Changed syno_smart_info.sh to also work with python 2.
