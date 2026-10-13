@@ -1,6 +1,6 @@
 v2.4.66
 - SMART info, serial number and drive temperature for USB NVMe drives now works.
-  - Needs smartcl7 installed (included in SynoCommunity's synoCli Disk Tools package).
+  - DSM needs smartcl7 installed (included in SynoCommunity's synoCli Disk Tools package).
 - Hot Spare drives now show "Storage Pool N Hot Spare" when you hover over their drive id.
 - Unused drives now show Unused when you hover over their drive id.
 - Changed package's icon to be larger. You may need to hard refresh the browser to clear it's cache.
@@ -12,6 +12,9 @@ v2.4.66
 - Bug fix for not using smartctl7 when it was installed.
 - Bug fix for OS name showing as DSM on NAS that has DSMUC or "DSM Enterprise".
 - Bug fix for not showing the error message if drive_info.sh exited with an error.
+
+Thanks to Jan Janowski on synoforum for extensive testing of the SRM package.
+Thanks to luxdunkel on synology-forum.de for the synowebapi output showing how to detect if a drive is a hot spare.
 
 v2.3.65
 - Bug fix for email addresses containing `+` being set in the scheduled task containing `%2B`.
