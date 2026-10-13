@@ -99,6 +99,7 @@ system_drive_slot	=	System Drive Slot
 temperature	=	Temperature
 type	=	Type
 unsynced    =   "Syncing"
+unused	=	Unused
 usb_drive	=	"USB Drive"
 volume	=	Volume
 volume_size	=	"Volume Size"

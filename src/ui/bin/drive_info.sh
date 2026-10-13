@@ -268,6 +268,7 @@ get_drive_num(){
     disk_cnr=""
     eunit=""
     location=""
+    skip_unused=0  # Set to 1 for drives that are never storage pool members
     # Get Drive number
     # SRM's synodisk (DSM 5.2 based) has no --get_location_form
     if [[ "$dsm" -ge 6 ]]; then
@@ -292,6 +293,7 @@ get_drive_num(){
         # USB drives
         usb_num="$(synousbdisk -info "$drive" | grep '^Name:' | cut -d" " -f4)"
         drive_num="$usb_drive_label $usb_num"
+        skip_unused=1
     elif [[ $disk_cnr -eq "8" ]]; then
         # eSATA drives
         #if [[ "$dsm" -le "6" ]]; then  # Might not just be DSM 6. It may be all models that don't have model.dtb
@@ -301,6 +303,7 @@ get_drive_num(){
             disk_id="${disk_id#Disk}"
         fi
         drive_num="$esata_drive_label $disk_id"
+        skip_unused=1
     elif [[ $eunit ]]; then
         # Expansion unit drives
         #drive_num="$drive_label $disk_id ($eunit)"
@@ -312,6 +315,7 @@ get_drive_num(){
         #location="$system_drive_label"     # Shows 'System Drive' as location
         drive_num="$system_drive_label $disk_id"  # Shows 'System Drive N' as drive id
         location=""                               # Empty location
+        skip_unused=1
     else
         # All other drives
         drive_num="$drive_label $disk_id"
@@ -333,6 +337,7 @@ get_nvme_num(){
     pcislot=""
     cardslot=""
     location=""
+    skip_unused=0
     if nvme=$(synonvme --get-location "/dev/$drive"); then
         if [[ ! $nvme =~ "PCI Slot: 0" ]]; then
             pcislot="$(echo "$nvme" | cut -d"," -f2 | awk '{print $NF}')-"
@@ -356,7 +361,13 @@ append_pool_hover(){
     # Appends "@@<pool label>" to drive_num when the drive is a storage pool
     # member, so api.cgi can turn it into a hover tooltip. Stripped when
     # running in a terminal (no hover there).
+    # Drives DSM reports as not used by anything (used_by is empty) and that
+    # are not in a pool or SSD cache get "Unused". Skipped for USB, eSATA and
+    # system drives, which are never storage pool members.
     local pool_label="${disk_pool_map[$drive]}"
+    if [[ -z "$pool_label" && "$skip_unused" != "1" && -n "${disk_unused_map[$drive]}" ]]; then
+        pool_label="$(txt common unused "Unused")"
+    fi
     [[ -n "$pool_label" ]] && drive_num="${drive_num}@@${pool_label}"
     if [[ -t 1 ]]; then  # Running in terminal
         drive_num="${drive_num%%@@*}"
@@ -699,6 +710,17 @@ if [[ -n "$storage_json" ]]; then
     ')
 fi
 
+# Build the set of disks DSM reports as not used by anything (e.g. a drive
+# freed by removing an SSD cache). DSM's disks[] entry has used_by set to the
+# pool id for pool members and "" for an unused drive (checked on DSM 7 with a
+# drive left over from a removed cache).
+declare -A disk_unused_map
+if [[ -n "$storage_json" ]]; then
+    while IFS= read -r _did; do
+        [[ -n "$_did" ]] && disk_unused_map["$_did"]=1
+    done < <(echo "$storage_json" | jq -r '.data.disks[]? | select((.used_by // "") == "") | .id')
+fi
+
 # Add drives to drives array
 for d in /sys/block/*; do
     # $d is /sys/block/sata1 etc
@@ -881,6 +903,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
     for drive in "${usbs[@]}"; do
         smr=""
         get_drive_num
+        skip_unused=1  # USB drives are never storage pool members
         append_pool_hover
         get_drive_health usb
         #model=$(cat "/sys/block/$drive/device/model" | xargs)
