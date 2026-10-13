@@ -288,7 +288,7 @@ get_drive_num(){
         fi
     done
 
-    if [[ $disk_cnr -eq "4" ]]; then
+    if [[ $disk_cnr -eq "4" ]] || is_usb "$drive"; then
         # USB drives
         usb_num="$(synousbdisk -info "$drive" | grep '^Name:' | cut -d" " -f4)"
         drive_num="$usb_drive_label $usb_num"
