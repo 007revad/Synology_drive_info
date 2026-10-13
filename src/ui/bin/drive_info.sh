@@ -696,6 +696,21 @@ if [[ -n "$storage_json" ]]; then
     done < <(echo "$storage_json" | jq -r '.data.storagePools[] | "\(.num_id)|\(.disks | join(","))"')
 fi
 
+# Also map hot spare disks to the pool they protect (e.g. "sata6" -> "Storage Pool 1 Hot Spare").
+# A pool lists its hot spares in storagePools[].spares[] as {"id":"sata6","path":"/dev/sata6"}
+# (checked on DSM 7; DSM 6 samples only had empty spares arrays).
+if [[ -n "$storage_json" ]]; then
+    hotspare_label="$(txt common hotspare "Hot Spare")"
+    while IFS='|' read -r pool_num_id spare_ids_raw; do
+        [[ -z "$spare_ids_raw" ]] && continue
+        IFS=',' read -ra _spare_ids <<< "$spare_ids_raw"
+        for _did in "${_spare_ids[@]}"; do
+            [[ -z "$_did" ]] && continue
+            disk_pool_map["$_did"]="$pool_label_prefix $pool_num_id $hotspare_label"
+        done
+    done < <(echo "$storage_json" | jq -r '.data.storagePools[]? | "\(.num_id)|\((.spares // []) | map(.id) | join(","))"')
+fi
+
 # Also map SSD cache disks to their volume (e.g. "nvme0n1" -> "Volume 1 Cache")
 if [[ -n "$storage_json" ]]; then
     cache_label_prefix="$(txt common cache "Cache")"
