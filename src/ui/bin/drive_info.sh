@@ -792,6 +792,33 @@ IFS=$'\n' nvmes=($(printf '%s\n' "${nvmes[@]}" | sort_v))
 IFS=$'\n' nvcs=($(printf '%s\n' "${nvcs[@]}" | sort_v))
 IFS=$'\n' usbs=($(printf '%s\n' "${usbs[@]}" | sort_v))
 
+# Pad $1 with spaces on the right to $2 characters. Result is in REPLY.
+# printf's %-Ns pads by bytes, not characters, so a row containing a multibyte
+# character (the degree sign in "28°C / 82°F") came out too short. api.cgi
+# slices the columns by character, so the first letter of the Status column
+# was cut off ("ealthy::Healthy") when the temperature column differed in width.
+padr(){ 
+    local _pad=$(( $2 - ${#1} )) _sp
+    REPLY="$1"
+    if (( _pad > 0 )); then
+        printf -v _sp '%*s' "$_pad" ''
+        REPLY+="$_sp"
+    fi
+}
+
+# Print one table row. Arguments are width1 value1 width2 value2 ...
+# Columns are separated by 2 spaces.
+print_row(){ 
+    local _out="" _sep=""
+    while (( $# >= 2 )); do
+        padr "$2" "$1"
+        _out+="${_sep}${REPLY}"
+        _sep="  "
+        shift 2
+    done
+    printf '%s\n' "$_out"
+}
+
 # HDDs, SSDs and NVMe drives combined into one table
 if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         [[ "${#nvcs[@]}" -gt 0 ]] || [[ "${#usbs[@]}" -gt 0 ]]; then
@@ -949,12 +976,12 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
     sep_len=$(( w_id + 2 + w_num + 2 + w_location + 2 + w_model + 2 + w_size + 2 + w_smr + 2 + w_serial + 2 + w_temp + 2 + w_status ))
     echo ""
     printf '%*s\n' "$sep_len" '' | tr ' ' '-'
-    printf "%-${w_id}s  %-${w_num}s  %-${w_location}s  %-${w_model}s  %-${w_size}s  %-${w_smr}s  %-${w_serial}s  %-${w_temp}s  %-${w_status}s\n" \
-        "${hdr_id}" "${hdr_num}" "${hdr_location}" "${hdr_model}" "${hdr_size}" "${hdr_smr}" "${hdr_serial}" "${hdr_temp}" "${hdr_status}"
+    print_row "$w_id" "${hdr_id}" "$w_num" "${hdr_num}" "$w_location" "${hdr_location}" "$w_model" "${hdr_model}" \
+        "$w_size" "${hdr_size}" "$w_smr" "${hdr_smr}" "$w_serial" "${hdr_serial}" "$w_temp" "${hdr_temp}" "$w_status" "${hdr_status}"
     printf '%*s\n' "$sep_len" '' | tr ' ' '-'
     for i in "${!ids[@]}"; do
-        printf "%-${w_id}s  %-${w_num}s  %-${w_location}s  %-${w_model}s  %-${w_size}s  %-${w_smr}s  %-${w_serial}s  %-${w_temp}s  %-${w_status}s\n" \
-            "${ids[$i]}" "${nums[$i]}" "${locations[$i]}" "${models[$i]}" "${sizes[$i]}" "${smrs[$i]}" "${serials[$i]}" "${temps[$i]}" "${statuses[$i]}"
+        print_row "$w_id" "${ids[$i]}" "$w_num" "${nums[$i]}" "$w_location" "${locations[$i]}" "$w_model" "${models[$i]}" \
+            "$w_size" "${sizes[$i]}" "$w_smr" "${smrs[$i]}" "$w_serial" "${serials[$i]}" "$w_temp" "${temps[$i]}" "$w_status" "${statuses[$i]}"
     done
 fi
 
@@ -1153,12 +1180,12 @@ get_volume_info(){
         sep_len=$(( w_vol + 2 + w_pool + 2 + w_raid + 2 + w_size + 2 + w_pct + 2 + w_status + 2 + w_pool_status ))
         echo ""
         printf '%*s\n' "$sep_len" '' | tr ' ' '-'
-        printf "%-${w_vol}s  %-${w_pool}s  %-${w_raid}s  %-${w_size}s  %-${w_pct}s  %-${w_status}s  %-${w_pool_status}s\n" \
-            "$hdr_vol" "$hdr_pool" "$hdr_raid" "$hdr_size" "$hdr_pct" "$hdr_status" "$hdr_pool_status"
+        print_row "$w_vol" "$hdr_vol" "$w_pool" "$hdr_pool" "$w_raid" "$hdr_raid" "$w_size" "$hdr_size" \
+            "$w_pct" "$hdr_pct" "$w_status" "$hdr_status" "$w_pool_status" "$hdr_pool_status"
         printf '%*s\n' "$sep_len" '' | tr ' ' '-'
         for i in "${!vol_nums[@]}"; do
-            printf "%-${w_vol}s  %-${w_pool}s  %-${w_raid}s  %-${w_size}s  %-${w_pct}s  %-${w_status}s  %-${w_pool_status}s\n" \
-                "${vol_nums[$i]}" "${vol_pools[$i]}" "${vol_raids[$i]}" "${vol_sizes[$i]}" "${vol_pcts[$i]}" "${vol_statuses[$i]}" "${vol_pool_statuses[$i]}"
+            print_row "$w_vol" "${vol_nums[$i]}" "$w_pool" "${vol_pools[$i]}" "$w_raid" "${vol_raids[$i]}" "$w_size" "${vol_sizes[$i]}" \
+                "$w_pct" "${vol_pcts[$i]}" "$w_status" "${vol_statuses[$i]}" "$w_pool_status" "${vol_pool_statuses[$i]}"
         done
     fi
 }
