@@ -98,6 +98,10 @@ fi
 
 source "${TARGET_DIR}/ui/modules/get_text.sh" "$_lang"
 
+# SRM has no Task Scheduler, so scheduled S.M.A.R.T. emails are unavailable
+IS_SRM=false
+[[ "$(/usr/syno/bin/synogetkeyvalue /etc.defaults/synoinfo.conf os_name 2>/dev/null)" == "SRM" ]] && IS_SRM=true
+
 #---------------------------------------------------------------------------
 # action=info
 # Returns JSON identifying this NAS. No sudo needed.
@@ -164,7 +168,7 @@ if [[ "$_action" == "discover" ]]; then
     fi
     # Find Python - try python3 first, fall back to python2
     _python=""
-    for _py in /bin/python3 /usr/local/bin/python3 /bin/python2 /bin/python; do
+    for _py in /bin/python3 /usr/bin/python3 /usr/local/bin/python3 /bin/python2 /usr/bin/python2 /usr/local/bin/python2 /bin/python /usr/bin/python; do
         if [[ -x "$_py" ]]; then
             _python="$_py"
             break
@@ -360,6 +364,8 @@ if [[ "$_action" == "save_settings" ]]; then
         _val="${BASH_REMATCH[2]}"
         [[ "$_val" == "true" ]] && _smart_schedule_enable="true"
     fi
+    # SRM has no Task Scheduler, so the schedule can never be enabled there
+    [[ "$IS_SRM" == "true" ]] && _smart_schedule_enable="false"
 
     # Only write smart_schedule_enable if value changed
     _cur_schedule_enable=$(synogetkeyvalue "$SETTINGS_CONF" smart_schedule_enable 2>/dev/null || echo "")
@@ -429,6 +435,8 @@ if [[ "$_action" == "save_settings" ]]; then
        [[ "$_cur_email_important" != "$_smart_email_important" ]]; then
         _schedule_settings_changed=true
     fi
+    # Nothing to create or delete on SRM
+    [[ "$IS_SRM" == "true" ]] && _schedule_settings_changed=false
 
     if [[ "$_schedule_settings_changed" == "true" ]]; then
         _existing_task_id=$(synogetkeyvalue "$SETTINGS_CONF" smart_schedule_task_id 2>/dev/null || echo "")
@@ -1175,6 +1183,16 @@ _smart_email_important=$(synogetkeyvalue "$SETTINGS_CONF" smart_email_important 
 [[ -z "$_smart_notify_error_only" ]] && _smart_notify_error_only="false"
 [[ -z "$_smart_email_important" ]] && _smart_email_important="true"
 [[ -z "$_manual_count" ]] && _manual_count="0"
+# SRM: show the schedule toggle off and greyed out
+_sched_row_class="toggle-row"
+_sched_row_title=""
+_sched_input_disabled=""
+if [[ "$IS_SRM" == "true" ]]; then
+    _smart_schedule_enable="false"
+    _sched_row_class="toggle-row disabled-row no-scheduler"
+    _sched_row_title="title=\"$(txt settings no_task_scheduler "SRM has no Task Scheduler, so scheduled S.M.A.R.T. emails are not available.")\""
+    _sched_input_disabled="disabled"
+fi
 
 # Escape email for safe embedding in HTML attribute (value="...") and JS string literal
 _smart_notify_email_attr=${_smart_notify_email//&/&amp;}
@@ -1363,6 +1381,7 @@ a    { color: #0073c0; }
 #smart-email-important-row { padding-left: 8px; }
 .toggle-row.disabled-row { opacity: 0.5; }
 .toggle-row.disabled-row .toggle-slider { cursor: not-allowed; }
+.toggle-row.no-scheduler, .toggle-row.no-scheduler * { cursor: not-allowed; }
 .toggle { position: relative; display: inline-block; width: 40px; height: 22px; }
 .toggle input { opacity: 0; width: 0; height: 0; }
 .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0;
@@ -1587,8 +1606,19 @@ if [[ -n $_local_pkg_version ]]; then
     _local_pkg_version="Drive Info v$_local_pkg_version"
 fi
 
-# Get local IP - prefer the default-route interface address
-_local_ip=$(ip route get 1.1.1.1 2>/dev/null | grep -o 'src [0-9.]*' | awk '{print $2}')
+# Get local IP. On SRM the default-route interface is the WAN, so use the
+# address this page was reached on (the LAN address) instead.
+_local_ip=""
+if [[ "$_local_os_name" == "SRM" ]]; then
+    _ipv4_re='^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'
+    if [[ "${SERVER_ADDR:-}" =~ $_ipv4_re && "$SERVER_ADDR" != 127.* ]]; then
+        _local_ip="$SERVER_ADDR"
+    elif [[ "${HTTP_HOST%%:*}" =~ $_ipv4_re ]]; then
+        _local_ip="${HTTP_HOST%%:*}"
+    fi
+fi
+# Default: prefer the default-route interface address
+[[ -z "$_local_ip" ]] && _local_ip=$(ip route get 1.1.1.1 2>/dev/null | grep -o 'src [0-9.]*' | awk '{print $2}')
 [[ -z "$_local_ip" ]] && _local_ip=$(hostname -i 2>/dev/null | awk '{print $1}')
 
 _local_subtitle=""
@@ -1943,12 +1973,12 @@ cat << SETTINGSHTML
       </label>
       <span>${_txt_show_smart_important}</span>
     </div>
-    <div class="toggle-row" id="smart-schedule-row">
-      <label class="toggle">
-        <input type="checkbox" id="smart_schedule_enable" onchange="toggleScheduleFields()" $([ "$_smart_schedule_enable" = "true" ] && echo "checked")>
+    <div class="${_sched_row_class}" id="smart-schedule-row" ${_sched_row_title}>
+      <label class="toggle" ${_sched_row_title}>
+        <input type="checkbox" id="smart_schedule_enable" onchange="toggleScheduleFields()" ${_sched_input_disabled} $([ "$_smart_schedule_enable" = "true" ] && echo "checked")>
         <span class="toggle-slider"></span>
       </label>
-      <span>${_txt_smart_schedule_enable}</span>
+      <span ${_sched_row_title}>${_txt_smart_schedule_enable}</span>
     </div>
     <div class="schedule-subfields" id="schedule-subfields" style="$([ "$_smart_schedule_enable" = "true" ] || echo "display:none;")">
       <div class="field-row" style="margin-left:58px;margin-top:7px;margin-bottom:7px;display:flex;align-items:center;gap:10px;">

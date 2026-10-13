@@ -240,6 +240,125 @@ def read_manual_nas_overrides(settings_path):
     return overrides
 
 
+def _broadcast_addrs_ioctl():
+    """
+    Return the IPv4 broadcast address of every up interface that has one,
+    e.g. ['192.168.12.255'].
+
+    Sending only to 255.255.255.255 works on a NAS with one network port,
+    but on a router (SRM) that packet leaves by the default route, which
+    is the internet side, so the LAN never sees it. Sending to each
+    interface's own broadcast address makes the kernel use that interface.
+    Works on Python 2 and 3. Returns [] if it cannot be worked out.
+    """
+    addrs = []
+    try:
+        import array
+        import fcntl
+        SIOCGIFCONF = 0x8912
+        SIOCGIFFLAGS = 0x8913
+        SIOCGIFBRDADDR = 0x8919
+        IFF_UP = 0x1
+        IFF_BROADCAST = 0x2
+        # struct ifreq is 40 bytes on 64-bit and 32 bytes on 32-bit
+        ifreq_size = 40 if struct.calcsize('P') == 8 else 32
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            buf = array.array('B', b'\0' * (ifreq_size * 64))
+            addr, length = buf.buffer_info()
+            res = fcntl.ioctl(s.fileno(), SIOCGIFCONF,
+                              struct.pack('iL', ifreq_size * 64, addr))
+            out_len = struct.unpack('iL', res)[0]
+            raw = buf.tobytes() if hasattr(buf, 'tobytes') else buf.tostring()
+            for i in range(0, out_len, ifreq_size):
+                name = raw[i:i + 16].split(b'\0', 1)[0]
+                if not name:
+                    continue
+                try:
+                    ifr = struct.pack('256s', name[:15])
+                    flags = struct.unpack(
+                        'H', fcntl.ioctl(s.fileno(), SIOCGIFFLAGS, ifr)[16:18])[0]
+                    if not (flags & IFF_UP) or not (flags & IFF_BROADCAST):
+                        continue
+                    brd = socket.inet_ntoa(
+                        fcntl.ioctl(s.fileno(), SIOCGIFBRDADDR, ifr)[20:24])
+                except Exception:
+                    continue
+                if brd and brd != '0.0.0.0' and brd not in addrs:
+                    addrs.append(brd)
+        finally:
+            s.close()
+    except Exception:
+        return []
+    return addrs
+
+
+def _broadcast_addrs_from_route(route_text):
+    """
+    Work out broadcast addresses from the contents of /proc/net/route:
+    for every directly connected network (no gateway) the broadcast
+    address is the network address with all host bits set. Needs no
+    ioctl, so it is the fallback when _broadcast_addrs_ioctl() finds
+    nothing.
+    """
+    addrs = []
+    for line in route_text.splitlines()[1:]:
+        f = line.split()
+        if len(f) < 8:
+            continue
+        try:
+            dest = int(f[1], 16)
+            gw = int(f[2], 16)
+            flags = int(f[3], 16)
+            mask = int(f[7], 16)
+        except ValueError:
+            continue
+        # Skip down routes, default route, gateway routes and /32 host routes
+        if not (flags & 0x1) or dest == 0 or mask == 0 or gw != 0:
+            continue
+        if mask == 0xFFFFFFFF:
+            continue
+        brd = (dest | (~mask & 0xFFFFFFFF)) & 0xFFFFFFFF
+        # /proc/net/route prints the address in host byte order
+        brd_str = socket.inet_ntoa(struct.pack('=L', brd))
+        if brd_str not in addrs:
+            addrs.append(brd_str)
+    return addrs
+
+
+def _is_private_ipv4(addr):
+    """True for 10/8, 172.16/12, 192.168/16 and 169.254/16 addresses."""
+    try:
+        o = [int(x) for x in addr.split('.')]
+    except ValueError:
+        return False
+    if len(o) != 4:
+        return False
+    return (o[0] == 10 or
+            (o[0] == 172 and 16 <= o[1] <= 31) or
+            (o[0] == 192 and o[1] == 168) or
+            (o[0] == 169 and o[1] == 254))
+
+
+def get_broadcast_addrs():
+    """
+    Return the IPv4 broadcast address of each directly connected network,
+    e.g. ['192.168.12.255'], from both the interface list and the routing
+    table. Returns [] if neither works.
+    """
+    addrs = _broadcast_addrs_ioctl()
+    try:
+        with open('/proc/net/route', 'r') as f:
+            route_addrs = _broadcast_addrs_from_route(f.read())
+    except Exception:
+        route_addrs = []
+    for a in route_addrs:
+        if a not in addrs:
+            addrs.append(a)
+    # Only broadcast on private LAN networks, never towards the internet
+    return [a for a in addrs if _is_private_ipv4(a)]
+
+
 def discover(timeout=DEFAULT_TIMEOUT, settings_path=DEFAULT_SETTINGS_PATH):
     """
     Broadcast a discovery query and collect responses.
@@ -264,10 +383,18 @@ def discover(timeout=DEFAULT_TIMEOUT, settings_path=DEFAULT_SETTINGS_PATH):
 
     sock.settimeout(timeout)
 
-    try:
-        sock.sendto(query, (BCAST_ADDR, BCAST_PORT))
-    except Exception as e:
-        sys.stderr.write('ERROR: Failed to send broadcast: %s\n' % e)
+    # Always send to the limited broadcast address (what a NAS has always
+    # used), then also to each interface's own broadcast address so the
+    # query reaches the LAN on a router with several interfaces.
+    sent = False
+    for target in [BCAST_ADDR] + get_broadcast_addrs():
+        try:
+            sock.sendto(query, (target, BCAST_PORT))
+            sent = True
+        except Exception as e:
+            sys.stderr.write('WARNING: Failed to send broadcast to %s: %s\n' % (target, e))
+    if not sent:
+        sys.stderr.write('ERROR: Failed to send broadcast\n')
         sock.close()
         return []
 

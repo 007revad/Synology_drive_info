@@ -31,7 +31,7 @@ detect_scheduler(){
 # SRM has no python3 in PATH but does have python2.
 # The python code below runs on both python 2.7 and python 3.
 if ! command -v python3 >/dev/null 2>&1; then
-    for _py in /bin/python3 /usr/local/bin/python3 /bin/python2 /bin/python; do
+    for _py in /bin/python3 /usr/bin/python3 /usr/local/bin/python3 /bin/python2 /usr/bin/python2 /usr/local/bin/python2 /bin/python /usr/bin/python; do
         if [[ -x "$_py" ]]; then
             python3() { "$_py" "$@"; }
             break

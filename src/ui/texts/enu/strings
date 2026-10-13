@@ -16,6 +16,7 @@ err_smart_timeout	=	"Timed out waiting for SMART data. The NAS may be busy runni
 err_sudofail_desc	=	"The sudoers entry exists but sudo failed. Check the entry is correct:"
 err_sudofail_must_contain	=	"It should contain exactly:"
 err_sudofail_title	=	"Permissions not configured correctly"
+err_no_drives	=	"No drives found."
 
 [settings]
 add_device	=	Add a Device
@@ -31,6 +32,7 @@ login_port	=	HTTP port
 mac_address	=	MAC Address
 manual_nas_list	=	Additional NAS
 nas_unreachable	=	"Cannot reach %h at %ip:%port - check the IP address and port"
+no_task_scheduler	=	"SRM has no Task Scheduler, so scheduled S.M.A.R.T. emails are not available."
 notify_email	=	"Notification email"
 notify_error_only   	=	"Only send email when important attributes have changed"
 port	=	Port

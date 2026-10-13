@@ -9,8 +9,8 @@
 #
 # Defines:
 #   txt SECTION KEY DEFAULT
-#     Looks up SECTION/KEY in the resolved strings file via
-#     get_section_key_value. Prints DEFAULT if the strings
+#     Looks up SECTION/KEY in the resolved strings file (read once
+#     into memory). Prints DEFAULT if the strings
 #     file is missing, the lookup fails, or the value is
 #     empty.
 #
@@ -31,10 +31,39 @@ fi
 strings_file="${_get_text_ui_dir}/texts/${gui_lang}/strings"
 [[ -f "${strings_file}" ]] || strings_file="${_get_text_ui_dir}/texts/enu/strings"
 
+# Read the whole strings file into memory once.
+# Calling get_section_key_value for every string starts a new process each
+# time, which takes about 0.4 seconds per string on SRM (80+ strings).
+declare -A _txt_cache
+_txt_load(){
+    local line section="" key value
+    [[ -f "${strings_file}" ]] || return
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
+        if [[ "$line" =~ ^[[:space:]]*\[([^]]+)\][[:space:]]*$ ]]; then
+            section="${BASH_REMATCH[1]}"
+        elif [[ "$line" == *=* ]]; then
+            key="${line%%=*}"
+            value="${line#*=}"
+            # Trim spaces and tabs
+            key="${key#"${key%%[![:space:]]*}"}"
+            key="${key%"${key##*[![:space:]]}"}"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            [[ -z "$key" || "$key" == [#\;]* ]] && continue
+            # Remove the outer double quotes (the value may contain other quotes)
+            if [[ "$value" == \"*\" ]]; then
+                value="${value#\"}"
+                value="${value%\"}"
+            fi
+            _txt_cache["${section}|${key}"]="$value"
+        fi
+    done < "${strings_file}"
+}
+_txt_load
+
 txt(){ 
     local section="$1" key="$2" default="$3" value=""
-    if [[ -f "${strings_file}" ]] && command -v get_section_key_value >/dev/null 2>&1; then
-        value="$(get_section_key_value "${strings_file}" "${section}" "${key}" 2>/dev/null)"
-    fi
+    value="${_txt_cache["${section}|${key}"]-}"
     [[ -z "${value}" ]] && echo "${default}" || echo "${value}"
 }
