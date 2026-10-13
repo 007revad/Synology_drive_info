@@ -84,9 +84,14 @@ else
     logpath="/var/packages/drive_info/etc/"
 fi
 
-# SynoCli Disk Tools links smartctl7 in /usr/local/bin, which is not in
-# the PATH when run from the web page or task scheduler
-case ":$PATH:" in *:/usr/local/bin:*) ;; *) PATH="$PATH:/usr/local/bin"; export PATH ;; esac
+# SynoCli Disk Tools links smartctl7 in /usr/local/bin, and the SRM package
+# has smartctl7 in this script's own folder. Neither is in the PATH when
+# run from the web page or task scheduler
+_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+for _d in /usr/local/bin "$_script_dir"; do
+    [[ -n "$_d" ]] && case ":$PATH:" in *":$_d:"*) ;; *) PATH="$PATH:$_d" ;; esac
+done
+export PATH
 
 # Get smartctl location and check if version 7
 if which smartctl7 >/dev/null; then
