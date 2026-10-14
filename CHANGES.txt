@@ -1,6 +1,6 @@
 v2.4.66
 - SMART info, serial number and drive temperature for USB NVMe drives now works.
-  - DSM needs smartcl7 installed (included in SynoCommunity's synoCli Disk Tools package).
+  - DSM needs smartctl7 installed (included in SynoCommunity's synoCli Disk Tools package).
 - Hot Spare drives now show "Storage Pool N Hot Spare" when you hover over their drive id.
 - Unused drives now show Unused when you hover over their drive id.
 - Changed package's icon to be larger. You may need to hard refresh the browser to clear it's cache.
