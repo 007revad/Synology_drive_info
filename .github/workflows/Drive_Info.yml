@@ -206,6 +206,27 @@ jobs:
           tar -cf "$spk" -C "$tmpdir" $(ls "$tmpdir")
           rm -rf "$tmpdir"
 
+      # Only needs to happen once on the kvmx64 arch to create the
+      # DSM Enterprise package.
+      - name: Create noarch package for DSM Enterprise
+        if: steps.check_assets.outputs.spk_count == '0' && matrix.arch == 'kvmx64'
+        run: |
+          for f in ./dist/${SPK_PREFIX}-${{ steps.arch_label.outputs.label }}-*.spk; do
+            dsment="${f/${{ steps.arch_label.outputs.label }}/noarch}"
+            dsment="${dsment/${{ steps.dsm_suffix.outputs.suffix }}/DSM_Enterprise-1.x}"
+            tmpdir=$(mktemp -d)
+            tar -xf "$f" -C "$tmpdir"
+            sed -i 's/^arch=".*"/arch="x86_64"/' "$tmpdir/INFO"
+            sed -i -E 's/os_min_ver="7\.0-[0-9]+"/os_min_ver="1.0-101188"/' "$tmpdir/INFO"
+            sed -i 's/os_max_ver="9.9-99999"/os_max_ver="3.9-999999"/' "$tmpdir/INFO"
+            grep -q '^arch="x86_64"$'           "$tmpdir/INFO" || { echo "::error::Enterprise arch not set"; exit 1; }
+            grep -q '^os_min_ver="1.0-101188"$' "$tmpdir/INFO" || { echo "::error::Enterprise os_min_ver not set"; exit 1; }
+            grep -q '^os_max_ver="3.9-999999"$' "$tmpdir/INFO" || { echo "::error::Enterprise os_max_ver not set"; exit 1; }
+            tar -cf "$dsment" -C "$tmpdir" $(ls "$tmpdir")
+            rm -rf "$tmpdir"
+          done
+          ls -l ./dist
+
       # Only needs to happen once - the noarch/DSM6 output doesn't
       # depend on which arch built it, and running it per matrix leg
       # would just produce duplicate, colliding artifacts.
@@ -217,7 +238,7 @@ jobs:
             dsm6="${dsm6/${{ steps.dsm_suffix.outputs.suffix }}/DSM-6.x}"
             tmpdir=$(mktemp -d)
             tar -xf "$f" -C "$tmpdir"
-            sed -i 's/arch=".*"/arch="noarch"/' "$tmpdir/INFO"
+            sed -i 's/^arch=".*"/arch="noarch"/' "$tmpdir/INFO"
             sed -i -E 's/os_min_ver="7\.0-[0-9]+"/os_min_ver="6.0-7321"/' "$tmpdir/INFO"
             sed -i 's/os_max_ver="9.9-99999"/os_max_ver="6.9-99999"/' "$tmpdir/INFO"
             sed -i -E 's/install_dep_packages="[^"]*"/install_dep_packages="py3k>=3.8.6-0154"/' "$tmpdir/INFO"
