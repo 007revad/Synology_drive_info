@@ -22,7 +22,7 @@ _get_text_ui_dir="$(dirname "${_get_text_module_dir}")"
 
 
 # Check if 1st argument is a DSM language code
-if [[ $1 =~ chs|cht|csy|dan|enu|fre|ger|hun|ita|jpn|krn|nld|nor|plk|ptb|ptg|rus|spn|sve|tha|trk ]]; then
+if [[ $1 =~ ^(chs|cht|csy|dan|enu|fre|ger|hun|ita|jpn|krn|nld|nor|plk|ptb|ptg|rus|spn|sve|tha|trk)$ ]]; then
     gui_lang="$1"
 else
     gui_lang="$(get_key_value /etc/synoinfo.conf maillang 2>/dev/null)"

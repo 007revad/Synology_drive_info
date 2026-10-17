@@ -17,6 +17,9 @@ if [[ $( whoami ) != "root" ]]; then
     exit 1
 fi
 
+# Get DSM build number
+build=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION buildnumber)
+
 # Get DSM major version
 dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
 
@@ -108,7 +111,7 @@ Off=""
 # Fetch SMART data via the relay
 #-----------------------------------------------------------------------
 _device_json_arg="{\"device\":\"${device}\"}"
-if [[ "$dsm" -le "6" ]]; then
+if [[ "$dsm" -le "6" && "$build" -le 25556 ]]; then
     _smart_result=$(synowebapi --exec api=SYNO.SHA.Util method=send_remote_webapi version=1 \
         remote_api="\"SYNO.Storage.CGI.Smart\"" remote_method="\"get_health_info\"" remote_version=1 \
         remote_params="$_device_json_arg" 2>/dev/null)

@@ -72,6 +72,9 @@ if [[ -z "$nas_model" ]]; then
     nas_model="Unknown_model"
 fi
 
+# Get DSM build number
+build=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION buildnumber)
+
 # Get DSM major version
 dsm=$(synogetkeyvalue /etc.defaults/VERSION majorversion)
 
@@ -132,7 +135,7 @@ is_usb(){
 }
 
 # Check for flags with getopt
-if options="$(getopt -o abcdefghijklmnopqrstuvwxyz0123456789 -l dev:,all,increased,debug -- "$@")"; then
+if options="$(getopt -o adei -l dev:,all,increased,debug -- "$@")"; then
     eval set -- "$options"
     while true; do
         case "${1,,}" in
@@ -327,7 +330,7 @@ get_esata_title(){
     local dev_id="$1"
     # Don't run synowebapi for each eSATA drive
     if [[ -z "$esata_json" ]]; then
-        if [[ "$dsm" -le "6" ]]; then
+        if [[ "$dsm" -le "6" && "$build" -le 25556 ]]; then
             esata_json=$(synowebapi --exec api=SYNO.Core.ExternalDevice.Storage.eSATA method=list version=1 2>/dev/null)
         else
             esata_json=$(synowebapi -s --exec api=SYNO.Core.ExternalDevice.Storage.eSATA method=list version=1 2>/dev/null)
@@ -353,7 +356,7 @@ get_drive_num(){
     is_system_drive=""
     # Get Drive number
     # SRM's synodisk (DSM 5.2 based) has no --get_location_form
-    if [[ "$dsm" -ge 6 ]]; then
+    if [[ "$dsm" -ge 6 || "$build" -ge 101188 ]]; then
         disk_id=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk id:' | awk '{print $NF}')
         disk_cnr=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk cnr:' | awk '{print $NF}')
     fi
@@ -1571,14 +1574,14 @@ if [[ -z "$errtotal" ]]; then errtotal=0 ; fi
 smart_log="${logpath}"/smart.log
 if [[ ! -f $smart_log ]]; then
     touch "$smart_log"
-    if [[ $dsm -gt "6" ]]; then
+    if [[ "$dsm" -gt 6 || "$build" -ge 101188 ]]; then
         chown drive_info:drive_info "$smart_log"
     fi
     chmod 666 "$smart_log"
 fi
 
 # Fix owner:group from older versions
-if [[ $dsm -gt "6" ]]; then
+if [[ "$dsm" -gt 6 || "$build" -ge 101188 ]]; then
     chown drive_info:drive_info "$smart_log"
 fi
 
@@ -1726,7 +1729,7 @@ for d in "${drives_sorted[@]}"; do
     if [[ -n $nvme_dtype ]]; then
         # NVMe drive in a USB enclosure
         show_usb_nvme_health
-    elif [[ $dsm -gt "6" ]]; then
+    elif [[ "$dsm" -gt 6 || "$build" -ge 101188 ]]; then
         # DSM 7 or newer
 
         # Show SMART test status if SMART test running

@@ -15,6 +15,9 @@ CHECK_IP_SCRIPT="${TARGET_DIR}/ui/bin/check_ip_port.sh"
 TASK_SCHEDULER_SCRIPT="${TARGET_DIR}/ui/bin/task_scheduler.sh"
 HELPER="$TARGET_DIR/bin/helper/driveinfo-helper"
 
+# Get DSM build number
+build=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION buildnumber)
+
 # Get DSM major version
 dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
 
@@ -81,6 +84,35 @@ if [[ "${QUERY_STRING:-}" =~ (^|&)action=([^&]*) ]]; then
     _action="${BASH_REMATCH[2]}"
 fi
 
+#---------------------------------------------------------------------------
+# Who may call the settings actions: a logged in DSM administrator.
+# authenticate.cgi prints the user name only if the request has a valid
+# session cookie AND the X-SYNO-TOKEN header (the DSM desktop's Ext.Ajax adds it).
+#---------------------------------------------------------------------------
+is_admin() {
+    awk -F: -v u="$1" '
+        $1=="administrators" {
+            n=split($4,a,",")
+            for (i=1;i<=n;i++) if (a[i]==u) found=1
+        }
+        END { exit !found }' /etc/group
+}
+
+require_auth() {
+    local user
+    user=$(/usr/syno/synoman/webman/modules/authenticate.cgi 2>/dev/null | head -n1)
+    if [[ "$user" =~ ^[A-Za-z0-9._@-]+$ ]] && is_admin "$user"; then
+        return 0
+    fi
+    echo "[$(date '+%F %T')] ${_action}: not authorised (user='${user}')" >> "${PKG_VAR_DIR}/api.log" 2>/dev/null
+    printf 'Content-Type: application/json\r\n\r\n'
+    printf '{"ok":false,"error":"not_authorised"}\n'
+    exit 0
+}
+
+case "$_action" in
+    get_settings|save_settings|check_schedule|discover) require_auth ;;
+esac
 
 #---------------------------------------------------------------------------
 # Language argument handling
@@ -160,7 +192,7 @@ fi
 if [[ "$_action" == "discover" ]]; then
     DISCOVER_SCRIPT="${TARGET_DIR}/ui/bin/syno_discover.py"
     printf 'Content-Type: application/json\r\n'
-    printf 'Access-Control-Allow-Origin: *\r\n'
+    #printf 'Access-Control-Allow-Origin: *\r\n'
     printf '\r\n'
     if [[ ! -f "$DISCOVER_SCRIPT" ]]; then
         printf '{"error":"syno_discover.py not found"}\n'
@@ -280,7 +312,7 @@ if [[ "$_action" == "save_settings" ]]; then
                 # running check_ip_port.sh as root via sudo. Running server-
                 # side avoids the CORS block a browser-based check hit against
                 # DSM 7's own webapi.
-                if [[ "$dsm" -ge "7" ]]; then
+                if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
                     if ! "$HELPER" check_ip_port --ip="$_val_ip" --port="$_val_port" >/dev/null 2>&1; then
                         _val_h_esc=${_val_h//\"/\\\"}
                         [[ -n "$_failed_json" ]] && _failed_json+=','
@@ -454,7 +486,7 @@ if [[ "$_action" == "save_settings" ]]; then
         _delete_ok=true
         if [[ -n "$_existing_task_id" ]]; then
             _delete_ok=false
-            if [[ "$dsm" -ge "7" ]]; then
+            if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
                 _delete_result=$("$HELPER" task_scheduler delete "$_existing_task_id" "$_existing_owner" 2>&1)
             else
                 _delete_result=$(sudo "$TASK_SCHEDULER_SCRIPT" delete "$_existing_task_id" "$_existing_owner" 2>&1)
@@ -505,7 +537,7 @@ if [[ "$_action" == "save_settings" ]]; then
                 _smart_script_cmd="${SMART_SCRIPT} -e -a"
             fi
 
-            if [[ "$dsm" -ge "7" ]]; then
+            if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
                 _create_result=$("$HELPER" task_scheduler create \
                     "Drive Info SMART Schedule" "$_smart_script_cmd" \
                     "$_notify_enable" "$_smart_notify_error_only" "$_smart_notify_email" 2>&1)
@@ -588,14 +620,14 @@ fi
 #---------------------------------------------------------------------------
 if [[ "$_action" == "check_schedule" ]]; then
     printf 'Content-Type: application/json\r\n'
-    printf 'Access-Control-Allow-Origin: *\r\n'
+    #printf 'Access-Control-Allow-Origin: *\r\n'
     printf '\r\n'
 
     _tracked_task_id=$(synogetkeyvalue "$SETTINGS_CONF" smart_schedule_task_id 2>/dev/null || echo "")
     _healed="false"
 
     if [[ -n "$_tracked_task_id" ]]; then
-        if [[ "$dsm" -ge "7" ]]; then
+        if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
             _list_result=$("$HELPER" task_scheduler list 2>&1)
         else
             _list_result=$(sudo "$TASK_SCHEDULER_SCRIPT" list 2>&1)
@@ -647,7 +679,7 @@ if [[ "$_action" == "get_ha_passive" ]]; then
         exit 0
     fi
 
-    if [[ "$dsm" -ge "7" ]]; then
+    if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
         _sha_result=$("$HELPER" drive_info get_ha_passive 2>&1)
     else
         _sha_result=$(sudo "$SCRIPT" get_ha_passive 2>&1)
@@ -720,7 +752,7 @@ if [[ "$_action" == "get_smart" ]]; then
     SMART_FLAGS=()
     [[ "$_smart_important" != "true" ]] && SMART_FLAGS+=("-a")
 
-    if [[ "$dsm" -ge "7" ]]; then
+    if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
         SMART_OUTPUT=$("$HELPER" smart_info "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
     else
         SMART_OUTPUT=$("$BASH" "$SMART_SCRIPT" "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
@@ -977,7 +1009,7 @@ if [[ "$_action" == "get_ha_passive_smart" ]]; then
     SMART_FLAGS=()
     [[ "$_smart_important" != "true" ]] && SMART_FLAGS+=("-a")
 
-    if [[ "$dsm" -ge "7" ]]; then
+    if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
         SMART_OUTPUT=$("$HELPER" smart_passive_info "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
     else
         SMART_OUTPUT=$("$BASH" "$SMART_PASSIVE_SCRIPT" "${SMART_FLAGS[@]}" --dev="/dev/$_device,$_lang" 2>&1)
@@ -1183,6 +1215,12 @@ _smart_email_important=$(synogetkeyvalue "$SETTINGS_CONF" smart_email_important 
 [[ -z "$_smart_notify_error_only" ]] && _smart_notify_error_only="false"
 [[ -z "$_smart_email_important" ]] && _smart_email_important="true"
 [[ -z "$_manual_count" ]] && _manual_count="0"
+
+# The page is served without a login (the remote view needs that), so it must not
+# carry the email address or the manual NAS list. The JS loads them via get_settings.
+_smart_notify_email=""
+_manual_count="0"
+
 # SRM: show the schedule toggle off and greyed out
 _sched_row_class="toggle-row"
 _sched_row_title=""
@@ -1296,6 +1334,7 @@ _txt_needs_https_port=$(txt errors err_needs_https_port "This page is loaded ove
 _txt_smart_timeout=$(txt errors err_smart_timeout "Timed out waiting for SMART data. The NAS may be busy (e.g. running a data scrub or parity check) - try again shortly.")
 _txt_smart_failed=$(txt errors err_smart_failed "Request failed.")
 _txt_lang="$_lang"   # or gui_lang, whatever you settle on
+_txt_not_authorised=$(txt errors err_not_authorised "Not authorised. Open Drive Info from the DSM desktop as an administrator.")
 
 cat << STYLE
 <style>
@@ -1499,7 +1538,7 @@ if [[ ! -f "$SCRIPT" ]]; then
 fi
 
 # Check sudo permission
-if [[ "$dsm" -ge "7" ]]; then
+if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
     if [[ ! -u "$HELPER" ]]; then
         cat << NOPERMS
 <h2 style="color:#c00;">$(txt errors err_noperms_title "Permissions not configured")</h2>
@@ -1527,7 +1566,7 @@ function showResult(html) {
 }
 
 function reloadPage() {
-    window.location.href = 'api.cgi?_ts=' + new Date().getTime();
+    window.location.href = '/webman/3rdparty/drive_info/api.cgi?_ts=' + new Date().getTime();
 }
 </script>
 SPINNER
@@ -1540,7 +1579,7 @@ dd if=/dev/zero bs=4096 count=1 2>/dev/null | tr '\0' ' '
 # noclobber makes the create fail if the name already exists (symlink safety).
 STDERR_TMP="/tmp/drive_info.$$.$RANDOM"
 ( umask 077; set -o noclobber; : > "$STDERR_TMP" ) 2>/dev/null || STDERR_TMP="/dev/null"
-if [[ "$dsm" -ge "7" ]]; then
+if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
     OUTPUT=$("$HELPER" drive_info "$_lang" 2>"$STDERR_TMP")
 else
     OUTPUT=$(sudo "${SCRIPT}" "$_lang" 2>"$STDERR_TMP")
@@ -2052,11 +2091,14 @@ var txtHttpsCert = "${_txt_https_cert}";
 var txtNeedsHttpsPort = "${_txt_needs_https_port}";
 var viewer_lang = '${_lang}';
 var dirty = false;  // true only after settings have been saved
+var txtNotAuthorised = "${_txt_not_authorised}";
+var settingsLoaded = false;   // the settings are loaded after the page; Save must not run before that
 
 // ---------------------------------------------------------------------------
 // Settings panel show/hide
 // ---------------------------------------------------------------------------
 function showSettings() {
+    if (!settingsLoaded) { return; }
     document.getElementById('main-view').style.display = 'none';
     document.getElementById('settings-panel').style.display = '';
     document.getElementById('reload-btn').style.display = 'none';
@@ -2070,6 +2112,43 @@ function showSettings() {
 }
 
 // ---------------------------------------------------------------------------
+// Calls for the settings go through the DSM desktop's own Ext.Ajax, which adds the
+// session token that api.cgi's require_auth needs. cb(status, text)
+// ---------------------------------------------------------------------------
+function localApi(qs, timeoutMs, cb) {
+    var p = null;
+    try {
+        p = window.parent;
+        if (!(p && p !== window && p.Ext && p.Ext.Ajax)) { p = null; }
+    } catch (e) { p = null; }
+    if (p) {
+        p.Ext.Ajax.request({
+            url: '/webman/3rdparty/drive_info/api.cgi?' + qs,
+            method: 'GET',
+            timeout: timeoutMs,
+            success: function(r) { cb(r.status, r.responseText); },
+            failure: function(r) { cb((r && r.status) || 0, (r && r.responseText) || ''); }
+        });
+        return;
+    }
+    // Not inside the DSM desktop: plain request (api.cgi will refuse it)
+    var x = new XMLHttpRequest();
+    x.open('GET', 'api.cgi?' + qs, true);
+    x.timeout = timeoutMs;
+    x.onreadystatechange = function() { if (x.readyState === 4) { cb(x.status, x.responseText); } };
+    x.send();
+}
+
+function applySettings(s) {
+    nasData = s.manual_nas || [];
+    nasDataSaved = JSON.parse(JSON.stringify(nasData));
+    smartNotifyEmailSaved = s.smart_notify_email || '';
+    var em = document.getElementById('smart_notify_email');
+    if (em) { em.value = smartNotifyEmailSaved; }
+    settingsLoaded = true;
+}
+
+// ---------------------------------------------------------------------------
 // Reconciles smart_schedule_enable against whether the tracked Task
 // Scheduler entry actually still exists, every time the settings panel is
 // opened. If the app had self-healed a stale reference (e.g. the task was
@@ -2077,21 +2156,16 @@ function showSettings() {
 // rather than continuing to show a schedule that no longer exists.
 // ---------------------------------------------------------------------------
 function checkScheduleStillExists() {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', 'api.cgi?action=check_schedule&_ts=' + new Date().getTime(), true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4) {
-            var resp = null;
-            try { resp = JSON.parse(xhr.responseText); } catch (e) {}
-            if (resp && resp.ok && resp.healed) {
-                var enabled = !!resp.smart_schedule_enable;
-                document.getElementById('smart_schedule_enable').checked = enabled;
-                smartScheduleEnableSaved = enabled;
-                toggleScheduleFields();
-            }
+    localApi('action=check_schedule&_ts=' + new Date().getTime(), 15000, function(status, text) {
+        var resp = null;
+        try { resp = JSON.parse(text); } catch (e) {}
+        if (resp && resp.ok && resp.healed) {
+            var enabled = !!resp.smart_schedule_enable;
+            document.getElementById('smart_schedule_enable').checked = enabled;
+            smartScheduleEnableSaved = enabled;
+            toggleScheduleFields();
         }
-    };
-    xhr.send();
+    });
 }
 
 function cancelSettings() {
@@ -2120,7 +2194,7 @@ function cancelSettings() {
 function goBack() {
     if (dirty) {
         // Settings were saved - reload page to apply changes
-        window.location.href = 'api.cgi?_ts=' + new Date().getTime();
+        window.location.href = '/webman/3rdparty/drive_info/api.cgi?_ts=' + new Date().getTime();
     } else {
         cancelSettings();
     }
@@ -2352,48 +2426,43 @@ function doSaveSettings(valid, validSaved, willCheckNas) {
                        (showVolumeInfo !== String(showVolumeInfoSaved)) ||
                        nasChanged;
 
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', 'api.cgi?' + qs, true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4) {
-            var resp = null;
-            try { resp = JSON.parse(xhr.responseText); } catch (e) {}
-            if (resp && resp.ok === false) {
-                // Server-side reachability check failed.
-                saveBtn.disabled = false;
-                saveBtn.textContent = originalLabel;
-                showSaveError(resp.failed || []);
-                return;
-            }
-            if (needsReload) {
-                window.location.href = 'api.cgi?_ts=' + new Date().getTime();
-            } else {
-                // Update saved snapshots in place and return to main view without reload
-                saveBtn.disabled = false;
-                saveBtn.textContent = originalLabel;
-                showImportantSMART = (showSmartImportant === 'true');
-                nasDataSaved = JSON.parse(JSON.stringify(nasData));
-                discoverNasSaved = (discover === 'true');
-                showVolumeInfoSaved = (showVolumeInfo === 'true');
-                smartScheduleEnableSaved = (smartScheduleEnable === 'true');
-                smartNotifyEmailSaved = smartNotifyEmail;
-                smartNotifyErrorOnlySaved = (smartNotifyErrorOnly === 'true');
-                smartEmailImportantSaved = (smartEmailImportant === 'true');
-                smartEmailImportantPref = smartEmailImportantSaved;
-                document.getElementById('settings-panel').style.display = 'none';
-                document.getElementById('main-view').style.display = '';
-                document.getElementById('reload-btn').style.display = '';
-                var btn = document.getElementById('nav-btn');
-                btn.innerHTML = '<img src="/webman/3rdparty/drive_info/images/bt_gear.png" width="20" height="20" alt="">';
-                btn.title = '${_txt_settings}';
-                btn.onclick = showSettings;
-                var fb = document.getElementById('save-feedback');
-                fb.style.opacity = '1';
-                setTimeout(function(){ fb.style.opacity = '0'; }, 1500);
-            }
+    localApi(qs, 120000, function(status, text) {
+        var resp = null;
+        try { resp = JSON.parse(text); } catch (e) {}
+        if (!resp || resp.ok === false) {
+            // Refused (not authorised, or a NAS could not be reached) or no valid reply
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalLabel;
+            showSaveError((resp && resp.failed) || []);
+            return;
         }
-    };
-    xhr.send();
+        if (needsReload) {
+            window.location.href = '/webman/3rdparty/drive_info/api.cgi?_ts=' + new Date().getTime();
+        } else {
+            // Update saved snapshots in place and return to main view without reload
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalLabel;
+            showImportantSMART = (showSmartImportant === 'true');
+            nasDataSaved = JSON.parse(JSON.stringify(nasData));
+            discoverNasSaved = (discover === 'true');
+            showVolumeInfoSaved = (showVolumeInfo === 'true');
+            smartScheduleEnableSaved = (smartScheduleEnable === 'true');
+            smartNotifyEmailSaved = smartNotifyEmail;
+            smartNotifyErrorOnlySaved = (smartNotifyErrorOnly === 'true');
+            smartEmailImportantSaved = (smartEmailImportant === 'true');
+            smartEmailImportantPref = smartEmailImportantSaved;
+            document.getElementById('settings-panel').style.display = 'none';
+            document.getElementById('main-view').style.display = '';
+            document.getElementById('reload-btn').style.display = '';
+            var btn = document.getElementById('nav-btn');
+            btn.innerHTML = '<img src="/webman/3rdparty/drive_info/images/bt_gear.png" width="20" height="20" alt="">';
+            btn.title = '${_txt_settings}';
+            btn.onclick = showSettings;
+            var fb = document.getElementById('save-feedback');
+            fb.style.opacity = '1';
+            setTimeout(function(){ fb.style.opacity = '0'; }, 1500);
+        }
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -2690,13 +2759,14 @@ function buildHAPassiveVolumeTable(volumes, storagePools, disks, activeVolumes, 
 function fetchRemoteNAS() {
     var container = document.getElementById('remote-nas-container');
 
-    // Always fetch manual NAS entries from settings
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', 'api.cgi?action=get_settings', true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState !== 4) return;
+    localApi('action=get_settings', 15000, function(status, text) {
         var settings = {};
-        try { settings = JSON.parse(xhr.responseText); } catch(e) { return; }
+        try { settings = JSON.parse(text); } catch(e) { return; }
+        if (!settings || settings.error === 'not_authorised') {
+            container.innerHTML = '<p class="remote-err">' + escHtml(txtNotAuthorised) + '</p>';
+            return;
+        }
+        applySettings(settings);
 
         // If discovery enabled, run it first then merge manual
         if (settings.discover_nas === true || settings.discover_nas === 'true') {
@@ -2706,14 +2776,11 @@ function fetchRemoteNAS() {
             spinner.innerHTML = '<img src="/webman/3rdparty/drive_info/images/wait_triangle_blue_40p.gif" width="30" height="30" style="vertical-align:middle;margin-right:6px;">${_txt_discovering}';
             container.appendChild(spinner);
 
-            var dxhr = new XMLHttpRequest();
-            dxhr.open('GET', 'api.cgi?action=discover', true);
-            dxhr.onreadystatechange = function() {
-                if (dxhr.readyState !== 4) return;
+            localApi('action=discover', 30000, function(dstatus, dtext) {
                 var sp = document.getElementById('discover-spinner');
                 if (sp) sp.parentNode.removeChild(sp);
                 var discovered = [];
-                try { discovered = JSON.parse(dxhr.responseText); } catch(e) {}
+                try { discovered = JSON.parse(dtext); } catch(e) {}
                 if (!Array.isArray(discovered)) discovered = [];
                 // Merge manual NAS not already in discovered list
                 var manual = settings.manual_nas || [];
@@ -2723,14 +2790,12 @@ function fetchRemoteNAS() {
                     if (m.ip && !ips[m.ip]) discovered.push(m);
                 });
                 fetchAllRemote(discovered);
-            };
-            dxhr.send();
+            });
         } else {
             // Discovery off - just use manual NAS
             fetchAllRemote(settings.manual_nas || []);
         }
-    };
-    xhr.send();
+    });
 }
 
 function fetchAllRemote(nasList) {

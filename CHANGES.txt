@@ -1,3 +1,10 @@
+v2.4.67
+- Hardened security.
+- Prevented using api.cgi to view another NAS' settings, schedule or discover other Synology NAS.
+- Made the DSM 7, DSM Enterprise, spk files smaller.
+- Bug fix for 25 series with DSM 7.4.1 showing drives as "Unknown (acceptable)" instead of Healthy.
+- Bug fixes for DSM Enterprise (PAS7700).
+
 v2.4.66
 - SMART info, serial number and drive temperature for USB NVMe drives now works.
   - DSM needs smartctl7 installed (included in SynoCommunity's synoCli Disk Tools package).

@@ -36,6 +36,10 @@ fi
 PKG_NAME="drive_info"
 PKG_ROOT="/var/packages/${PKG_NAME}"
 BIN_DIR="${PKG_ROOT}/target/ui/bin"
+MODULES_DIR="${PKG_ROOT}/target/ui/modules"
+
+# Get DSM build number
+build=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION buildnumber)
 
 # Get DSM major version
 dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
@@ -43,7 +47,7 @@ if ! [[ "$dsm" =~ ^[0-9]+$ ]]; then
     echo '{"success":false,"message":"Unable to determine DSM version"}' >&2
     exit 2
 fi
-if [[ $dsm -ge 7 ]]; then
+if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
     VAR_DIR="${PKG_ROOT}/var"
 else
     VAR_DIR="${PKG_ROOT}/etc"
@@ -92,17 +96,7 @@ fi
 # over is fully self-healing from that point forward; this file itself
 # is the one exception.
 self_heal() {
-    local f owner
-    for f in "$BIN_DIR"/*.sh "$BIN_DIR"/*.py "$0"; do
-        [[ -f "$f" ]] || continue
-        owner="$(stat -c '%U' "$f" 2>/dev/null)"
-        if [[ "$owner" != "root" ]]; then
-            chown root:root "$f" 2>/dev/null
-            chmod 555 "$f" 2>/dev/null
-            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Drive_Info: self-heal secured $f (was owned by $owner)" \
-                >> "${API_LOG_FILE}" 2>/dev/null
-        fi
-    done
+    local owner
 
     # settings.conf is data, not code - root still writes it on every
     # save. 600 rather than 555: no group/other bits at all, since
@@ -152,8 +146,40 @@ self_heal() {
         chmod 644 "$API_LOG_FILE" 2>/dev/null
     fi
 }
+if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then self_heal; fi
 
-self_heal
+HELPER_PATH="$PKG_ROOT/target/bin/helper/driveinfo-helper"
+
+lock_tree() {
+    local root="$1" p
+    [[ -d "$root" && ! -L "$root" ]] || return
+    chown root:"${PKG_NAME}" "$root" && chmod 555 "$root" || return
+    while IFS= read -r -d '' p; do
+        # chown clears setuid/setgid, so the helper must be skipped BEFORE chown
+        [[ "$p" == "$HELPER_PATH" ]] && continue
+        if [[ -L "$p" ]]; then
+            chown -h root:"${PKG_NAME}" "$p" 2>/dev/null
+        elif [[ -d "$p" ]]; then
+            chown root:"${PKG_NAME}" "$p" 2>/dev/null && chmod 555 "$p" 2>/dev/null
+        elif [[ -f "$p" ]]; then
+            chown root:"${PKG_NAME}" "$p" 2>/dev/null
+            case "$p" in
+                *.sh|*.py|*.cgi) chmod 555 "$p" 2>/dev/null ;;
+                *)               chmod 444 "$p" 2>/dev/null ;;
+            esac
+        fi
+    done < <(find "$root" -xdev -mindepth 1 -print0 | sort -z)
+}
+
+if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
+    lock_tree "$PKG_ROOT/target/ui"
+    lock_tree "$PKG_ROOT/target/bin"
+    # Tripwire: log if the helper has lost its setuid bit
+    if [[ -f "$HELPER_PATH" && ! -u "$HELPER_PATH" ]]; then
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Drive_Info: WARNING helper is not setuid after lock_tree" \
+            >> "${API_LOG_FILE}" 2>/dev/null
+    fi
+fi
 
 if [[ "$1" == "selfheal" ]]; then exit 0; fi
 
@@ -167,7 +193,7 @@ if [[ "$1" == "selfheal" ]]; then exit 0; fi
 # drive-listing setup below, since none of that is needed here.
 #--------------------------------------------------------
 if [[ "$1" == "get_ha_passive" ]]; then
-    if [[ "$dsm" -le "6" ]]; then
+    if [[ "$dsm" -le "6" && "$build" -le 25556 ]]; then
         _overview_json=$(synowebapi --exec api=SYNO.SHA.Panel.Overview method=load version=1 2>/dev/null)
         _storage_json=$(synowebapi --exec api=SYNO.SHA.Util method=send_remote_webapi version=1 remote_api="\"SYNO.Storage.CGI.Storage\"" remote_method="\"load_info\"" remote_version=1 2>/dev/null)
         _local_storage_json=$(synowebapi --exec api=SYNO.Storage.CGI.Storage method=load_info version=1 2>/dev/null)
@@ -212,7 +238,7 @@ fi
 
 
 # Check if 1st argument is a DSM language code
-if [[ $1 =~ chs|cht|csy|dan|enu|fre|ger|hun|ita|jpn|krn|nld|nor|plk|ptb|ptg|rus|spn|sve|tha|trk ]]; then
+if [[ $1 =~ ^(chs|cht|csy|dan|enu|fre|ger|hun|ita|jpn|krn|nld|nor|plk|ptb|ptg|rus|spn|sve|tha|trk)$ ]]; then
     gui_lang="$1"
 else
     gui_lang=""
@@ -253,7 +279,7 @@ get_esata_title(){
     local dev_id="$1"
     # Don't run synowebapi for each eSATA drive
     if [[ -z "$esata_json" ]]; then
-        if [[ "$dsm" -le "6" ]]; then
+        if [[ "$dsm" -le "6" && "$build" -le 25556 ]]; then
             esata_json=$(synowebapi --exec api=SYNO.Core.ExternalDevice.Storage.eSATA method=list version=1 2>/dev/null)
         else
             esata_json=$(synowebapi -s --exec api=SYNO.Core.ExternalDevice.Storage.eSATA method=list version=1 2>/dev/null)
@@ -276,7 +302,7 @@ get_drive_num(){
     skip_unused=0  # Set to 1 for drives that are never storage pool members
     # Get Drive number
     # SRM's synodisk (DSM 5.2 based) has no --get_location_form
-    if [[ "$dsm" -ge 6 ]]; then
+    if [[ "$dsm" -ge 6 || "$build" -ge 101188 ]]; then
         disk_id=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk id:' | awk '{print $NF}')
         disk_cnr=$(synodisk --get_location_form "/dev/$drive" | grep 'Disk cnr:' | awk '{print $NF}')
     fi
@@ -385,7 +411,7 @@ get_drive_health(){
     if [[ $1 == "usb" ]]; then
         health_status=$(synousbdisk -info "$drive" | grep '^Status:' | cut -d" " -f2)
     else
-        if [[ "$dsm" -le "6" ]]; then
+        if [[ "$dsm" -le "6" && "$build" -le 25556 ]]; then
             # This works in DSM 6 but takes 31 seconds for 8 drives!
             # The get_drive_health6 method only takes 4 seconds for 8 drives
             health_status=$(synowebapi --exec api="SYNO.Storage.CGI.Smart" method="get_health_info" version="1" device="\"/dev/$drive\"" 2>/dev/null \
@@ -403,7 +429,7 @@ get_drive_health(){
     fi
 
     case "$health_status" in
-        normal|healthy)
+        normal|healthy|acceptable)
             # healthy:: shows in green
             status="healthy::$(txt common status_healthy "Healthy")"
             ;;
@@ -674,7 +700,7 @@ fixdrivemodel(){
 # Fetch storage pool info once, up front, so both the drive table (pool-membership
 # hover) and get_volume_info() (member-disks hover) can reuse the same data
 # instead of each calling synowebapi separately.
-if [[ "$dsm" -le "6" ]]; then
+if [[ "$dsm" -le "6" && "$build" -le 25556 ]]; then
     storage_json=$(synowebapi --exec api=SYNO.Storage.CGI.Storage method=load_info version=1 2>/dev/null)
 else
     storage_json=$(synowebapi -s --exec api=SYNO.Storage.CGI.Storage method=load_info version=1 2>/dev/null)
@@ -862,7 +888,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         smr=""
         get_drive_num
         append_pool_hover
-        if [[ "$dsm" -le "6" ]]; then
+        if [[ "$dsm" -le "6" && "$build" -le 25556 ]]; then
             get_drive_health6
         else
             get_drive_health
@@ -895,7 +921,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         smr=""
         get_nvme_num
         append_pool_hover
-        if [[ "$dsm" -le "6" ]]; then
+        if [[ "$dsm" -le "6" && "$build" -le 25556 ]]; then
             get_drive_health6
         else
             get_drive_health
@@ -923,7 +949,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         smr=""
         get_drive_num
         append_pool_hover
-        if [[ "$dsm" -le "6" ]]; then
+        if [[ "$dsm" -le "6" && "$build" -le 25556 ]]; then
             get_drive_health6
         else
             get_drive_health

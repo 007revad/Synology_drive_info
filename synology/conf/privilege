@@ -5,7 +5,7 @@
       "relpath": "bin/helper/driveinfo-helper",
       "user": "root",
       "group": "package",
-      "permission": "6550"
+      "permission": "4550"
     }
   ]
 }

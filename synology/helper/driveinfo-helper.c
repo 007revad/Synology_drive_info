@@ -6,7 +6,7 @@
  *
  * Replaces the sudoers-based escalation (drive_info sudoers rules):
  * does not depend on /usr/bin/sudo being present, and only ever
- * executes one of four fixed, hardcoded script paths, each with a
+ * executes one of five fixed, hardcoded script paths, each with a
  * whitelisted, fixed-shape set of arguments mirroring what the old
  * sudoers rules allowed.
  *

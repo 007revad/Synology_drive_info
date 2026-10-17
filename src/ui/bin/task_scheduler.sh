@@ -23,10 +23,13 @@ set -u
 
 SYNOWEBAPI="/usr/syno/bin/synowebapi"
 
+# Get DSM build number
+build=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION buildnumber)
+
 # Get DSM major version - DSM 7 needs -s for create, DSM 6 must NOT have -s
 # for create (this part is well-established/working on both versions).
 dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
-if [[ "$dsm" -ge 7 ]]; then
+if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
     WEBAPI_FLAG="-s"
 else
     WEBAPI_FLAG=""
@@ -40,7 +43,7 @@ fi
 # success:true without actually deleting anything (silently ignored
 # unrecognised param) - the singular "task" bare-id param is what DSM 6
 # actually expects.
-if [[ "$dsm" -ge 7 ]]; then
+if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
     DELETE_WEBAPI_FLAG="-s"
     DELETE_VERSION=2
 else
@@ -81,7 +84,7 @@ delete_task(){
     local _tid="$1" _towner_json
     _towner_json=$(json_escape "$2")
 
-    if [[ "$dsm" -ge 7 ]]; then
+    if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
         $SYNOWEBAPI $DELETE_WEBAPI_FLAG --exec api=SYNO.Core.TaskScheduler method=delete version=$DELETE_VERSION \
             tasks="[{\"id\":${_tid},\"real_owner\":\"${_towner_json}\"}]"
     else
