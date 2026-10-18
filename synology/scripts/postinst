@@ -7,7 +7,9 @@ TARGET_DIR="/var/packages/$PKG_NAME/target"
 UI_DIR="$TARGET_DIR/ui"
 MODULES_DIR="$TARGET_DIR/ui/modules"
 TEXTS_DIR="$TARGET_DIR/ui/texts"
-SETTINGS_DIR="/var/packages/${PKG_NAME}/etc"
+
+# Get DSM build number
+build=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION buildnumber)
 
 # Get DSM major version
 dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
@@ -53,7 +55,7 @@ chmod 555 "$UI_DIR/bin/syno_discover.py"          # Blocks injection exploit
 log_message "Set permissions for syno_discover.py"
 chmod 555 "$UI_DIR/bin/task_scheduler.sh"         # Blocks injection exploit
 log_message "Set permissions for task_scheduler.sh"
-chmod 555 "$UI_DIR/modules/get_text.sh"           # Blocks injection exploit
+chmod 555 "$MODULES_DIR/get_text.sh"              # Blocks injection exploit
 log_message "Set permissions for get_text.sh"
 chmod 555 "$UI_DIR/bin/smart_passive_info.sh"     # Blocks injection exploit
 log_message "Set permissions for smart_passive_info.sh"
@@ -138,7 +140,7 @@ fi
 # Must be the last command (apart from logging and driveinfo-helper)
 chmod 555 "/var/packages/${PKG_NAME}/target" 2>/dev/null   # Blocks delete/recreate/rename exploit
 
-if [ "$dsm" -ge 7 ]; then
+if [ "$dsm" -ge 7 ] || [ "$build" -ge 101188 ]; then
     HELPER="$TARGET_DIR/bin/helper/driveinfo-helper"
     if [ -u "$HELPER" ]; then
         result="$("$HELPER" drive_info selfheal 2>&1)"

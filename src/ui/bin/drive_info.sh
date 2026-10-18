@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2002,SC1090,SC2207
+# shellcheck disable=SC2002,SC1090,SC2207,SC2001
 #--------------------------------------------------------
 # Show Synology Drive number, model and serial number etc
 #
@@ -16,12 +16,6 @@
 # column came out 2 characters out of place.
 [[ "$BASH" == /var/packages/drive_info/target/ui/bin/bash ]] && export LC_ALL=C.UTF-8
 
-if [[ -d /var/packages/drive_info/var ]]; then
-    log="yes"
-    #logfile=/var/packages/drive_info/var/drive_info_debug.log
-    logfile=/var/packages/drive_info/target/var/drive_info_debug.log
-fi
-
 # Check script is running as root
 if [[ $( whoami ) != "root" ]]; then
     echo -e "\nERROR This script must be run as sudo or root!\n"
@@ -36,7 +30,7 @@ fi
 PKG_NAME="drive_info"
 PKG_ROOT="/var/packages/${PKG_NAME}"
 BIN_DIR="${PKG_ROOT}/target/ui/bin"
-MODULES_DIR="${PKG_ROOT}/target/ui/modules"
+#MODULES_DIR="${PKG_ROOT}/target/ui/modules"
 
 # Get DSM build number
 build=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION buildnumber)
@@ -225,7 +219,6 @@ export PATH
 if which smartctl7 >/dev/null; then
     # smartmontools 7 from SynoCli Disk Tools is installed
     smartctl=$(which smartctl7)
-    smartversion=7
 else
     smartctl=$(which smartctl)
 fi
@@ -607,7 +600,8 @@ get_drive_temp(){
 }
 
 get_drive_size(){ 
-    local size_tb size_gb size_mb size_bytes sector_size
+    #local size_tb size_gb size_mb size_bytes sector_size
+    local size_tb size_gb size_mb size_bytes size_sectors
     size_tb="$(txt common size_tb "TiB")"
     size_gb="$(txt common size_gb "GiB")"
     size_mb="$(txt common size_mb "MiB")"
@@ -1052,7 +1046,8 @@ get_volume_info(){
         pool_devtype_map["$pool_id"]="$pool_devtype"
 
         # Translate raw disk ids (e.g. sata1) to friendly names (e.g. Drive 3)
-        local disk_ids=() disk_names=() did joined=""
+        #local disk_ids=() disk_names=() did joined=""
+        local disk_ids=() did joined=""
         IFS=',' read -ra disk_ids <<< "$pool_disks_raw"
         for did in "${disk_ids[@]}"; do
             [[ -z "$did" ]] && continue
