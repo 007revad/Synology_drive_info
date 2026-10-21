@@ -30,6 +30,19 @@ if [ "$os_name" != SRM ]; then
     exit 0
 fi
 
+# A package script's PATH can differ from a login shell's, so look for the
+# tools in the usual places instead of relying on PATH alone.
+find_tool() {
+    t=$(command -v "$1" 2>/dev/null)
+    if [ -n "$t" ] && [ -x "$t" ]; then echo "$t"; return 0; fi
+    for d in /bin /usr/bin /usr/syno/bin /usr/local/bin /opt/bin; do
+        if [ -x "$d/$1" ]; then echo "$d/$1"; return 0; fi
+    done
+    return 1
+}
+JQ=$(find_tool jq)
+CURL=$(find_tool curl)
+
 FEED_URL="https://spkrepo.007daver.workers.dev/?ref=srm"
 FEED_NAME="007revad"
 
@@ -76,28 +89,28 @@ need_root() {
 # Entries from other sources are never touched.
 #--------------------------------------------------------------------
 add_feed() {
-    command -v jq >/dev/null 2>&1 || { warn_once jq "jq not found - feed not added"; return 1; }
+    [ -n "$JQ" ] || { warn_once jq "jq not found (PATH=$PATH) - feed not added"; return 1; }
     tmp="/tmp/${PKG_NAME}_feeds.$$"
 
     if [ -s "$FEEDS_FILE" ]; then
-        kind=$(jq -r 'type' "$FEEDS_FILE" 2>/dev/null)
+        kind=$("$JQ" -r 'type' "$FEEDS_FILE" 2>/dev/null)
         if [ "$kind" != "array" ]; then
             warn_once feedfmt "ERROR: $FEEDS_FILE is not a JSON array - left alone"
             return 1
         fi
-        have=$(jq -r --arg u "$FEED_URL" 'map(select(.feed == $u)) | length' "$FEEDS_FILE" 2>/dev/null)
+        have=$("$JQ" -r --arg u "$FEED_URL" 'map(select(.feed == $u)) | length' "$FEEDS_FILE" 2>/dev/null)
         case "$have" in
             0) ;;
             [0-9]*) return 0 ;;
             *) warn_once feedfmt "ERROR: could not read entries in $FEEDS_FILE - left alone"; return 1 ;;
         esac
-        jq -c --arg u "$FEED_URL" --arg n "$FEED_NAME" '. + [{"feed": $u, "name": $n}]' \
+        "$JQ" -c --arg u "$FEED_URL" --arg n "$FEED_NAME" '. + [{"feed": $u, "name": $n}]' \
             "$FEEDS_FILE" > "$tmp" 2>/dev/null
     else
-        jq -n -c --arg u "$FEED_URL" --arg n "$FEED_NAME" '[{"feed": $u, "name": $n}]' > "$tmp" 2>/dev/null
+        "$JQ" -n -c --arg u "$FEED_URL" --arg n "$FEED_NAME" '[{"feed": $u, "name": $n}]' > "$tmp" 2>/dev/null
     fi
 
-    if [ -s "$tmp" ] && [ "$(jq -r 'type' "$tmp" 2>/dev/null)" = "array" ]; then
+    if [ -s "$tmp" ] && [ "$("$JQ" -r 'type' "$tmp" 2>/dev/null)" = "array" ]; then
         # cat > keeps the existing file's owner and permissions
         cat "$tmp" > "$FEEDS_FILE" && log "Added feed $FEED_URL"
         rm -f "$tmp"
@@ -110,12 +123,12 @@ add_feed() {
 
 remove_feed() {
     [ -s "$FEEDS_FILE" ] || return 0
-    command -v jq >/dev/null 2>&1 || { log "jq not found - feed not removed"; return 1; }
-    [ "$(jq -r 'type' "$FEEDS_FILE" 2>/dev/null)" = "array" ] || return 1
+    [ -n "$JQ" ] || { log "jq not found - feed not removed"; return 1; }
+    [ "$("$JQ" -r 'type' "$FEEDS_FILE" 2>/dev/null)" = "array" ] || return 1
     tmp="/tmp/${PKG_NAME}_feeds.$$"
-    jq -c --arg u "$FEED_URL" 'map(select(.feed != $u))' "$FEEDS_FILE" > "$tmp" 2>/dev/null
+    "$JQ" -c --arg u "$FEED_URL" 'map(select(.feed != $u))' "$FEEDS_FILE" > "$tmp" 2>/dev/null
     [ -s "$tmp" ] || { rm -f "$tmp"; return 1; }
-    if [ "$(jq -r 'length' "$tmp" 2>/dev/null)" = "0" ]; then
+    if [ "$("$JQ" -r 'length' "$tmp" 2>/dev/null)" = "0" ]; then
         # the file did not exist before the first package added it
         rm -f "$FEEDS_FILE"
     else
@@ -185,7 +198,7 @@ fetch_icon() {
         *) return 1 ;;
     esac
     tmp="${dest}.part"
-    if curl -fsSL --max-time 30 -o "$tmp" "$url" 2>/dev/null \
+    if "$CURL" -fsSL --max-time 30 -o "$tmp" "$url" 2>/dev/null \
         && [ -s "$tmp" ] \
         && [ "$(dd if="$tmp" bs=1 skip=1 count=3 2>/dev/null)" = "PNG" ]; then
         chmod 644 "$tmp"
@@ -199,11 +212,11 @@ fill_icons() {
     retry="${1:-0}"
     [ -s "$LIST_FILE" ] || return 0
     [ -d "${CACHE_ROOT}/" ] || return 0
-    command -v jq >/dev/null 2>&1 || return 0
-    command -v curl >/dev/null 2>&1 || return 0
+    [ -n "$JQ" ] || return 0
+    [ -n "$CURL" ] || return 0
     [ "$retry" = "1" ] && : > "$FAILED_FILE"
 
-    jq -r '.[] | select(.package and .version)
+    "$JQ" -r '.[] | select(.package and .version)
            | .package + " " + .version + " " + (.thumbnail[0] // "-") + " " + (.thumbnail[1] // .thumbnail[0] // "-")' \
         "$LIST_FILE" 2>/dev/null | while read -r pkg ver u72 u256; do
 
