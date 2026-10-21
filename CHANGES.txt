@@ -1,5 +1,5 @@
 v2.4.68
-- Added 007revad package source to SRM's Package Center.
+- SRM: Now adds 007revad package source and enables the Community section in SRM's Package Center.
 - Bug fixes for Drive Info not working in DSM Enterprise (PAS7700).
 
 v2.4.67
