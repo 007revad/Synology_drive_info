@@ -8,6 +8,12 @@ BIN_DIR="${TARGET_DIR}/bin"
 # Must match SCHEDULE_TASK_NAME in driveinfo-helper.c / api.cgi
 TASK_NAME="Drive Info SMART Schedule"
 
+# Get OS name
+os_name=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/synoinfo.conf os_name)
+
+# Get DSM build number
+build=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION buildnumber)
+
 # Get DSM major version
 dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
 if [ "$dsm" -ge 7 ]; then
@@ -44,7 +50,7 @@ fi
 # Either way, a failure here must never block the uninstall itself -
 # an orphaned task is a much smaller problem than a package the user
 # can no longer remove.
-if [ "$dsm" -ge 7 ]; then
+if [ "$dsm" -ge 7 ] || [ "$build" -ge 101188 ]; then
     HELPER="${BIN_DIR}/helper/driveinfo-helper"
     if [ ! -u "$HELPER" ]; then
         log_message "preuninst: helper not usable (running as $(id -un 2>&1), $(ls -l "$HELPER" 2>&1)) - scheduled task not removed"
@@ -52,7 +58,7 @@ if [ "$dsm" -ge 7 ]; then
     fi
     out=$("$HELPER" task_scheduler delete_by_name "$TASK_NAME" 2>&1)
     rc=$?
-else
+elif [ "$os_name" != SRM ]; then
     TASK_SCRIPT="${TARGET_DIR}/ui/bin/task_scheduler.sh"
     if [ ! -x "$TASK_SCRIPT" ]; then
         log_message "preuninst: ${TASK_SCRIPT} missing or not executable - scheduled task not removed"
@@ -63,5 +69,11 @@ else
 fi
 
 log_message "preuninst: delete_by_name '${TASK_NAME}' exit=${rc} output: ${out}"
+
+# Remove 007revad package source from SRM,
+# if no other SRM packages 007revad package source are installed.
+if [ "$os_name" = SRM ]; then
+    "$TARGET_DIR/ui/bin/srm_package_source.sh" remove
+fi
 
 exit 0

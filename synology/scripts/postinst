@@ -8,12 +8,15 @@ UI_DIR="$TARGET_DIR/ui"
 MODULES_DIR="$TARGET_DIR/ui/modules"
 TEXTS_DIR="$TARGET_DIR/ui/texts"
 
+# Get OS name
+os_name=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/synoinfo.conf os_name)
+
 # Get DSM build number
 build=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION buildnumber)
 
 # Get DSM major version
 dsm=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION majorversion)
-if [ "$dsm" -ge 7 ]; then
+if [ "$dsm" -ge 7 ] || [ "$build" -ge 101188 ]; then
     VAR_DIR="/var/packages/${PKG_NAME}/var"
 else
     VAR_DIR="/var/packages/${PKG_NAME}/etc"
@@ -37,7 +40,7 @@ rm -f "$UI_DIR/ui"         # self-referencing symlink
 rm -f "$TEXTS_DIR/strings" # strings file template
 log_message "Removed spurious package builder files"
 
-if [ "$dsm" -le 6 ]; then
+if [ "$dsm" -le 6 ] && [ "$build" -lt 101188 ]; then
     rm -f "$TARGET_DIR/bin/helper/driveinfo-helper"
     log_message "Removed helper/driveinfo-helper (only needed for DSM 7)"   
 fi
@@ -67,29 +70,31 @@ chmod 644 "$UI_DIR/bin/smr_drive_list.txt"
 # The DSM 6 and DSM 7 packages don't contain these files, so this is skipped.
 # Run each candidate and keep the first one that works on this CPU/userland,
 # then point ui/bin/bash at it and delete the unused one.
-if [ -e "$UI_DIR/bin/bash-armv7-hf-static" ] || [ -e "$UI_DIR/bin/bash-aarch64-static" ]; then
-    case "$(uname -m)" in
-        aarch64|arm64) bash_candidates="bash-aarch64-static bash-armv7-hf-static" ;;
-        *)             bash_candidates="bash-armv7-hf-static bash-aarch64-static" ;;
-    esac
-    bundled_bash=""
-    for c in $bash_candidates; do
-        [ -f "$UI_DIR/bin/$c" ] || continue
-        chmod 555 "$UI_DIR/bin/$c"
-        if "$UI_DIR/bin/$c" -c ':' >/dev/null 2>&1; then
-            bundled_bash="$c"
-            break
-        fi
-    done
-    if [ -n "$bundled_bash" ]; then
-        ln -sf "$bundled_bash" "$UI_DIR/bin/bash"
-        for c in bash-armv7-hf-static bash-aarch64-static; do
-            [ "$c" = "$bundled_bash" ] || rm -f "$UI_DIR/bin/$c"
+if [ "$os_name" = SRM ]; then
+    if [ -e "$UI_DIR/bin/bash-armv7-hf-static" ] || [ -e "$UI_DIR/bin/bash-aarch64-static" ]; then
+        case "$(uname -m)" in
+            aarch64|arm64) bash_candidates="bash-aarch64-static bash-armv7-hf-static" ;;
+            *)             bash_candidates="bash-armv7-hf-static bash-aarch64-static" ;;
+        esac
+        bundled_bash=""
+        for c in $bash_candidates; do
+            [ -f "$UI_DIR/bin/$c" ] || continue
+            chmod 555 "$UI_DIR/bin/$c"
+            if "$UI_DIR/bin/$c" -c ':' >/dev/null 2>&1; then
+                bundled_bash="$c"
+                break
+            fi
         done
-        log_message "Using bundled bash: $bundled_bash ($("$UI_DIR/bin/bash" --version | head -n 1))"
-    else
-        ERRORS=1
-        log_message "ERROR: no bundled bash runs on this system (uname -m: $(uname -m))"
+        if [ -n "$bundled_bash" ]; then
+            ln -sf "$bundled_bash" "$UI_DIR/bin/bash"
+            for c in bash-armv7-hf-static bash-aarch64-static; do
+                [ "$c" = "$bundled_bash" ] || rm -f "$UI_DIR/bin/$c"
+            done
+            log_message "Using bundled bash: $bundled_bash ($("$UI_DIR/bin/bash" --version | head -n 1))"
+        else
+            ERRORS=1
+            log_message "ERROR: no bundled bash runs on this system (uname -m: $(uname -m))"
+        fi
     fi
 fi
 
@@ -97,29 +102,31 @@ fi
 # SRM package also bundles static smartctl 7.5 binaries. Same approach as bash:
 # keep the first one that runs, point ui/bin/smartctl7 at it, delete the other.
 # Not fatal if none run, because SATA drives still work with SRM's own smartctl.
-if [ -e "$UI_DIR/bin/smartctl-armv7-hf-static" ] || [ -e "$UI_DIR/bin/smartctl-aarch64-static" ]; then
-    case "$(uname -m)" in
-        aarch64|arm64) smartctl_candidates="smartctl-aarch64-static smartctl-armv7-hf-static" ;;
-        *)             smartctl_candidates="smartctl-armv7-hf-static smartctl-aarch64-static" ;;
-    esac
-    bundled_smartctl=""
-    for c in $smartctl_candidates; do
-        [ -f "$UI_DIR/bin/$c" ] || continue
-        chmod 555 "$UI_DIR/bin/$c"
-        if "$UI_DIR/bin/$c" --version >/dev/null 2>&1; then
-            bundled_smartctl="$c"
-            break
-        fi
-    done
-    if [ -n "$bundled_smartctl" ]; then
-        ln -sf "$bundled_smartctl" "$UI_DIR/bin/smartctl7"
-        for c in smartctl-armv7-hf-static smartctl-aarch64-static; do
-            [ "$c" = "$bundled_smartctl" ] || rm -f "$UI_DIR/bin/$c"
+if [ "$os_name" = SRM ]; then
+    if [ -e "$UI_DIR/bin/smartctl-armv7-hf-static" ] || [ -e "$UI_DIR/bin/smartctl-aarch64-static" ]; then
+        case "$(uname -m)" in
+            aarch64|arm64) smartctl_candidates="smartctl-aarch64-static smartctl-armv7-hf-static" ;;
+            *)             smartctl_candidates="smartctl-armv7-hf-static smartctl-aarch64-static" ;;
+        esac
+        bundled_smartctl=""
+        for c in $smartctl_candidates; do
+            [ -f "$UI_DIR/bin/$c" ] || continue
+            chmod 555 "$UI_DIR/bin/$c"
+            if "$UI_DIR/bin/$c" --version >/dev/null 2>&1; then
+                bundled_smartctl="$c"
+                break
+            fi
         done
-        log_message "Using bundled smartctl: $bundled_smartctl ($("$UI_DIR/bin/smartctl7" --version | head -n 1))"
-    else
-        ERRORS=1
-        log_message "WARNING: no bundled smartctl runs on this system (uname -m: $(uname -m))"
+        if [ -n "$bundled_smartctl" ]; then
+            ln -sf "$bundled_smartctl" "$UI_DIR/bin/smartctl7"
+            for c in smartctl-armv7-hf-static smartctl-aarch64-static; do
+                [ "$c" = "$bundled_smartctl" ] || rm -f "$UI_DIR/bin/$c"
+            done
+            log_message "Using bundled smartctl: $bundled_smartctl ($("$UI_DIR/bin/smartctl7" --version | head -n 1))"
+        else
+            ERRORS=1
+            log_message "WARNING: no bundled smartctl runs on this system (uname -m: $(uname -m))"
+        fi
     fi
 fi
 
@@ -134,6 +141,11 @@ else
     SETTINGS_CONF="${PKG_ROOT}/etc/settings.conf"
     touch "${SETTINGS_CONF}"
     chmod 666 "${SETTINGS_CONF}"
+fi
+
+# Added 007revad package source to SRM's Package Center
+if [ "$os_name" = SRM ]; then
+    "$TARGET_DIR/ui/bin/srm_package_source.sh" install
 fi
 
 # Lock down target folder

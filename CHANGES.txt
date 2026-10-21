@@ -1,3 +1,7 @@
+v2.4.68
+- Added 007revad package source to SRM's Package Center.
+- Bug fixes for Drive Info not working in DSM Enterprise (PAS7700).
+
 v2.4.67
 - Hardened security.
 - Prevented unauthenticated users using api.cgi to view another NAS' Drive Info settings.

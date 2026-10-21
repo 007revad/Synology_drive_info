@@ -54,6 +54,10 @@ API_LOG_FILE="${VAR_DIR}/api.log"
 
 if [[ ! -f "$CONF_FILE" ]]; then
     touch "$CONF_FILE"
+    if [[ "$dsm" -gt 6 || "$build" -ge 101188 ]]; then
+        chown drive_info:drive_info "$smart_log"
+    fi
+    chmod 660 "$smart_log"
 fi
 
 

@@ -1,17 +1,49 @@
 #!/bin/sh
 # shebang needs to be sh as SRM does not have bash
 
+PKG_NAME="drive_info"
+SRM_HELPER="/var/packages/${PKG_NAME}/target/ui/bin/srm_package_source.sh"
+PIDFILE="/tmp/${PKG_NAME}_source_helper.pid"
+
+# Get OS name
+OS_NAME=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/synoinfo.conf os_name)
+
+is_running() {
+    [ -f "$PIDFILE" ] || return 1
+    pid=$(cat "$PIDFILE" 2>/dev/null)
+    [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
+stop_helper() {
+    if is_running; then
+        kill "$(cat "$PIDFILE")" 2>/dev/null
+    fi
+    rm -f "$PIDFILE"
+}
+
 case $1 in
     start)
+        # Never fail the package start because of the srm helper
+        if [ "$OS_NAME" = SRM ]; then
+            if [ -x "$SRM_HELPER" ] && ! is_running; then
+                ( "$SRM_HELPER" daemon </dev/null >/dev/null 2>&1 & echo $! > "$PIDFILE" )
+            fi
+        fi
         exit 0
         ;;
     stop)
+        if [ "$OS_NAME" = SRM ]; then
+            stop_helper
+        fi
         exit 0
         ;;
     status)
         exit 0
         ;;
     killall)
+        if [ "$OS_NAME" = SRM ]; then
+            stop_helper
+        fi
         exit 0
         ;;
     log)

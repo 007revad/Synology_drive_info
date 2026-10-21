@@ -1577,12 +1577,13 @@ if [[ ! -f $smart_log ]]; then
     if [[ "$dsm" -gt 6 || "$build" -ge 101188 ]]; then
         chown drive_info:drive_info "$smart_log"
     fi
-    chmod 666 "$smart_log"
+    chmod 660 "$smart_log"
 fi
 
 # Fix owner:group from older versions
 if [[ "$dsm" -gt 6 || "$build" -ge 101188 ]]; then
     chown drive_info:drive_info "$smart_log"
+    chmod 660 "$smart_log"
 fi
 
 # Sort HDD and SSD devices by DSM drive name
