@@ -4,13 +4,13 @@
 # srm_package_source.sh - lets an SRM package add 007revad's package source
 # to Package Center and keep its icons working.
 #
-#   install  add this package's marker, add the feed, enable the Community tab
+#   install  add this package's marker, add the feed, enable the Community tab.
 #   remove   remove this package's marker; when no marker is left, remove the
-#            feed and undo the Community tab patch
+#            feed and undo the Community tab patch.
 #   daemon   loop: re-apply the feed and patch (SRM updates can undo them) and
 #            fill the thumbnail cache. Started by start-stop-status
-#   fill     one thumbnail pass, then exit
-#   status   print what is in place
+#   fill     one thumbnail pass, then exit.
+#   status   print what is in place.
 #
 # Several packages can ship this same script. Each one leaves a marker file in
 # MARKER_DIR, and the feed and patch only go away with the last marker.
