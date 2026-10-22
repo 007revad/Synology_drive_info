@@ -345,6 +345,8 @@ jobs:
             # Uninstall wizard: asks whether to remove the 007revad package source.
             # Goes at the top level of the spk (next to INFO), not in package.tgz.
             mkdir -p "$tmpdir/WIZARD_UIFILES"
+            cp "$GITHUB_WORKSPACE/srm/WIZARD_UIFILES/install_uifile" "$tmpdir/WIZARD_UIFILES/"
+            chmod 755 "$tmpdir/WIZARD_UIFILES/install_uifile"
             cp "$GITHUB_WORKSPACE/srm/WIZARD_UIFILES/uninstall_uifile" "$tmpdir/WIZARD_UIFILES/"
             chmod 755 "$tmpdir/WIZARD_UIFILES/uninstall_uifile"
 
