@@ -349,6 +349,8 @@ jobs:
             chmod 755 "$tmpdir/WIZARD_UIFILES/install_uifile"
             cp "$GITHUB_WORKSPACE/srm/WIZARD_UIFILES/uninstall_uifile" "$tmpdir/WIZARD_UIFILES/"
             chmod 755 "$tmpdir/WIZARD_UIFILES/uninstall_uifile"
+            cp "$GITHUB_WORKSPACE/srm/WIZARD_UIFILES/upgrade_uifile" "$tmpdir/WIZARD_UIFILES/"
+            chmod 755 "$tmpdir/WIZARD_UIFILES/upgrade_uifile"
 
             (cd "$tmpdir" && tar -cf "$OLDPWD/$srm" package.tgz INFO $(ls -A | grep -vxF -e package.tgz -e INFO))
             rm -rf "$tmpdir" "$pkgdir"
