@@ -1,0 +1,24 @@
+[
+    {
+        "step_title": "Uninstall Drive Info",
+        "items": [
+            {
+                "type": "multiselect",
+                "desc": "Drive Info added the 007revad package source to Package Center. It is what lets you reinstall Drive Info, and install other 007revad packages, from the Community tab.",
+                "subitems": [
+                    {
+                        "key": "pkgwizard_remove_package_source",
+                        "desc": "Also remove the 007revad package source and the Community tab - off by default",
+                        "defaultValue": false
+                    }
+                ]
+            },
+            {
+                "desc": "Leave this unchecked to keep the package source, so you can reinstall Drive Info from Package Center. If another 007revad package is installed, the package source is kept either way."
+            },
+            {
+                "desc": "<strong style='color:red'>Note:</strong> with no 007revad package installed, nothing keeps the Community tab in place or shows the package icons, and an SRM update can remove the tab."
+            }
+        ]
+    }
+]
