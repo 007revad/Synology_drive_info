@@ -146,7 +146,13 @@ fi
 # Add 007revad package source to SRM's Package Center
 if [ "$os_name" = SRM ]; then
     chmod 555 "$UI_DIR/bin/srm_package_source.sh"
-    out=$("$UI_DIR/bin/srm_package_source.sh" install 2>&1)
+    log_message "postinst: wizard pkgwizard_enable_community_tab='${pkgwizard_enable_community_tab:-}'"
+    case "${pkgwizard_enable_community_tab:-}" in
+        true) choice=yes ;;
+        false) choice=no ;;
+        *) choice="" ;;
+    esac
+    out=$("$UI_DIR/bin/srm_package_source.sh" install $choice 2>&1)
     log_message "srm_package_source.sh install exit=$? output: ${out}"
 fi
 

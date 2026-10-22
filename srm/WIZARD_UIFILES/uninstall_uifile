@@ -18,6 +18,9 @@
             },
             {
                 "desc": "<strong style='color:red'>Note:</strong> with no 007revad package installed, nothing keeps the Community tab in place or shows the package icons, and an SRM update can remove the Community tab."
+            },
+            {
+                "desc": "If you check the box, after uninstalling, sign out of SRM and sign back in (or press Ctrl+F5) so Package Center no longer shows the Community tab."
             }
         ]
     }
