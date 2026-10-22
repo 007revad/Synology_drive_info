@@ -1,3 +1,8 @@
+v2.4.69
+- SRM: Adding the Community section in SRM's Package Center is now optional during installation.
+  - With the Community section enabled SRM's Security Advisor flags the changed PkgManApp.js as critical.
+- Bug fixes for USB drives' SMART info showing errors.
+
 v2.4.68
 - SRM: Now adds 007revad package source and enables the Community section in SRM's Package Center.
 - Bug fixes for Drive Info not working in DSM Enterprise (PAS7700).

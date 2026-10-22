@@ -4,12 +4,16 @@
 # srm_package_source.sh - lets an SRM package add 007revad's package source
 # to Package Center and keep its icons working.
 #
-#   install  add this package's marker, add the feed, enable the Community tab
+#   install [yes|no]
+#            add this package's marker, add the feed, and enable the Community
+#            tab only if yes. With no argument the earlier choice is kept
+#            (an upgrade does not show the install wizard); the default is no
 #   remove   remove this package's marker; when no marker is left, remove the
 #            feed and undo the Community tab patch
 #   release  remove this package's marker only; the feed and patch stay
-#   daemon   loop: re-apply the feed and patch (SRM updates can undo them) and
-#            fill the thumbnail cache. Started by start-stop-status
+#   daemon   check the feed and the Community tab patch once (an SRM update
+#            reboots and restarts the package), then loop filling the
+#            thumbnail cache. Started by start-stop-status
 #   fill     one thumbnail pass, then exit
 #   status   print what is in place
 #
@@ -59,7 +63,6 @@ ICON_DIR="${CACHE_ROOT}/icon/AVAIL/OTHER"
 
 LOG_FILE="/var/packages/${PKG_NAME}/etc/source_helper.log"
 FAILED_FILE="/tmp/${PKG_NAME}_source_failed.list"
-#INTERVAL=60
 INTERVAL=5
 
 WARNED=""
@@ -146,6 +149,26 @@ remove_feed() {
 #--------------------------------------------------------------------
 JS_OLD='var d=["installed","update","all","beta"]'
 JS_NEW='var d=["installed","update","all","beta","community"]'
+
+# Each marker file holds "community=yes" or "community=no". The Community tab
+# patch is wanted while any installed package that uses the feed said yes.
+community_wanted() {
+    for m in "$MARKER_DIR"/*; do
+        [ -f "$m" ] || continue
+        n=$(basename "$m")
+        [ -d "/var/packages/${n}" ] || continue
+        grep -qx 'community=yes' "$m" 2>/dev/null && return 0
+    done
+    return 1
+}
+
+reconcile_patch() {
+    if community_wanted; then
+        patch_js
+    else
+        unpatch_js
+    fi
+}
 
 patch_js() {
     if [ ! -f "$JS_FILE" ]; then
@@ -267,10 +290,19 @@ fill_icons() {
 #--------------------------------------------------------------------
 do_install() {
     need_root install
-    mkdir -p "$MARKER_DIR" && echo "$PKG_NAME" > "${MARKER_DIR}/${PKG_NAME}"
+    case "$1" in
+        yes|true)  choice=yes ;;
+        no|false)  choice=no ;;
+        *)
+            # No answer (e.g. an upgrade): keep the earlier choice, default no
+            choice=no
+            grep -qx 'community=yes' "${MARKER_DIR}/${PKG_NAME}" 2>/dev/null && choice=yes
+            ;;
+    esac
+    mkdir -p "$MARKER_DIR" && echo "community=${choice}" > "${MARKER_DIR}/${PKG_NAME}"
     add_feed
-    patch_js
-    log "install: done for $PKG_NAME"
+    reconcile_patch
+    log "install: done for $PKG_NAME (community tab: ${choice})"
     return 0
 }
 
@@ -293,6 +325,7 @@ do_remove() {
         rm -f "$FAILED_FILE"
         log "remove: last package gone - feed and patch removed"
     else
+        reconcile_patch
         log "remove: $left other package(s) still use the feed - left in place"
     fi
     return 0
@@ -309,13 +342,16 @@ do_release() {
 do_daemon() {
     need_root daemon
     log "daemon: started (pid $$)"
+
+    # An SRM update reboots the router and starts this package again, so the
+    # feed and the Community tab patch only need checking once, here.
+    add_feed >/dev/null 2>&1
+    reconcile_patch >/dev/null 2>&1
+
     i=0
     while :; do
         # package removed without stop being called
         [ -d "/var/packages/${PKG_NAME}/target" ] || { log "daemon: package gone - exiting"; exit 0; }
-
-        add_feed >/dev/null 2>&1
-        patch_js >/dev/null 2>&1
 
         retry=0
         [ $((i % 10)) -eq 0 ] && retry=1
@@ -333,7 +369,10 @@ do_daemon() {
 }
 
 do_status() {
-    echo "markers:  $(ls "$MARKER_DIR" 2>/dev/null | tr '\n' ' ')"
+    for m in "$MARKER_DIR"/*; do
+        [ -f "$m" ] && echo "marker:   $(basename "$m") ($(cat "$m"))"
+    done
+    if community_wanted; then echo "community tab wanted: yes"; else echo "community tab wanted: no"; fi
     if [ -f "$FEEDS_FILE" ]; then echo "feeds:    $(cat "$FEEDS_FILE")"; else echo "feeds:    (no file)"; fi
     if grep -qF "$JS_NEW" "$JS_FILE" 2>/dev/null; then echo "js patch: applied"; else echo "js patch: NOT applied"; fi
     if [ -f "$LIST_FILE" ]; then echo "list:     $LIST_FILE present"; else echo "list:     $LIST_FILE missing"; fi
@@ -345,14 +384,14 @@ do_status() {
 }
 
 case "$1" in
-    install) do_install ;;
+    install) do_install "$2" ;;
     remove)  do_remove ;;
     release) do_release ;;
     daemon)  do_daemon ;;
     fill)    need_root fill; fill_icons 1 ;;
     status)  do_status ;;
     *)
-        echo "Usage: $0 {install|remove|release|daemon|fill|status}" >&2
+        echo "Usage: $0 {install [yes|no]|remove|release|daemon|fill|status}" >&2
         exit 1
         ;;
 esac

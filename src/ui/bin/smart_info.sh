@@ -916,8 +916,8 @@ show_health(){
     drive_type=$(detect_dtype)
 
     # Show drive overall health
-    #readarray -t health_array < <("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" | tail -n +5)
-    readarray -t health_array < <("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" | tail -n +5 | grep -v -e "SMART Status not supported" -e "Warning: This result is based on an Attribute check")
+    #readarray -t health_array < <("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | tail -n +5)
+    readarray -t health_array < <("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | tail -n +5 | grep -v -e "SMART Status not supported" -e "Warning: This result is based on an Attribute check")
     for strIn in "${health_array[@]}"; do
         if echo "$strIn" | awk '{print $1}' | grep -E '[0-9]' >/dev/null ||\
            echo "$strIn" | awk '{print $1}' | grep 'ID#' >/dev/null ; then
@@ -959,10 +959,10 @@ show_health(){
 
     # Retrieve Error Log and show error count
     if [[ $drive_type != "scsi" ]]; then  # Not SAS drive
-        errlog="$("$smartctl" -l error -d "$drive_type" /dev/"$drive" | grep -iE 'error.*logg')"
+        errlog="$("$smartctl" -l error -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | grep -iE 'error.*logg')"
         errcount="$(echo "$errlog" | awk '{print $3}')"
         if [[ -z $errlog ]]; then
-            errlog="$("$smartctl" -l error -d "$drive_type" /dev/"$drive" | grep -iE 'error count')"
+            errlog="$("$smartctl" -l error -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | grep -iE 'error count')"
             errcount="$(echo "$errlog" | awk '{print $4}')"
         fi
 
@@ -972,7 +972,7 @@ show_health(){
 
         if [[ -z $errcount ]]; then
             if [[ $increased != "yes" ]]; then
-                "$smartctl" -l error -d "$drive_type" /dev/"$drive" | grep -iE 'not supported'
+                "$smartctl" -l error -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | grep -iE 'not supported'
             fi
         elif [[ $errcount -gt "0" ]]; then
             errtotal=$((errtotal +errcount))
@@ -1055,8 +1055,8 @@ show_health(){
     # Show SMART attributes
     health_bad=""
     if [[ $drive_type == "scsi" ]]; then  # SAS drive
-        health=$("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" | tail -n +5)
-        #health=$("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" | tail -n +5 | grep -v -e "SMART Status not supported" -e "Warning: This result is based on an Attribute check")
+        health=$("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | tail -n +5)
+        #health=$("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | tail -n +5 | grep -v -e "SMART Status not supported" -e "Warning: This result is based on an Attribute check")
         if ! echo "$health" | grep -E 'SMART Health Status.*OK' >/dev/null; then
             if [[ $increased != "yes" ]]; then
                 # Show all SMART attributes
@@ -1064,8 +1064,8 @@ show_health(){
             fi
         fi
     else  # SATA drive
-        #health=$("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" | tail -n +5)
-        health=$("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" | tail -n +5 | grep -v -e "SMART Status not supported" -e "Warning: This result is based on an Attribute check")
+        #health=$("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | tail -n +5)
+        health=$("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | tail -n +5 | grep -v -e "SMART Status not supported" -e "Warning: This result is based on an Attribute check")
         if ! echo "$health" | grep PASSED >/dev/null; then
             if [[ $increased != "yes" ]]; then
                 # Show all SMART attributes
@@ -1085,15 +1085,15 @@ show_health(){
     else
         # Show only important SMART attributes
         if [[ $seagate == "yes" ]] && [[ $smartversion -gt "6" ]]; then
-            readarray -t smart_atts < <("$smartctl" -A -d "$drive_type" \
-            -v 1,raw48:54 -v 7,raw48:54 -v 188,raw48:54 -v 195,raw48:54 /dev/"$drive")
+            readarray -t smart_atts < <("$smartctl" -A -d "$drive_type" -T permissive \
+            -v 1,raw48:54 -v 7,raw48:54 -v 188,raw48:54 -v 195,raw48:54 /dev/"$drive" 2>/dev/null)
         elif [[ $seagate == "yes" ]] && [[ $smartversion -lt "7" ]]; then
-            readarray -t smart_atts < <("$smartctl" -A -d "$drive_type" \
+            readarray -t smart_atts < <("$smartctl" -A -d "$drive_type" -T permissive \
             -v 1,raw48:54,Raw_Read_Error_Rate -v 7,raw48:54,Seek_Error_Rate \
             -v 188,raw48:54,Command_Timeout_Count \
-            -v 195,raw48:54,Hardware_ECC_Recovered /dev/"$drive")
+            -v 195,raw48:54,Hardware_ECC_Recovered /dev/"$drive" 2>/dev/null)
         else
-            readarray -t smart_atts < <("$smartctl" -A -d "$drive_type" /dev/"$drive")
+            readarray -t smart_atts < <("$smartctl" -A -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null)
         fi
         # Decide if show airflow temperature
         if echo "${smart_atts[*]}" | grep -c -E '194.*Temp' >/dev/null; then
@@ -1514,9 +1514,11 @@ show_usb_nvme_health(){
 
 is_seagate(){ 
     # Check if drive is Seagate or Seagate based Synology HAT3300
-    DEVICE=$("$smartctl" -A -i /dev/"$drive" | awk -F ' ' '/Device Model/{print $3}')
+    local dt
+    dt=$(detect_dtype)
+    DEVICE=$("$smartctl" -A -i -d "$dt" -T permissive /dev/"$drive" 2>/dev/null | awk -F ' ' '/Device Model/{print $3}')
     if [[ -z $DEVICE ]]; then
-        DEVICE=$("$smartctl" -A -i /dev/"$drive" | awk -F ' ' '/Product/{print $2}')
+        DEVICE=$("$smartctl" -A -i -d "$dt" -T permissive /dev/"$drive" 2>/dev/null | awk -F ' ' '/Product/{print $2}')
     fi
     if [[ "${DEVICE:0:2}" == "ST" ]] || [[ "${DEVICE:0:7}" == "HAT3300" ]]; then
         return 0

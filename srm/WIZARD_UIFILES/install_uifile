@@ -1,0 +1,24 @@
+[
+    {
+        "step_title": "Drive Info on SRM",
+        "items": [
+            {
+                "type": "multiselect",
+                "desc": "Drive Info adds the 007revad package source to Package Center, so SRM can tell you when a newer version is available.",
+                "subitems": [
+                    {
+                        "key": "pkgwizard_enable_community_tab",
+                        "desc": "Also show the Community tab in Package Center, to easily update Drive Info and to browse and install other 007revad packages - off by default",
+                        "defaultValue": false
+                    }
+                ]
+            },
+            {
+                "desc": "<strong style='color:red'>Warning:</strong> the Community tab needs Drive Info to edit one SRM system file, <b>PkgManApp.js</b>. SRM's Security Advisor will then report \"SRM system files have been modified unexpectedly\" as a Critical item. Removing the package source when you uninstall Drive Info undoes the edit."
+            },
+            {
+                "desc": "Leave this unchecked so Drive Info doesn't change SRM system files. Package Center will still show updates for Drive Info on its Update tab but you will need to download the spk file and do a Manual Install."
+            }
+        ]
+    }
+]
