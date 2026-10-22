@@ -14,10 +14,10 @@
                 ]
             },
             {
-                "desc": "Leave this unchecked to keep the package source, so you can reinstall Drive Info from Package Center. If another 007revad package is installed, the package source is kept either way."
+                "desc": "Leave this unchecked to keep the Community package source, so you can reinstall Drive Info from Package Center. If another 007revad package is installed, the Community package source is kept either way."
             },
             {
-                "desc": "<strong style='color:red'>Note:</strong> with no 007revad package installed, nothing keeps the Community tab in place or shows the package icons, and an SRM update can remove the tab."
+                "desc": "<strong style='color:red'>Note:</strong> with no 007revad package installed, nothing keeps the Community tab in place or shows the package icons, and an SRM update can remove the Community tab."
             }
         ]
     }
