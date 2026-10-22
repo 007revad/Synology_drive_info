@@ -4,13 +4,14 @@
 # srm_package_source.sh - lets an SRM package add 007revad's package source
 # to Package Center and keep its icons working.
 #
-#   install  add this package's marker, add the feed, enable the Community tab.
+#   install  add this package's marker, add the feed, enable the Community tab
 #   remove   remove this package's marker; when no marker is left, remove the
-#            feed and undo the Community tab patch.
+#            feed and undo the Community tab patch
+#   release  remove this package's marker only; the feed and patch stay
 #   daemon   loop: re-apply the feed and patch (SRM updates can undo them) and
 #            fill the thumbnail cache. Started by start-stop-status
-#   fill     one thumbnail pass, then exit.
-#   status   print what is in place.
+#   fill     one thumbnail pass, then exit
+#   status   print what is in place
 #
 # Several packages can ship this same script. Each one leaves a marker file in
 # MARKER_DIR, and the feed and patch only go away with the last marker.
@@ -297,6 +298,14 @@ do_remove() {
     return 0
 }
 
+do_release() {
+    need_root release
+    rm -f "${MARKER_DIR}/${PKG_NAME}"
+    rm -f "$FAILED_FILE"
+    log "release: marker removed - feed and patch left in place"
+    return 0
+}
+
 do_daemon() {
     need_root daemon
     log "daemon: started (pid $$)"
@@ -338,11 +347,12 @@ do_status() {
 case "$1" in
     install) do_install ;;
     remove)  do_remove ;;
+    release) do_release ;;
     daemon)  do_daemon ;;
     fill)    need_root fill; fill_icons 1 ;;
     status)  do_status ;;
     *)
-        echo "Usage: $0 {install|remove|daemon|fill|status}" >&2
+        echo "Usage: $0 {install|remove|release|daemon|fill|status}" >&2
         exit 1
         ;;
 esac

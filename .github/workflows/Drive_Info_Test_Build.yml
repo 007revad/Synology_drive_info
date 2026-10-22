@@ -325,6 +325,13 @@ jobs:
               grep -q "^${k}=" "$tmpdir/INFO" || { echo "::error::$k missing from INFO"; exit 1; }
             done
 
+            # Uninstall wizard: asks whether to remove the 007revad package source.
+            # Goes at the top level of the spk (next to INFO), not in package.tgz.
+            mkdir -p "$tmpdir/WIZARD_UIFILES"
+            cp "$GITHUB_WORKSPACE/srm/WIZARD_UIFILES/uninstall_uifile" "$tmpdir/WIZARD_UIFILES/"
+            cp "$GITHUB_WORKSPACE/srm/WIZARD_UIFILES/uninstall_uifile.sh" "$tmpdir/WIZARD_UIFILES/"
+            chmod 755 "$tmpdir/WIZARD_UIFILES/uninstall_uifile.sh"
+
             (cd "$tmpdir" && tar -cf "$OLDPWD/$srm" package.tgz INFO $(ls -A | grep -vxF -e package.tgz -e INFO))
             rm -rf "$tmpdir" "$pkgdir"
           done

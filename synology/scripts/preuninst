@@ -70,10 +70,17 @@ fi
 
 log_message "preuninst: delete_by_name '${TASK_NAME}' exit=${rc} output: ${out}"
 
-# Remove 007revad package source from SRM,
-# if no other SRM packages 007revad package source are installed.
+# Remove 007revad package source from SRM, if the user ticked the box in the
+# uninstall wizard and no other 007revad package still uses it. Otherwise only
+# release this package's claim on it, so Drive Info can be reinstalled from
+# Package Center.
 if [ "$os_name" = SRM ]; then
-    "$TARGET_DIR/ui/bin/srm_package_source.sh" remove
+    log_message "preuninst: wizard pkgwizard_remove_package_source='${pkgwizard_remove_package_source:-}'"
+    if [ "${pkgwizard_remove_package_source:-}" = "true" ]; then
+        "$TARGET_DIR/ui/bin/srm_package_source.sh" remove
+    else
+        "$TARGET_DIR/ui/bin/srm_package_source.sh" release
+    fi
 fi
 
 exit 0
