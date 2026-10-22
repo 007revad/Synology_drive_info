@@ -157,7 +157,7 @@ community_wanted() {
         [ -f "$m" ] || continue
         n=$(basename "$m")
         [ -d "/var/packages/${n}" ] || continue
-        grep -qx 'community=yes' "$m" 2>/dev/null && return 0
+        grep -q '^community=yes$' "$m" 2>/dev/null && return 0
     done
     return 1
 }
@@ -253,7 +253,7 @@ fill_icons() {
         if [ -s "$d/thumb_72.png" ] && [ -s "$d/thumb_256.png" ]; then
             continue
         fi
-        if [ -f "$FAILED_FILE" ] && grep -qxF "$key" "$FAILED_FILE"; then
+        if [ -f "$FAILED_FILE" ] && awk -v k="$key" '$0 == k { found = 1 } END { exit !found }' "$FAILED_FILE"; then
             continue
         fi
         if [ "$u72" = "-" ]; then
@@ -296,7 +296,7 @@ do_install() {
         *)
             # No answer (e.g. an upgrade): keep the earlier choice, default no
             choice=no
-            grep -qx 'community=yes' "${MARKER_DIR}/${PKG_NAME}" 2>/dev/null && choice=yes
+            grep -q '^community=yes$' "${MARKER_DIR}/${PKG_NAME}" 2>/dev/null && choice=yes
             ;;
     esac
     mkdir -p "$MARKER_DIR" && echo "community=${choice}" > "${MARKER_DIR}/${PKG_NAME}"
