@@ -534,6 +534,9 @@ detect_dtype(){
     # Else if SATA appears at least once, treat as SAT
     elif grep -q SATA <<< "$info"; then
         dtype="sat"
+    # Else if NVMe appears at least once, treat as NVMe
+    elif grep -q NVMe <<< "$info"; then
+        dtype="nvme"
     # Else if a USB drive that is not a real SATA drive, it may be a NVMe drive
     # in a USB enclosure (their bridge chips fake an ATA identity for -d sat).
     # smartctl 7 can read these if told the bridge chip type.
@@ -931,7 +934,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         model=$(cat "/sys/block/$drive/device/model" | xargs)
         serial=$(cat "/sys/block/$drive/device/serial" | xargs)
         [[ -z "$serial" ]] && serial=$("$smartctl" -i -d sat /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
-        firmware=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep Firmware | cut -d":" -f2 | xargs)
+        firmware=$("$smartctl" -i -d nvme /dev/"$drive" | grep Firmware | cut -d":" -f2 | xargs)
 
         get_drive_size
         get_drive_temp
@@ -961,7 +964,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         model=$(cat "/sys/block/$drive/device/model" | xargs)
         serial=$(cat "/sys/block/$drive/device/syno_disk_serial" | xargs)
         [[ -z "$serial" ]] && serial=$("$smartctl" -i -d sat /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
-        firmware=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep Firmware | cut -d":" -f2 | xargs)
+        firmware=$("$smartctl" -i -d sat /dev/"$drive" | grep Firmware | cut -d":" -f2 | xargs)
 
         get_drive_size
         get_drive_temp
