@@ -867,6 +867,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
     hdr_model="$(txt common model "Model")"
     hdr_size="$(txt common size "Size")"
     hdr_smr="$(txt common smr "SMR")"
+    hdr_fw="$(txt common firmware "Firmware")"
     hdr_serial="$(txt common serial_number "Serial Number")"
     hdr_temp="$(txt common temperature "Temperature")"
     #hdr_temp="$(txt common temperature "°C")"
@@ -878,6 +879,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
     w_model=${#hdr_model}
     w_size=${#hdr_size}
     w_smr=${#hdr_smr}
+    w_fw=${#hdr_fw}
     w_serial=${#hdr_serial}
     w_temp=${#hdr_temp}
     w_status=${#hdr_status}
@@ -898,18 +900,20 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         if [[ -z "$serial" ]]; then
             serial=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
         fi
+        firmware=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep Firmware | cut -d":" -f2 | xargs)
 
         get_drive_size
         smr=$(check_drive_smr)
         get_drive_temp
 
-        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); sizes+=("$size"); smrs+=("$smr"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
+        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); sizes+=("$size"); smrs+=("$smr"); fws+=("$firmware"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
         (( ${#drive}     > w_id       )) && w_id=${#drive}
         (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
         (( ${#location}  > w_location )) && w_location=${#location}
         (( ${#model}     > w_model    )) && w_model=${#model}
         (( ${#size}      > w_size     )) && w_size=${#size}
         (( ${#smr}       > w_smr      )) && w_smr=${#smr}
+        (( ${#firmware}  > w_fw       )) && w_fw=${#firmware}
         (( ${#serial}    > w_serial   )) && w_serial=${#serial}
         (( ${#temp}      > w_temp     )) && w_temp=${#temp}
         (( ${#status}    > w_status   )) && w_status=${#status}
@@ -927,17 +931,19 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         model=$(cat "/sys/block/$drive/device/model" | xargs)
         serial=$(cat "/sys/block/$drive/device/serial" | xargs)
         [[ -z "$serial" ]] && serial=$("$smartctl" -i -d sat /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
+        firmware=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep Firmware | cut -d":" -f2 | xargs)
 
         get_drive_size
         get_drive_temp
 
-        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); sizes+=("$size"); smrs+=("$smr"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
+        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); sizes+=("$size"); smrs+=("$smr"); fws+=("$firmware"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
         (( ${#drive}     > w_id       )) && w_id=${#drive}
         (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
         (( ${#location}  > w_location )) && w_location=${#location}
         (( ${#model}     > w_model    )) && w_model=${#model}
         (( ${#size}      > w_size     )) && w_size=${#size}
         (( ${#smr}       > w_smr      )) && w_smr=${#smr}
+        (( ${#firmware}  > w_fw       )) && w_fw=${#firmware}
         (( ${#serial}    > w_serial   )) && w_serial=${#serial}
         (( ${#temp}      > w_temp     )) && w_temp=${#temp}
         (( ${#status}    > w_status   )) && w_status=${#status}
@@ -955,17 +961,19 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         model=$(cat "/sys/block/$drive/device/model" | xargs)
         serial=$(cat "/sys/block/$drive/device/syno_disk_serial" | xargs)
         [[ -z "$serial" ]] && serial=$("$smartctl" -i -d sat /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
+        firmware=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep Firmware | cut -d":" -f2 | xargs)
 
         get_drive_size
         get_drive_temp
 
-        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); sizes+=("$size"); smrs+=("$smr"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
+        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); sizes+=("$size"); smrs+=("$smr"); fws+=("$firmware"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
         (( ${#drive}     > w_id       )) && w_id=${#drive}
         (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
         (( ${#location}  > w_location )) && w_location=${#location}
         (( ${#model}     > w_model    )) && w_model=${#model}
         (( ${#size}      > w_size     )) && w_size=${#size}
         (( ${#smr}       > w_smr      )) && w_smr=${#smr}
+        (( ${#firmware}  > w_fw       )) && w_fw=${#firmware}
         (( ${#serial}    > w_serial   )) && w_serial=${#serial}
         (( ${#temp}      > w_temp     )) && w_temp=${#temp}
         (( ${#status}    > w_status   )) && w_status=${#status}
@@ -987,40 +995,44 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         if [[ -z "$serial" ]]; then
             serial=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
         fi
+        firmware=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep Firmware | cut -d":" -f2 | xargs)
         if [[ $drive_type == snt* ]]; then
             # NVMe drive in a USB enclosure. sysfs only has the bridge chip's fake serial
             nvme_info="$("$smartctl" -i -d "$drive_type" /dev/"$drive" 2>/dev/null)"
             nvme_model="$(awk -F: '/^Model Number:/ {print $2; exit}' <<< "$nvme_info" | xargs)"
             nvme_serial="$(awk -F: '/^Serial Number:/ {print $2; exit}' <<< "$nvme_info" | xargs)"
+            nvme_fw="$(awk -F: '/^Firmware Version:/ {print $2; exit}' <<< "$nvme_info" | xargs)"
             [[ -n $nvme_model ]] && model="$(fixdrivemodel "$nvme_model")"
             [[ -n $nvme_serial ]] && serial="$nvme_serial"
+            [[ -n $nvme_fw ]] && firmware="$nvme_fw"
         fi
 
         get_drive_size
         smr=$(check_drive_smr)
         get_drive_temp
 
-        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); sizes+=("$size"); smrs+=("$smr"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
+        ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); sizes+=("$size"); smrs+=("$smr"); fws+=("$firmware"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
         (( ${#drive}     > w_id       )) && w_id=${#drive}
         (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
         (( ${#location}  > w_location )) && w_location=${#location}
         (( ${#model}     > w_model    )) && w_model=${#model}
         (( ${#size}      > w_size     )) && w_size=${#size}
         (( ${#smr}       > w_smr      )) && w_smr=${#smr}
+        (( ${#firmware}  > w_fw       )) && w_fw=${#firmware}
         (( ${#serial}    > w_serial   )) && w_serial=${#serial}
         (( ${#temp}      > w_temp     )) && w_temp=${#temp}
         (( ${#status}    > w_status   )) && w_status=${#status}
     done
 
-    sep_len=$(( w_id + 2 + w_num + 2 + w_location + 2 + w_model + 2 + w_size + 2 + w_smr + 2 + w_serial + 2 + w_temp + 2 + w_status ))
+    sep_len=$(( w_id + 2 + w_num + 2 + w_location + 2 + w_model + 2 + w_size + 2 + w_smr + 2 + w_fw + 2 + w_serial + 2 + w_temp + 2 + w_status ))
     echo ""
     printf '%*s\n' "$sep_len" '' | tr ' ' '-'
     print_row "$w_id" "${hdr_id}" "$w_num" "${hdr_num}" "$w_location" "${hdr_location}" "$w_model" "${hdr_model}" \
-        "$w_size" "${hdr_size}" "$w_smr" "${hdr_smr}" "$w_serial" "${hdr_serial}" "$w_temp" "${hdr_temp}" "$w_status" "${hdr_status}"
+        "$w_size" "${hdr_size}" "$w_smr" "${hdr_smr}" "$w_fw" "${hdr_fw}" "$w_serial" "${hdr_serial}" "$w_temp" "${hdr_temp}" "$w_status" "${hdr_status}"
     printf '%*s\n' "$sep_len" '' | tr ' ' '-'
     for i in "${!ids[@]}"; do
         print_row "$w_id" "${ids[$i]}" "$w_num" "${nums[$i]}" "$w_location" "${locations[$i]}" "$w_model" "${models[$i]}" \
-            "$w_size" "${sizes[$i]}" "$w_smr" "${smrs[$i]}" "$w_serial" "${serials[$i]}" "$w_temp" "${temps[$i]}" "$w_status" "${statuses[$i]}"
+            "$w_size" "${sizes[$i]}" "$w_smr" "${smrs[$i]}" "$w_fw" "${fws[$i]}" "$w_serial" "${serials[$i]}" "$w_temp" "${temps[$i]}" "$w_status" "${statuses[$i]}"
     done
 fi
 
@@ -1156,6 +1168,7 @@ get_volume_info(){
             crashed)    status_str="critical::$(txt common status_crashed "Crashed")" ;;
             repairing)  status_str="warning::$(txt common status_repairing "Repairing")" ;;
             rebuilding) status_str="warning::$(txt common status_rebuilding "Rebuilding")" ;;
+            replacing)  status_str="warning::$(txt common status_replacing "Replacing")" ;;
             read_only)  status_str="warning::$(txt common status_read_only "Read-only")" ;;
             background|background_scrubbing) status_str="healthy::$(txt common status_healthy "Healthy")" ;;
             *)          status_str="$vol_status" ;;
@@ -1164,10 +1177,10 @@ get_volume_info(){
             status_str="${status_str#*::}"
         fi
 
-        if [[ "$vol_status" == "repairing" || "$vol_status" == "rebuilding" ]] \
+        if [[ "$vol_status" == "repairing" || "$vol_status" == "rebuilding" || "$vol_status" == "replacing" ]] \
             && [[ "$vol_pct" != "-1" && -n "$vol_pct" ]]; then
             local vol_pct_int
-            vol_pct_int=$(awk -v p="$vol_pct" 'BEGIN{printf "%.0f", p}')
+            vol_pct_int=$(awk -v p="$vol_pct" 'BEGIN{printf "%.2f", p}')
             status_str="${status_str} (${vol_pct_int}%)"
         fi
 
@@ -1181,6 +1194,7 @@ get_volume_info(){
             crashed)    pool_status_str="critical::$(txt common status_crashed "Crashed")" ;;
             repairing)  pool_status_str="warning::$(txt common status_repairing "Repairing")" ;;
             rebuilding) pool_status_str="warning::$(txt common status_rebuilding "Rebuilding")" ;;
+            replacing)  pool_status_str="warning::$(txt common status_replacing "Replacing")" ;;
             read_only)  pool_status_str="warning::$(txt common status_read_only "Read-only")" ;;
             background|background_scrubbing) pool_status_str="healthy::$(txt common status_healthy "Healthy") - $(txt common status_data_scrubbing "Data Scrubbing")" ;;
             *)          pool_status_str="$pool_st" ;;
@@ -1190,10 +1204,10 @@ get_volume_info(){
         fi
 
         if [[ "$pool_pct" != "-1" && -n "$pool_pct" ]] \
-            && [[ "$pool_st" == "repairing" || "$pool_st" == "rebuilding" \
+            && [[ "$pool_st" == "repairing" || "$pool_st" == "rebuilding" || "$pool_st" == "replacing" \
             || "$pool_st" == "background" || "$pool_st" == "background_scrubbing" ]]; then
             local pool_pct_int
-            pool_pct_int=$(awk -v p="$pool_pct" 'BEGIN{printf "%.0f", p}')
+            pool_pct_int=$(awk -v p="$pool_pct" 'BEGIN{printf "%.2f", p}')
             pool_status_str="${pool_status_str} (${pool_pct_int}%)"
         fi
 

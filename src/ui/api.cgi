@@ -1288,6 +1288,7 @@ _txt_size=$(txt common size "Size")
 _txt_smr=$(txt common size "SMR")
 _txt_raid=$(txt common raid_type "RAID")
 _txt_serial=$(txt common serial_number "Serial Number")
+_txt_fw=$(txt common firmware "Firmware")
 _txt_id=$(txt common id "ID")
 _txt_location=$(txt common location "Location")
 _txt_size_tb=$(txt common size_tb "TiB")
@@ -1355,6 +1356,7 @@ col.model    { width: 26%; min-width: 140px; }
 col.size     { width: 6%; min-width: 30px; }
 col.smr      { width: 2%; min-width: 10px; }
 col.raid     { width: 4%; min-width: 20px; }
+col.firmware { width: 8%; min-width: 60px; }
 col.serial   { width: 20%; min-width: 75px; }
 col.temp     { width: 8%; min-width: 40px; }
 col.status   { width: auto; min-width: 110px; }
@@ -1365,6 +1367,7 @@ th.model, td.model       { white-space: nowrap; }
 th.size, td.size         { white-space: nowrap; }
 th.smr, td.smr           { white-space: nowrap; }
 th.raid, td.raid         { white-space: nowrap; }
+th.firmware, td.firmware { white-space: nowrap; }
 th.serial, td.serial     { white-space: nowrap; }
 th.temp, td.temp         { white-space: nowrap; }
 th.status, td.status     { white-space: nowrap; }
@@ -1373,6 +1376,7 @@ th { text-align: left; padding: 5px 14px 5px 5px;
      font-family: Verdana, Arial, sans-serif; font-size: 13px; }
 td { padding: 5px 14px 5px 5px; border-bottom: 1px solid #eee; }
 td.num    { color: #057FEB; }
+td.firmware { color: #333; }
 td.serial { color: #b5800a; }
 td.status-healthy  { color: #1CA600; }
 td.status-warning  { color: #FF7F00; }
@@ -1800,13 +1804,13 @@ while IFS= read -r line; do
         else
             table_type="drive"
             if [[ $HAS_LOCATION -eq 1 && $IS_SMR -eq 1 ]]; then
-                echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="size"><col class="smr"><col class="serial"><col class="temp"><col class="status"></colgroup>'
+                echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="size"><col class="smr"><col class="firmware"><col class="serial"><col class="temp"><col class="status"></colgroup>'
             elif [[ $HAS_LOCATION -eq 1 ]]; then
-                echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="size"><col class="serial"><col class="temp"><col class="status"></colgroup>'
+                echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="size"><col class="firmware"><col class="serial"><col class="temp"><col class="status"></colgroup>'
             elif [[ $IS_SMR -eq 1 ]]; then
-                echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="size"><col class="smr"><col class="serial"><col class="temp"><col class="status"></colgroup>'
+                echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="size"><col class="smr"><col class="firmware"><col class="serial"><col class="temp"><col class="status"></colgroup>'
             else
-                echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="size"><col class="serial"><col class="temp"><col class="status"></colgroup>'
+                echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="size"><col class="firmware"><col class="serial"><col class="temp"><col class="status"></colgroup>'
             fi
         fi
 
@@ -1818,7 +1822,7 @@ while IFS= read -r line; do
                 echo "<th class=\"$cls\">$(echo "${headers[$idx]}" | sed 's/</\&lt;/g;s/>/\&gt;/g')</th>"
             done
         else
-            col_classes=("id" "num" "location" "model" "size" "smr" "serial" "temp" "status")
+            col_classes=("id" "num" "location" "model" "size" "smr" "firmware" "serial" "temp" "status")
             for idx in "${!headers[@]}"; do
                 cls="${col_classes[$idx]:-}"
                 [[ "$cls" == "location" && $HAS_LOCATION -eq 0 ]] && continue
@@ -1921,11 +1925,13 @@ while IFS= read -r line; do
                     [[ $IS_SMR -eq 0 ]] && continue
                     echo "<td class=\"smr\">$val</td>"
                 elif [[ $c -eq 6 ]]; then
-                    echo "<td class=\"serial\">$val</td>"
+                    echo "<td class=\"firmware\">$val</td>"
                 elif [[ $c -eq 7 ]]; then
+                    echo "<td class=\"serial\">$val</td>"
+                elif [[ $c -eq 8 ]]; then
                     #echo "<td class=\"temp\">${val}°C</td>"
                     echo "<td class=\"temp\">${val}</td>"
-                elif [[ $c -eq 8 ]]; then
+                elif [[ $c -eq 9 ]]; then
                     case "$val" in
                         healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
                         warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
@@ -2575,13 +2581,14 @@ function buildHAPassiveTable(disks, diskTooltipMap) {
 
     var html = '<table><colgroup>' +
         '<col class="id"><col class="num">' + (hasLocation ? '<col class="location">' : '') + '<col class="model">' +
-        '<col class="size"><col class="serial"><col class="temp"><col class="status">' +
+        '<col class="size"><col class="firmware"><col class="serial"><col class="temp"><col class="status">' +
         '</colgroup><thead><tr>' +
         '<th class="id">${_txt_id}</th>' +
         '<th class="num">${_txt_slot}</th>' +
         (hasLocation ? '<th class="location">${_txt_location}</th>' : '') +
         '<th class="model">${_txt_model}</th>' +
         '<th class="size">${_txt_size}</th>' +
+        '<th class="firmware">${_txt_fw}</th>' +
         '<th class="serial">${_txt_serial}</th>' +
         '<th class="temp">${_txt_temp}</th>' +
         '<th class="status">${_txt_status}</th>' +
@@ -2596,6 +2603,7 @@ function buildHAPassiveTable(disks, diskTooltipMap) {
         var location = rowData[i].location;
         var model    = d.model || '';
         var serial   = d.ui_serial || d.serial || '';
+        var firmware = d.firm || '';
 
         // Size: mirror get_drive_size's TiB/GiB/MiB auto-selection, 1 decimal
         var sizeText = '';
@@ -2627,6 +2635,7 @@ function buildHAPassiveTable(disks, diskTooltipMap) {
             (hasLocation ? '<td class="location">' + escHtml(location) + '</td>' : '') +
             '<td class="model">' + escHtml(model) + '</td>' +
             '<td class="size">' + escHtml(sizeText) + '</td>' +
+            '<td class="firmware">' + escHtml(firmware) + '</td>' +
             '<td class="serial">' + escHtml(serial) + '</td>' +
             '<td class="temp">' + escHtml(tempText) + '</td>' +
             '<td class="' + mapped.cls + '"><button class="smart-btn ' + mapped.cls + '" onclick="showSmartPanel(this)" title="${_txt_smart_view}">' + escHtml(mapped.text) + '</button></td>' +
@@ -2723,7 +2732,7 @@ function buildHAPassiveVolumeTable(volumes, storagePools, disks, activeVolumes, 
         var vStatusText = vMapped.text;
         if ((vStatusKey === 'repairing' || vStatusKey === 'rebuilding') &&
             v.progress && v.progress.percent !== undefined && v.progress.percent !== -1) {
-            vStatusText += ' (' + Math.round(v.progress.percent) + '%)';
+            vStatusText += ' (' + Number(v.progress.percent).toFixed(2) + '%)';
         }
 
         var scrubSuffix = (pool.scrubbingStatus === 'scrubbing') ? ' - ${_txt_data_scrubbing}' : '';
@@ -2734,7 +2743,7 @@ function buildHAPassiveVolumeTable(volumes, storagePools, disks, activeVolumes, 
         if ((pStatusKey === 'repairing' || pStatusKey === 'rebuilding' ||
              pStatusKey === 'background' || pStatusKey === 'background_scrubbing') &&
             pool.progress && pool.progress.percent !== undefined && pool.progress.percent !== -1) {
-            pStatusText += ' (' + Math.round(pool.progress.percent) + '%)';
+            pStatusText += ' (' + Number(pool.progress.percent).toFixed(2) + '%)';
         }
 
         html +=

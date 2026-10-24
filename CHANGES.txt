@@ -1,7 +1,11 @@
 v2.4.69
+- Added Firmware version column.
+- The Repairing/Rebuilding percentage now shows two decimal places (like Storage Manager).
 - SRM: Adding the Community section in SRM's Package Center is now optional during installation.
   - With the Community section enabled SRM's Security Advisor flags the changed PkgManApp.js as critical.
-- Bug fixes for USB drives' SMART info showing errors.
+- Bug fix for showing "replacing" in black instead of "Replacing n.nn%" in orange.
+- Bug fixes for USB drives' SMART info showing smartctl errors.
+- Bug fix for Drive Info not installing in DSM Enterprise (PAS7700).
 
 v2.4.68
 - SRM: Now adds 007revad package source and enables the Community section in SRM's Package Center.
