@@ -90,10 +90,11 @@ fi
 # session cookie AND the X-SYNO-TOKEN header (the DSM desktop's Ext.Ajax adds it).
 #---------------------------------------------------------------------------
 is_admin() {
-    awk -F: -v u="$1" '
+    # The name goes in via the environment, not awk -v, so backslashes in it are not interpreted
+    DI_USER="$1" awk -F: '
         $1=="administrators" {
             n=split($4,a,",")
-            for (i=1;i<=n;i++) if (a[i]==u) found=1
+            for (i=1;i<=n;i++) if (a[i]==ENVIRON["DI_USER"]) found=1
         }
         END { exit !found }' /etc/group
 }
@@ -101,7 +102,9 @@ is_admin() {
 require_auth() {
     local user
     user=$(/usr/syno/synoman/webman/modules/authenticate.cgi 2>/dev/null | head -n1)
-    if [[ "$user" =~ ^[A-Za-z0-9._@-]+$ ]] && is_admin "$user"; then
+    # DSM user names can contain spaces and other characters (e.g. "DS Admin"),
+    # so only reject an empty name or one with control characters.
+    if [[ -n "$user" && ! "$user" =~ [[:cntrl:]] ]] && is_admin "$user"; then
         return 0
     fi
     echo "[$(date '+%F %T')] ${_action}: not authorised (user='${user}')" >> "${PKG_VAR_DIR}/api.log" 2>/dev/null
@@ -1335,7 +1338,7 @@ _txt_needs_https_port=$(txt errors err_needs_https_port "This page is loaded ove
 _txt_smart_timeout=$(txt errors err_smart_timeout "Timed out waiting for SMART data. The NAS may be busy (e.g. running a data scrub or parity check) - try again shortly.")
 _txt_smart_failed=$(txt errors err_smart_failed "Request failed.")
 _txt_lang="$_lang"   # or gui_lang, whatever you settle on
-_txt_not_authorised=$(txt errors err_not_authorised "Not authorised. Open Drive Info from the DSM desktop as an administrator.")
+_txt_settings_admin_only=$(txt errors err_settings_admin_only "Settings are only available to administrators.")
 
 cat << STYLE
 <style>
@@ -1405,6 +1408,11 @@ a    { color: #0073c0; }
 .icon-btn:disabled:hover { border-color: #e8eef3; }
 .icon-btn:disabled img { content: url('/webman/3rdparty/drive_info/images/bt_gear_disabled.png'); }
 #reload-btn:disabled img { content: url('/webman/3rdparty/drive_info/images/bt_reload_disabled.png'); }
+/* Settings gear for a user who is not an administrator. Not :disabled, so the
+   hover text still shows in every browser. */
+.icon-btn.locked { cursor: not-allowed; border-color: #e8eef3; }
+.icon-btn.locked:hover { border-color: #e8eef3; }
+.icon-btn.locked img { content: url('/webman/3rdparty/drive_info/images/bt_gear_disabled.png'); }
 /* Remote NAS sections */
 .remote-section { margin-top: 20px; }
 #ha-passive-container { margin-top: 20px; }
@@ -2097,7 +2105,7 @@ var txtHttpsCert = "${_txt_https_cert}";
 var txtNeedsHttpsPort = "${_txt_needs_https_port}";
 var viewer_lang = '${_lang}';
 var dirty = false;  // true only after settings have been saved
-var txtNotAuthorised = "${_txt_not_authorised}";
+var txtSettingsAdminOnly = "${_txt_settings_admin_only}";
 var settingsLoaded = false;   // the settings are loaded after the page; Save must not run before that
 
 // ---------------------------------------------------------------------------
@@ -2772,7 +2780,14 @@ function fetchRemoteNAS() {
         var settings = {};
         try { settings = JSON.parse(text); } catch(e) { return; }
         if (!settings || settings.error === 'not_authorised') {
-            container.innerHTML = '<p class="remote-err">' + escHtml(txtNotAuthorised) + '</p>';
+            // Not an administrator: the settings can't be loaded or changed.
+            // Show the gear as locked, with hover text, instead of an error.
+            var navBtn = document.getElementById('nav-btn');
+            if (navBtn) {
+                navBtn.classList.add('locked');
+                navBtn.title = txtSettingsAdminOnly;
+                navBtn.setAttribute('aria-disabled', 'true');
+            }
             return;
         }
         applySettings(settings);
