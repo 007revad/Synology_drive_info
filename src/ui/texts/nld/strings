@@ -1,21 +1,21 @@
 [errors]
-err_https_cert	=	"Kan geen verbinding maken via HTTPS met %ip:%port. Als dit NAS een zelfondertekend of niet-vertrouwd certificaat gebruikt, open dan https://%ip:%port rechtstreeks in deze browser, accepteer de beveiligingswaarschuwing en laad deze pagina vervolgens opnieuw (de exacte stappen variëren per browser; als uw browser dit niet toestaat, probeer dan een andere browser of installeer een vertrouwd certificaat)."
-err_needs_https_port	=	"Deze pagina is geladen via HTTPS, maar er is geen HTTPS-poort ingesteld voor dit NAS, waardoor de browser het onbeveiligde HTTP-verzoek blokkeert. Voeg een HTTPS-poort toe voor dit item in Instellingen, of bekijk Drive Info via HTTP."
-err_noperms_desc	=	"Dit pakket heeft verhoogde machtigingen nodig om schijfgegevens te kunnen lezen."
-err_noperms_reopen	=	"Sluit dit venster vervolgens en open het opnieuw."
-err_noperms_ssh	=	"Maak via SSH verbinding met uw NAS en voer uit:"
-err_noperms_title	=	"Machtigingen niet geconfigureerd"
-err_not_reachable	=	"Drive Info is niet geïnstalleerd of niet bereikbaar."
-err_script_missing	=	"drive_info.sh niet gevonden. Probeer het pakket opnieuw te installeren."
-err_see_details	=	"Zie <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a> voor alle details."
-err_smart_failed	=	"Verzoek mislukt."
-err_smart_script_missing	=	"smart_info.sh niet gevonden."
-err_smart_timeout	=	"Time-out bij het wachten op S.M.A.R.T.-gegevens. De NAS voert mogelijk een datascrub of pariteitcontrole uit. Probeer het later opnieuw."
-err_sudofail_desc	=	"De sudoers-invoer bestaat, maar sudo is mislukt. Controleer of de invoer correct is:"
-err_sudofail_must_contain	=	"Deze moet exact het volgende bevatten:"
-err_sudofail_title	=	"Machtigingen niet correct geconfigureerd"
-err_no_drives	=	"Geen schijven gevonden."
-
+err_noperms_title=Machtigingen niet geconfigureerd
+err_noperms_reopen=Sluit dit venster vervolgens en open het opnieuw.
+err_no_drives=Er zijn geen schijven beschikbaar.
+err_smart_failed=Verzoek mislukt.
+err_sudofail_desc=De sudoers-invoer bestaat, maar sudo is mislukt. Controleer of de invoer correct is:
+err_not_reachable=Drive Info is niet geïnstalleerd of niet bereikbaar.
+err_script_missing=drive_info.sh niet gevonden. Probeer het pakket opnieuw te installeren.
+err_noperms_desc=Dit pakket heeft verhoogde machtigingen nodig om schijfgegevens te kunnen lezen.
+err_sudofail_title=Machtigingen niet correct geconfigureerd
+err_smart_timeout=Time-out bij het wachten op S.M.A.R.T.-gegevens. De NAS voert mogelijk een datascrub of pariteitcontrole uit. Probeer het later opnieuw.
+err_see_details=Zie <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a> voor alle details.
+err_smart_script_missing=smart_info.sh niet gevonden.
+err_noperms_ssh=Maak via SSH verbinding met uw NAS en voer uit:
+err_https_cert=Kan geen verbinding maken via HTTPS met %ip:%port. Als dit NAS een zelfondertekend of niet-vertrouwd certificaat gebruikt, open dan https://%ip:%port rechtstreeks in deze browser, accepteer de beveiligingswaarschuwing en laad deze pagina vervolgens opnieuw (de exacte stappen variëren per browser; als uw browser dit niet toestaat, probeer dan een andere browser of installeer een vertrouwd certificaat).
+err_sudofail_must_contain=Deze moet exact het volgende bevatten:
+err_needs_https_port=Deze pagina is geladen via HTTPS, maar er is geen HTTPS-poort ingesteld voor dit NAS, waardoor de browser het onbeveiligde HTTP-verzoek blokkeert. Voeg een HTTPS-poort toe voor dit item in Instellingen, of bekijk Drive Info via HTTP.
+err_admin_only=Alleen-beheerders
 [settings]
 add_device	=	Een apparaat toevoegen
 back	=	Terug

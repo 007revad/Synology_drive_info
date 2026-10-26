@@ -1,21 +1,21 @@
 [errors]
-err_https_cert	=	"无法通过 HTTPS 连接到 %ip:%port。如果此 NAS 使用自签名或不受信任的证书，请直接在此浏览器中打开 https://%ip:%port，接受安全警告，然后重新加载此页面（具体步骤因浏览器而异；如果浏览器不允许绕过此警告，请尝试其他浏览器或安装受信任的证书）。"
-err_needs_https_port	=	"此页面通过 HTTPS 加载，但未为此 NAS 设置 HTTPS 端口，因此浏览器阻止了不安全的 HTTP 请求。请在设置中为此条目添加 HTTPS 端口，或改用 HTTP 访问 Drive Info。"
-err_noperms_desc	=	"此套件需要提升权限才能读取硬盘信息。"
-err_noperms_reopen	=	"然后关闭并重新打开此窗口。"
-err_noperms_ssh	=	"通过 SSH 连接到您的 NAS 并运行："
-err_noperms_title	=	"尚未设置权限"
-err_not_reachable	=	"Drive Info 未安装或无法访问。"
-err_script_missing	=	"找不到 drive_info.sh。请尝试重新安装该套件。"
-err_see_details	=	"请参阅 <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a> 以获取完整详情。"
-err_smart_failed	=	"请求失败。"
-err_smart_script_missing	=	"未找到 smart_info.sh。"
-err_smart_timeout	=	"等待 S.M.A.R.T. 数据超时。NAS 可能正在运行数据清理或奇偶校验检查。请稍后重试。"
-err_sudofail_desc	=	"sudoers 条目已存在，但 sudo 执行失败。请检查该条目是否正确："
-err_sudofail_must_contain	=	"它应该完全包含："
-err_sudofail_title	=	"权限设置不正确"
-err_no_drives	=	"未找到任何硬盘。"
-
+err_noperms_title=尚未设置权限
+err_noperms_reopen=然后关闭并重新打开此窗口。
+err_no_drives=没有可用的硬盘。
+err_smart_failed=请求失败。
+err_sudofail_desc=sudoers 条目已存在，但 sudo 执行失败。请检查该条目是否正确：
+err_not_reachable=Drive Info 未安装或无法访问。
+err_script_missing=找不到 drive_info.sh。请尝试重新安装该套件。
+err_noperms_desc=此套件需要提升权限才能读取硬盘信息。
+err_sudofail_title=权限设置不正确
+err_smart_timeout=等待 S.M.A.R.T. 数据超时。NAS 可能正在运行数据清理或奇偶校验检查。请稍后重试。
+err_see_details=请参阅 <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a> 以获取完整详情。
+err_smart_script_missing=未找到 smart_info.sh。
+err_noperms_ssh=通过 SSH 连接到您的 NAS 并运行：
+err_https_cert=无法通过 HTTPS 连接到 %ip:%port。如果此 NAS 使用自签名或不受信任的证书，请直接在此浏览器中打开 https://%ip:%port，接受安全警告，然后重新加载此页面（具体步骤因浏览器而异；如果浏览器不允许绕过此警告，请尝试其他浏览器或安装受信任的证书）。
+err_sudofail_must_contain=它应该完全包含：
+err_needs_https_port=此页面通过 HTTPS 加载，但未为此 NAS 设置 HTTPS 端口，因此浏览器阻止了不安全的 HTTP 请求。请在设置中为此条目添加 HTTPS 端口，或改用 HTTP 访问 Drive Info。
+err_admin_only=只有管理者可挂载操作
 [settings]
 add_device	=	添加设备
 back	=	上一步

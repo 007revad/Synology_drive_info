@@ -1,21 +1,21 @@
 [errors]
-err_https_cert	=	"Verbindung über HTTPS zu %ip:%port nicht möglich. Wenn dieses NAS ein selbstsigniertes oder nicht vertrauenswürdiges Zertifikat verwendet, öffnen Sie https://%ip:%port direkt in diesem Browser, akzeptieren Sie die Sicherheitswarnung und laden Sie diese Seite anschließend neu (die genauen Schritte variieren je nach Browser; wenn Ihr Browser das Umgehen nicht zulässt, versuchen Sie einen anderen Browser oder installieren Sie ein vertrauenswürdiges Zertifikat)."
-err_needs_https_port	=	"Diese Seite wird über HTTPS geladen, aber für dieses NAS ist kein HTTPS-Port festgelegt, sodass der Browser die unsichere HTTP-Anfrage blockiert. Fügen Sie in den Einstellungen einen HTTPS-Port für diesen Eintrag hinzu oder rufen Sie Drive Info stattdessen über HTTP auf."
-err_noperms_desc	=	"Dieses Paket benötigt erweiterte Berechtigungen, um Laufwerksinformationen zu lesen."
-err_noperms_reopen	=	"Schließen Sie dann dieses Fenster und öffnen Sie es erneut."
-err_noperms_ssh	=	"Verbinden Sie sich per SSH mit Ihrem NAS und führen Sie aus:"
-err_noperms_title	=	"Berechtigungen nicht eingerichtet"
-err_not_reachable	=	"Drive Info ist nicht installiert oder nicht erreichbar."
-err_script_missing	=	"drive_info.sh wurde nicht gefunden. Versuchen Sie, das Paket neu zu installieren."
-err_see_details	=	"Weitere Informationen finden Sie unter <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a>."
-err_smart_failed	=	"Anfrage fehlgeschlagen."
-err_smart_script_missing	=	"smart_info.sh nicht gefunden."
-err_smart_timeout	=	"Zeitüberschreitung beim Warten auf S.M.A.R.T.-Daten. Das NAS führt möglicherweise gerade eine Datenbereinigung oder Paritätsprüfung durch. Versuchen Sie es später erneut."
-err_sudofail_desc	=	"Der sudoers-Eintrag existiert, aber sudo ist fehlgeschlagen. Überprüfen Sie, ob der Eintrag korrekt ist:"
-err_sudofail_must_contain	=	"Er sollte genau Folgendes enthalten:"
-err_sudofail_title	=	"Berechtigungen nicht korrekt eingerichtet"
-err_no_drives	=	"Keine Laufwerke gefunden."
-
+err_noperms_title=Berechtigungen nicht eingerichtet
+err_noperms_reopen=Schließen Sie dann dieses Fenster und öffnen Sie es erneut.
+err_no_drives=Es sind keine Laufwerke verfügbar.
+err_smart_failed=Anfrage fehlgeschlagen.
+err_sudofail_desc=Der sudoers-Eintrag existiert, aber sudo ist fehlgeschlagen. Überprüfen Sie, ob der Eintrag korrekt ist:
+err_not_reachable=Drive Info ist nicht installiert oder nicht erreichbar.
+err_script_missing=drive_info.sh wurde nicht gefunden. Versuchen Sie, das Paket neu zu installieren.
+err_noperms_desc=Dieses Paket benötigt erweiterte Berechtigungen, um Laufwerksinformationen zu lesen.
+err_sudofail_title=Berechtigungen nicht korrekt eingerichtet
+err_smart_timeout=Zeitüberschreitung beim Warten auf S.M.A.R.T.-Daten. Das NAS führt möglicherweise gerade eine Datenbereinigung oder Paritätsprüfung durch. Versuchen Sie es später erneut.
+err_see_details=Weitere Informationen finden Sie unter <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a>.
+err_smart_script_missing=smart_info.sh nicht gefunden.
+err_noperms_ssh=Verbinden Sie sich per SSH mit Ihrem NAS und führen Sie aus:
+err_https_cert=Verbindung über HTTPS zu %ip:%port nicht möglich. Wenn dieses NAS ein selbstsigniertes oder nicht vertrauenswürdiges Zertifikat verwendet, öffnen Sie https://%ip:%port direkt in diesem Browser, akzeptieren Sie die Sicherheitswarnung und laden Sie diese Seite anschließend neu (die genauen Schritte variieren je nach Browser; wenn Ihr Browser das Umgehen nicht zulässt, versuchen Sie einen anderen Browser oder installieren Sie ein vertrauenswürdiges Zertifikat).
+err_sudofail_must_contain=Er sollte genau Folgendes enthalten:
+err_needs_https_port=Diese Seite wird über HTTPS geladen, aber für dieses NAS ist kein HTTPS-Port festgelegt, sodass der Browser die unsichere HTTP-Anfrage blockiert. Fügen Sie in den Einstellungen einen HTTPS-Port für diesen Eintrag hinzu oder rufen Sie Drive Info stattdessen über HTTP auf.
+err_admin_only=Nur Administratoren
 [settings]
 add_device	=	Gerät hinzufügen
 back	=	Zurück

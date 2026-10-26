@@ -1,21 +1,21 @@
 [errors]
-err_https_cert	=	"%ip:%port 에 HTTPS로 연결할 수 없습니다. 이 NAS가 자체 서명되었거나 신뢰할 수 없는 인증서를 사용하는 경우, 이 브라우저에서 직접 https://%ip:%port 를 열고 보안 경고를 수락한 후 이 페이지를 새로 고치세요（정확한 단계는 브라우저마다 다릅니다. 브라우저에서 이를 우회할 수 없는 경우 다른 브라우저를 사용하거나 신뢰할 수 있는 인증서를 설치하세요）."
-err_needs_https_port	=	"이 페이지는 HTTPS로 로드되었지만 이 NAS에 HTTPS 포트가 설정되지 않아 브라우저가 안전하지 않은 HTTP 요청을 차단합니다. 설정에서 이 항목에 HTTPS 포트를 추가하거나 HTTP를 통해 Drive Info를 확인하세요."
-err_noperms_desc	=	"이 패키지가 드라이브 정보를 읽으려면 권한 상승이 필요합니다."
-err_noperms_reopen	=	"그런 다음 이 창을 닫고 다시 여세요."
-err_noperms_ssh	=	"SSH로 NAS에 연결하여 다음을 실행하세요:"
-err_noperms_title	=	"권한이 설정되지 않았습니다"
-err_not_reachable	=	"Drive Info가 설치되어 있지 않거나 연결할 수 없습니다."
-err_script_missing	=	"drive_info.sh를 찾을 수 없습니다. 패키지를 다시 설치해 보세요."
-err_see_details	=	"자세한 내용은 <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a>를 참고하세요."
-err_smart_failed	=	"요청에 실패했습니다."
-err_smart_script_missing	=	"smart_info.sh를 찾을 수 없습니다."
-err_smart_timeout	=	"S.M.A.R.T. 데이터를 기다리는 중 시간이 초과되었습니다. NAS가 데이터 스크럽 또는 패리티 검사를 실행 중일 수 있습니다. 나중에 다시 시도하십시오."
-err_sudofail_desc	=	"sudoers 항목은 존재하지만 sudo가 실패했습니다. 항목이 올바른지 확인하세요:"
-err_sudofail_must_contain	=	"다음 내용을 정확히 포함해야 합니다:"
-err_sudofail_title	=	"권한이 올바르게 설정되지 않았습니다"
-err_no_drives	=	"드라이브를 찾을 수 없습니다."
-
+err_noperms_title=권한이 설정되지 않았습니다
+err_noperms_reopen=그런 다음 이 창을 닫고 다시 여세요.
+err_no_drives=사용할 수 있는 드라이브가 없습니다.
+err_smart_failed=요청에 실패했습니다.
+err_sudofail_desc=sudoers 항목은 존재하지만 sudo가 실패했습니다. 항목이 올바른지 확인하세요:
+err_not_reachable=Drive Info가 설치되어 있지 않거나 연결할 수 없습니다.
+err_script_missing=drive_info.sh를 찾을 수 없습니다. 패키지를 다시 설치해 보세요.
+err_noperms_desc=이 패키지가 드라이브 정보를 읽으려면 권한 상승이 필요합니다.
+err_sudofail_title=권한이 올바르게 설정되지 않았습니다
+err_smart_timeout=S.M.A.R.T. 데이터를 기다리는 중 시간이 초과되었습니다. NAS가 데이터 스크럽 또는 패리티 검사를 실행 중일 수 있습니다. 나중에 다시 시도하십시오.
+err_see_details=자세한 내용은 <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a>를 참고하세요.
+err_smart_script_missing=smart_info.sh를 찾을 수 없습니다.
+err_noperms_ssh=SSH로 NAS에 연결하여 다음을 실행하세요:
+err_https_cert=%ip:%port 에 HTTPS로 연결할 수 없습니다. 이 NAS가 자체 서명되었거나 신뢰할 수 없는 인증서를 사용하는 경우, 이 브라우저에서 직접 https://%ip:%port 를 열고 보안 경고를 수락한 후 이 페이지를 새로 고치세요（정확한 단계는 브라우저마다 다릅니다. 브라우저에서 이를 우회할 수 없는 경우 다른 브라우저를 사용하거나 신뢰할 수 있는 인증서를 설치하세요）.
+err_sudofail_must_contain=다음 내용을 정확히 포함해야 합니다:
+err_needs_https_port=이 페이지는 HTTPS로 로드되었지만 이 NAS에 HTTPS 포트가 설정되지 않아 브라우저가 안전하지 않은 HTTP 요청을 차단합니다. 설정에서 이 항목에 HTTPS 포트를 추가하거나 HTTP를 통해 Drive Info를 확인하세요.
+err_admin_only=관리자 전용
 [settings]
 add_device	=	장치 추가
 back	=	뒤로

@@ -1338,7 +1338,7 @@ _txt_needs_https_port=$(txt errors err_needs_https_port "This page is loaded ove
 _txt_smart_timeout=$(txt errors err_smart_timeout "Timed out waiting for SMART data. The NAS may be busy (e.g. running a data scrub or parity check) - try again shortly.")
 _txt_smart_failed=$(txt errors err_smart_failed "Request failed.")
 _txt_lang="$_lang"   # or gui_lang, whatever you settle on
-_txt_settings_admin_only=$(txt errors err_settings_admin_only "Settings are only available to administrators.")
+_txt_settings_admin_only=$(txt errors err_admin_only "Settings are only available to administrators.")
 
 cat << STYLE
 <style>

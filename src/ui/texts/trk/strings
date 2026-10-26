@@ -1,21 +1,21 @@
 [errors]
-err_https_cert	=	"%ip:%port adresine HTTPS üzerinden bağlanılamadı. Bu NAS kendinden imzalı veya güvenilmeyen bir sertifika kullanıyorsa, https://%ip:%port adresini doğrudan bu tarayıcıda açın, güvenlik uyarısını kabul edin ve ardından bu sayfayı yenileyin (tam adımlar tarayıcıya göre değişir; tarayıcınız bunu atlamanıza izin vermiyorsa farklı bir tarayıcı deneyin veya güvenilir bir sertifika yükleyin)."
-err_needs_https_port	=	"Bu sayfa HTTPS üzerinden yüklendi, ancak bu NAS için HTTPS bağlantı noktası ayarlanmadığından tarayıcı güvensiz HTTP isteğini engelliyor. Ayarlar'da bu giriş için bir HTTPS bağlantı noktası ekleyin veya Drive Info'yu bunun yerine HTTP üzerinden görüntüleyin."
-err_noperms_desc	=	"Bu paketin sürücü bilgilerini okuyabilmesi için yükseltilmiş izinlere ihtiyacı var."
-err_noperms_reopen	=	"Ardından bu pencereyi kapatıp yeniden açın."
-err_noperms_ssh	=	"NAS'ınıza SSH üzerinden bağlanın ve şunu çalıştırın:"
-err_noperms_title	=	"İzinler yapılandırılmamış"
-err_not_reachable	=	"Drive Info yüklü değil veya erişilemiyor."
-err_script_missing	=	"drive_info.sh bulunamadı. Paketi yeniden yüklemeyi deneyin."
-err_see_details	=	"Tüm ayrıntılar için <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a> sayfasına bakın."
-err_smart_failed	=	"İstek başarısız oldu."
-err_smart_script_missing	=	"smart_info.sh bulunamadı."
-err_smart_timeout	=	"S.M.A.R.T. verileri beklenirken zaman aşımına uğradı. NAS, veri temizleme veya eşlik denetimi çalıştırıyor olabilir. Daha sonra tekrar deneyin."
-err_sudofail_desc	=	"sudoers girişi mevcut ancak sudo başarısız oldu. Girişin doğru olduğundan emin olun:"
-err_sudofail_must_contain	=	"Tam olarak şunu içermelidir:"
-err_sudofail_title	=	"İzinler doğru yapılandırılmamış"
-err_no_drives	=	"Sürücü bulunamadı."
-
+err_noperms_title=İzinler yapılandırılmamış
+err_noperms_reopen=Ardından bu pencereyi kapatıp yeniden açın.
+err_no_drives=Kullanılabilir sürücü yok.
+err_smart_failed=İstek başarısız oldu.
+err_sudofail_desc=sudoers girişi mevcut ancak sudo başarısız oldu. Girişin doğru olduğundan emin olun:
+err_not_reachable=Drive Info yüklü değil veya erişilemiyor.
+err_script_missing=drive_info.sh bulunamadı. Paketi yeniden yüklemeyi deneyin.
+err_noperms_desc=Bu paketin sürücü bilgilerini okuyabilmesi için yükseltilmiş izinlere ihtiyacı var.
+err_sudofail_title=İzinler doğru yapılandırılmamış
+err_smart_timeout=S.M.A.R.T. verileri beklenirken zaman aşımına uğradı. NAS, veri temizleme veya eşlik denetimi çalıştırıyor olabilir. Daha sonra tekrar deneyin.
+err_see_details=Tüm ayrıntılar için <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a> sayfasına bakın.
+err_smart_script_missing=smart_info.sh bulunamadı.
+err_noperms_ssh=NAS'ınıza SSH üzerinden bağlanın ve şunu çalıştırın:
+err_https_cert=%ip:%port adresine HTTPS üzerinden bağlanılamadı. Bu NAS kendinden imzalı veya güvenilmeyen bir sertifika kullanıyorsa, https://%ip:%port adresini doğrudan bu tarayıcıda açın, güvenlik uyarısını kabul edin ve ardından bu sayfayı yenileyin (tam adımlar tarayıcıya göre değişir; tarayıcınız bunu atlamanıza izin vermiyorsa farklı bir tarayıcı deneyin veya güvenilir bir sertifika yükleyin).
+err_sudofail_must_contain=Tam olarak şunu içermelidir:
+err_needs_https_port=Bu sayfa HTTPS üzerinden yüklendi, ancak bu NAS için HTTPS bağlantı noktası ayarlanmadığından tarayıcı güvensiz HTTP isteğini engelliyor. Ayarlar'da bu giriş için bir HTTPS bağlantı noktası ekleyin veya Drive Info'yu bunun yerine HTTP üzerinden görüntüleyin.
+err_admin_only=Sadece Yöneticiler
 [settings]
 add_device	=	Bir Aygıt Ekle
 back	=	Geri

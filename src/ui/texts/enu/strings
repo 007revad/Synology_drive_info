@@ -1,23 +1,23 @@
 [errors]
-err_https_cert	=	"Could not connect via HTTPS to %ip:%port. If this NAS uses a self-signed or untrusted certificate, open https://%ip:%port directly in this browser, accept the security warning, then reload this page (exact steps vary by browser; if your browser won't let you bypass this, try a different browser or install a trusted certificate)."
-err_invalid_device	=	"Invalid device argument."
-err_invalid_option	=	"Invalid option."
-err_needs_https_port	=	"This page is loaded over HTTPS, but no HTTPS port is set for this NAS, so the browser blocks the insecure HTTP request. Add an HTTPS Port for this entry in Settings, or view Drive Info over HTTP instead."
-err_noperms_desc	=	"This package needs elevated permissions to read drive information."
-err_noperms_reopen	=	"Then close and reopen this window."
-err_noperms_ssh	=	"Connect to your NAS via SSH and run:"
-err_noperms_title	=	"Permissions not configured"
-err_not_reachable	=	"Drive Info not installed or not reachable."
-err_script_missing	=	"drive_info.sh not found. Try reinstalling the package."
-err_see_details	=	"See <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a> for full details."
-err_smart_failed	=	"Request failed."
-err_smart_script_missing	=	"smart_info.sh not found."
-err_smart_timeout	=	"Timed out waiting for SMART data. The NAS may be busy running a data scrub or parity check. Try again later."
-err_sudofail_desc	=	"The sudoers entry exists but sudo failed. Check the entry is correct:"
-err_sudofail_must_contain	=	"It should contain exactly:"
-err_sudofail_title	=	"Permissions not configured correctly"
-err_no_drives	=	"No drives found."
-
+err_admin_only=Administrators only
+err_noperms_title=Permissions not configured
+err_noperms_reopen=Then close and reopen this window.
+err_no_drives=No drives are available.
+err_smart_failed=Request failed.
+err_sudofail_desc=The sudoers entry exists but sudo failed. Check the entry is correct:
+err_not_reachable=Drive Info not installed or not reachable.
+err_script_missing=drive_info.sh not found. Try reinstalling the package.
+err_noperms_desc=This package needs elevated permissions to read drive information.
+err_invalid_option=Invalid option.
+err_sudofail_title=Permissions not configured correctly
+err_smart_timeout=Timed out waiting for SMART data. The NAS may be busy running a data scrub or parity check. Try again later.
+err_see_details=See <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a> for full details.
+err_invalid_device=Invalid device argument.
+err_noperms_ssh=Connect to your NAS via SSH and run:
+err_https_cert=Could not connect via HTTPS to %ip:%port. If this NAS uses a self-signed or untrusted certificate, open https://%ip:%port directly in this browser, accept the security warning, then reload this page (exact steps vary by browser; if your browser won't let you bypass this, try a different browser or install a trusted certificate).
+err_smart_script_missing=smart_info.sh not found.
+err_needs_https_port=This page is loaded over HTTPS, but no HTTPS port is set for this NAS, so the browser blocks the insecure HTTP request. Add an HTTPS Port for this entry in Settings, or view Drive Info over HTTP instead.
+err_sudofail_must_contain=It should contain exactly:
 [settings]
 add_device	=	Add a Device
 back	=	Back

@@ -1,21 +1,21 @@
 [errors]
-err_https_cert	=	"Nelze se připojit přes HTTPS k %ip:%port. Pokud tento NAS používá certifikát podepsaný svým držitelem nebo nedůvěryhodný certifikát, otevřete https://%ip:%port přímo v tomto prohlížeči, přijměte bezpečnostní varování a poté tuto stránku znovu načtěte (přesné kroky se liší podle prohlížeče; pokud váš prohlížeč toto obejití neumožňuje, zkuste jiný prohlížeč nebo nainstalujte důvěryhodný certifikát)."
-err_needs_https_port	=	"Tato stránka je načtena přes HTTPS, ale pro tento NAS není nastaven žádný HTTPS port, takže prohlížeč blokuje nezabezpečený HTTP požadavek. Přidejte HTTPS port pro tuto položku v Nastavení nebo zobrazte Drive Info přes HTTP."
-err_noperms_desc	=	"Tento balíček potřebuje rozšířená oprávnění pro čtení informací o discích."
-err_noperms_reopen	=	"Poté zavřete a znovu otevřete toto okno."
-err_noperms_ssh	=	"Připojte se k NAS přes SSH a spusťte:"
-err_noperms_title	=	"Oprávnění nejsou nastavena"
-err_not_reachable	=	"Drive Info není nainstalován nebo není dostupný."
-err_script_missing	=	"Soubor drive_info.sh nebyl nalezen. Zkuste balíček přeinstalovat."
-err_see_details	=	"Úplné podrobnosti naleznete v <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a>."
-err_smart_failed	=	"Požadavek selhal."
-err_smart_script_missing	=	"Soubor smart_info.sh nebyl nalezen."
-err_smart_timeout	=	"Vypršel časový limit čekání na data S.M.A.R.T. NAS může být zaneprázdněn čištěním dat nebo kontrolou parity. Zkuste to znovu později."
-err_sudofail_desc	=	"Položka v sudoers existuje, ale příkaz sudo selhal. Zkontrolujte, zda je položka správná:"
-err_sudofail_must_contain	=	"Měla by obsahovat přesně:"
-err_sudofail_title	=	"Oprávnění nejsou nastavena správně"
-err_no_drives	=	"Nebyl nalezen žádný disk."
-
+err_noperms_title=Oprávnění nejsou nastavena
+err_noperms_reopen=Poté zavřete a znovu otevřete toto okno.
+err_no_drives=Nejsou dostupné žádné disky.
+err_smart_failed=Požadavek selhal.
+err_sudofail_desc=Položka v sudoers existuje, ale příkaz sudo selhal. Zkontrolujte, zda je položka správná:
+err_not_reachable=Drive Info není nainstalován nebo není dostupný.
+err_script_missing=Soubor drive_info.sh nebyl nalezen. Zkuste balíček přeinstalovat.
+err_noperms_desc=Tento balíček potřebuje rozšířená oprávnění pro čtení informací o discích.
+err_sudofail_title=Oprávnění nejsou nastavena správně
+err_smart_timeout=Vypršel časový limit čekání na data S.M.A.R.T. NAS může být zaneprázdněn čištěním dat nebo kontrolou parity. Zkuste to znovu později.
+err_see_details=Úplné podrobnosti naleznete v <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a>.
+err_smart_script_missing=Soubor smart_info.sh nebyl nalezen.
+err_noperms_ssh=Připojte se k NAS přes SSH a spusťte:
+err_https_cert=Nelze se připojit přes HTTPS k %ip:%port. Pokud tento NAS používá certifikát podepsaný svým držitelem nebo nedůvěryhodný certifikát, otevřete https://%ip:%port přímo v tomto prohlížeči, přijměte bezpečnostní varování a poté tuto stránku znovu načtěte (přesné kroky se liší podle prohlížeče; pokud váš prohlížeč toto obejití neumožňuje, zkuste jiný prohlížeč nebo nainstalujte důvěryhodný certifikát).
+err_sudofail_must_contain=Měla by obsahovat přesně:
+err_needs_https_port=Tato stránka je načtena přes HTTPS, ale pro tento NAS není nastaven žádný HTTPS port, takže prohlížeč blokuje nezabezpečený HTTP požadavek. Přidejte HTTPS port pro tuto položku v Nastavení nebo zobrazte Drive Info přes HTTP.
+err_admin_only=Pouze správci
 [settings]
 add_device	=	Přidat zařízení
 back	=	Zpět

@@ -1,21 +1,21 @@
 [errors]
-err_https_cert	=	"ไม่สามารถเชื่อมต่อผ่าน HTTPS ไปยัง %ip:%port ได้ หาก NAS นี้ใช้ใบรับรองที่ลงนามเองหรือไม่น่าเชื่อถือ ให้เปิด https://%ip:%port โดยตรงในเบราว์เซอร์นี้ ยอมรับคำเตือนด้านความปลอดภัย จากนั้นโหลดหน้านี้ใหม่ (ขั้นตอนที่แน่นอนจะแตกต่างกันไปตามเบราว์เซอร์ หากเบราว์เซอร์ของคุณไม่อนุญาตให้ข้ามผ่านสิ่งนี้ ลองใช้เบราว์เซอร์อื่นหรือติดตั้งใบรับรองที่น่าเชื่อถือ)"
-err_needs_https_port	=	"หน้านี้โหลดผ่าน HTTPS แต่ไม่ได้ตั้งค่าพอร์ต HTTPS สำหรับ NAS นี้ เบราว์เซอร์จึงบล็อกคำขอ HTTP ที่ไม่ปลอดภัย เพิ่มพอร์ต HTTPS สำหรับรายการนี้ในการตั้งค่า หรือดู Drive Info ผ่าน HTTP แทน"
-err_noperms_desc	=	"แพ็กเกจนี้ต้องการสิทธิ์ระดับสูงขึ้นเพื่ออ่านข้อมูลไดรฟ์"
-err_noperms_reopen	=	"จากนั้นปิดและเปิดหน้าต่างนี้ใหม่"
-err_noperms_ssh	=	"เชื่อมต่อกับ NAS ของคุณผ่าน SSH แล้วรันคำสั่งนี้:"
-err_noperms_title	=	"ยังไม่ได้ตั้งค่าสิทธิ์"
-err_not_reachable	=	"ไม่ได้ติดตั้ง Drive Info หรือไม่สามารถเข้าถึงได้"
-err_script_missing	=	"ไม่พบ drive_info.sh กรุณาลองติดตั้งแพ็กเกจใหม่"
-err_see_details	=	"ดูรายละเอียดทั้งหมดได้ที่ <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a>"
-err_smart_failed	=	"คำขอล้มเหลว"
-err_smart_script_missing	=	"ไม่พบ smart_info.sh"
-err_smart_timeout	=	"หมดเวลารอข้อมูล S.M.A.R.T. NAS อาจกำลังทำงานการล้างข้อมูลหรือการตรวจสอบความเท่าเทียม ลองอีกครั้งในภายหลัง"
-err_sudofail_desc	=	"มีรายการ sudoers อยู่แล้ว แต่ sudo ล้มเหลว กรุณาตรวจสอบว่ารายการถูกต้อง:"
-err_sudofail_must_contain	=	"ควรมีเนื้อหาตรงตามนี้:"
-err_sudofail_title	=	"ตั้งค่าสิทธิ์ไม่ถูกต้อง"
-err_no_drives	=	"ไม่พบไดรฟ์ใดๆ"
-
+err_noperms_title=ยังไม่ได้ตั้งค่าสิทธิ์
+err_noperms_reopen=จากนั้นปิดและเปิดหน้าต่างนี้ใหม่
+err_no_drives=ไม่มีไดรฟ์ที่พร้อมใช้งาน
+err_smart_failed=คำขอล้มเหลว
+err_sudofail_desc=มีรายการ sudoers อยู่แล้ว แต่ sudo ล้มเหลว กรุณาตรวจสอบว่ารายการถูกต้อง:
+err_not_reachable=ไม่ได้ติดตั้ง Drive Info หรือไม่สามารถเข้าถึงได้
+err_script_missing=ไม่พบ drive_info.sh กรุณาลองติดตั้งแพ็กเกจใหม่
+err_noperms_desc=แพ็กเกจนี้ต้องการสิทธิ์ระดับสูงขึ้นเพื่ออ่านข้อมูลไดรฟ์
+err_sudofail_title=ตั้งค่าสิทธิ์ไม่ถูกต้อง
+err_smart_timeout=หมดเวลารอข้อมูล S.M.A.R.T. NAS อาจกำลังทำงานการล้างข้อมูลหรือการตรวจสอบความเท่าเทียม ลองอีกครั้งในภายหลัง
+err_see_details=ดูรายละเอียดทั้งหมดได้ที่ <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a>
+err_smart_script_missing=ไม่พบ smart_info.sh
+err_noperms_ssh=เชื่อมต่อกับ NAS ของคุณผ่าน SSH แล้วรันคำสั่งนี้:
+err_https_cert=ไม่สามารถเชื่อมต่อผ่าน HTTPS ไปยัง %ip:%port ได้ หาก NAS นี้ใช้ใบรับรองที่ลงนามเองหรือไม่น่าเชื่อถือ ให้เปิด https://%ip:%port โดยตรงในเบราว์เซอร์นี้ ยอมรับคำเตือนด้านความปลอดภัย จากนั้นโหลดหน้านี้ใหม่ (ขั้นตอนที่แน่นอนจะแตกต่างกันไปตามเบราว์เซอร์ หากเบราว์เซอร์ของคุณไม่อนุญาตให้ข้ามผ่านสิ่งนี้ ลองใช้เบราว์เซอร์อื่นหรือติดตั้งใบรับรองที่น่าเชื่อถือ)
+err_sudofail_must_contain=ควรมีเนื้อหาตรงตามนี้:
+err_needs_https_port=หน้านี้โหลดผ่าน HTTPS แต่ไม่ได้ตั้งค่าพอร์ต HTTPS สำหรับ NAS นี้ เบราว์เซอร์จึงบล็อกคำขอ HTTP ที่ไม่ปลอดภัย เพิ่มพอร์ต HTTPS สำหรับรายการนี้ในการตั้งค่า หรือดู Drive Info ผ่าน HTTP แทน
+err_admin_only=ผู้ดูแลระบบเท่านั้น
 [settings]
 add_device	=	เพิ่มอุปกรณ์
 back	=	ย้อนกลับ

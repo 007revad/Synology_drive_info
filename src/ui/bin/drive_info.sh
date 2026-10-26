@@ -903,7 +903,8 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         if [[ -z "$serial" ]]; then
             serial=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
         fi
-        firmware=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep Firmware | cut -d":" -f2 | xargs)
+        # SATA/NVMe report "Firmware Version:", SCSI/SAS report "Revision:"
+        firmware=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | awk -F: '/^(Firmware Version|Revision):/ {print $2; exit}' | xargs)
 
         get_drive_size
         smr=$(check_drive_smr)
@@ -998,7 +999,8 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         if [[ -z "$serial" ]]; then
             serial=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
         fi
-        firmware=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep Firmware | cut -d":" -f2 | xargs)
+        # SATA/NVMe report "Firmware Version:", SCSI/SAS report "Revision:"
+        firmware=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | awk -F: '/^(Firmware Version|Revision):/ {print $2; exit}' | xargs)
         if [[ $drive_type == snt* ]]; then
             # NVMe drive in a USB enclosure. sysfs only has the bridge chip's fake serial
             nvme_info="$("$smartctl" -i -d "$drive_type" /dev/"$drive" 2>/dev/null)"

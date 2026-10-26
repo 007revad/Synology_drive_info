@@ -1,21 +1,21 @@
 [errors]
-err_https_cert	=	"Nem sikerült HTTPS-en keresztül csatlakozni a következőhöz: %ip:%port. Ha ez a NAS önaláírt vagy nem megbízható tanúsítványt használ, nyissa meg a https://%ip:%port címet közvetlenül ebben a böngészőben, fogadja el a biztonsági figyelmeztetést, majd töltse újra az oldalt (a pontos lépések böngészőnként eltérnek; ha a böngészője nem engedi megkerülni ezt, próbáljon másik böngészőt, vagy telepítsen megbízható tanúsítványt)."
-err_needs_https_port	=	"Ez az oldal HTTPS-en töltődött be, de ehhez a NAS-hoz nincs HTTPS-port beállítva, ezért a böngésző blokkolja a nem biztonságos HTTP-kérést. Adjon hozzá HTTPS-portot ehhez a bejegyzéshez a Beállításokban, vagy tekintse meg a Drive Info-t HTTP-n keresztül."
-err_noperms_desc	=	"Ehhez a csomaghoz emelt szintű jogosultságok szükségesek a meghajtó-információk olvasásához."
-err_noperms_reopen	=	"Ezután zárja be, majd nyissa meg újra ezt az ablakot."
-err_noperms_ssh	=	"Csatlakozzon a NAS-hoz SSH-n keresztül, és futtassa:"
-err_noperms_title	=	"A jogosultságok nincsenek beállítva"
-err_not_reachable	=	"A Drive Info nincs telepítve vagy nem érhető el."
-err_script_missing	=	"A drive_info.sh nem található. Próbálja meg újratelepíteni a csomagot."
-err_see_details	=	"A teljes részletekért lásd: <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a>."
-err_smart_failed	=	"A kérés sikertelen."
-err_smart_script_missing	=	"A smart_info.sh nem található."
-err_smart_timeout	=	"Időtúllépés a S.M.A.R.T. adatokra való várakozás közben. Lehet, hogy a NAS éppen adattisztítást vagy paritásellenőrzést végez. Próbálja meg később."
-err_sudofail_desc	=	"A sudoers bejegyzés létezik, de a sudo meghiúsult. Ellenőrizze, hogy a bejegyzés helyes:"
-err_sudofail_must_contain	=	"Pontosan ezt kell tartalmaznia:"
-err_sudofail_title	=	"A jogosultságok nincsenek megfelelően beállítva"
-err_no_drives	=	"Nem találhatók meghajtók."
-
+err_noperms_title=A jogosultságok nincsenek beállítva
+err_noperms_reopen=Ezután zárja be, majd nyissa meg újra ezt az ablakot.
+err_no_drives=Nincs elérhető meghajtó.
+err_smart_failed=A kérés sikertelen.
+err_sudofail_desc=A sudoers bejegyzés létezik, de a sudo meghiúsult. Ellenőrizze, hogy a bejegyzés helyes:
+err_not_reachable=A Drive Info nincs telepítve vagy nem érhető el.
+err_script_missing=A drive_info.sh nem található. Próbálja meg újratelepíteni a csomagot.
+err_noperms_desc=Ehhez a csomaghoz emelt szintű jogosultságok szükségesek a meghajtó-információk olvasásához.
+err_sudofail_title=A jogosultságok nincsenek megfelelően beállítva
+err_smart_timeout=Időtúllépés a S.M.A.R.T. adatokra való várakozás közben. Lehet, hogy a NAS éppen adattisztítást vagy paritásellenőrzést végez. Próbálja meg később.
+err_see_details=A teljes részletekért lásd: <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a>.
+err_smart_script_missing=A smart_info.sh nem található.
+err_noperms_ssh=Csatlakozzon a NAS-hoz SSH-n keresztül, és futtassa:
+err_https_cert=Nem sikerült HTTPS-en keresztül csatlakozni a következőhöz: %ip:%port. Ha ez a NAS önaláírt vagy nem megbízható tanúsítványt használ, nyissa meg a https://%ip:%port címet közvetlenül ebben a böngészőben, fogadja el a biztonsági figyelmeztetést, majd töltse újra az oldalt (a pontos lépések böngészőnként eltérnek; ha a böngészője nem engedi megkerülni ezt, próbáljon másik böngészőt, vagy telepítsen megbízható tanúsítványt).
+err_sudofail_must_contain=Pontosan ezt kell tartalmaznia:
+err_needs_https_port=Ez az oldal HTTPS-en töltődött be, de ehhez a NAS-hoz nincs HTTPS-port beállítva, ezért a böngésző blokkolja a nem biztonságos HTTP-kérést. Adjon hozzá HTTPS-portot ehhez a bejegyzéshez a Beállításokban, vagy tekintse meg a Drive Info-t HTTP-n keresztül.
+err_admin_only=Csak rendszergazdák
 [settings]
 add_device	=	Eszköz hozzáadása
 back	=	Vissza

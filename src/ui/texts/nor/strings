@@ -1,21 +1,21 @@
 [errors]
-err_https_cert	=	"Kunne ikke koble til via HTTPS til %ip:%port. Hvis denne NAS bruker et selvsignert eller ikke-betrodd sertifikat, åpner du https://%ip:%port direkte i denne nettleseren, godtar sikkerhetsadvarselen og laster deretter inn denne siden på nytt (de nøyaktige trinnene varierer etter nettleser; hvis nettleseren din ikke lar deg omgå dette, prøv en annen nettleser eller installer et betrodd sertifikat)."
-err_needs_https_port	=	"Denne siden er lastet via HTTPS, men det er ikke angitt noen HTTPS-port for denne NAS-en, så nettleseren blokkerer den usikre HTTP-forespørselen. Legg til en HTTPS-port for denne oppføringen i Innstillinger, eller vis Drive Info via HTTP i stedet."
-err_noperms_desc	=	"Denne pakken krever utvidede tillatelser for å lese diskinformasjon."
-err_noperms_reopen	=	"Lukk deretter dette vinduet og åpne det på nytt."
-err_noperms_ssh	=	"Koble til NAS-en via SSH og kjør:"
-err_noperms_title	=	"Tillatelser er ikke konfigurert"
-err_not_reachable	=	"Drive Info er ikke installert eller ikke tilgjengelig."
-err_script_missing	=	"drive_info.sh ble ikke funnet. Prøv å installere pakken på nytt."
-err_see_details	=	"Se <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a> for fullstendige detaljer."
-err_smart_failed	=	"Forespørselen mislyktes."
-err_smart_script_missing	=	"smart_info.sh ble ikke funnet."
-err_smart_timeout	=	"Tidsavbrudd ved venting på S.M.A.R.T.-data. NAS-en er kanskje opptatt med dataskrubbing eller paritetssjekk. Prøv igjen senere."
-err_sudofail_desc	=	"Sudoers-oppføringen finnes, men sudo mislyktes. Kontroller at oppføringen er riktig:"
-err_sudofail_must_contain	=	"Den bør inneholde nøyaktig:"
-err_sudofail_title	=	"Tillatelser er ikke konfigurert riktig"
-err_no_drives	=	"Ingen disker funnet."
-
+err_noperms_title=Tillatelser er ikke konfigurert
+err_noperms_reopen=Lukk deretter dette vinduet og åpne det på nytt.
+err_no_drives=Ingen disker er tilgjengelige.
+err_smart_failed=Forespørselen mislyktes.
+err_sudofail_desc=Sudoers-oppføringen finnes, men sudo mislyktes. Kontroller at oppføringen er riktig:
+err_not_reachable=Drive Info er ikke installert eller ikke tilgjengelig.
+err_script_missing=drive_info.sh ble ikke funnet. Prøv å installere pakken på nytt.
+err_noperms_desc=Denne pakken krever utvidede tillatelser for å lese diskinformasjon.
+err_sudofail_title=Tillatelser er ikke konfigurert riktig
+err_smart_timeout=Tidsavbrudd ved venting på S.M.A.R.T.-data. NAS-en er kanskje opptatt med dataskrubbing eller paritetssjekk. Prøv igjen senere.
+err_see_details=Se <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a> for fullstendige detaljer.
+err_smart_script_missing=smart_info.sh ble ikke funnet.
+err_noperms_ssh=Koble til NAS-en via SSH og kjør:
+err_https_cert=Kunne ikke koble til via HTTPS til %ip:%port. Hvis denne NAS bruker et selvsignert eller ikke-betrodd sertifikat, åpner du https://%ip:%port direkte i denne nettleseren, godtar sikkerhetsadvarselen og laster deretter inn denne siden på nytt (de nøyaktige trinnene varierer etter nettleser; hvis nettleseren din ikke lar deg omgå dette, prøv en annen nettleser eller installer et betrodd sertifikat).
+err_sudofail_must_contain=Den bør inneholde nøyaktig:
+err_needs_https_port=Denne siden er lastet via HTTPS, men det er ikke angitt noen HTTPS-port for denne NAS-en, så nettleseren blokkerer den usikre HTTP-forespørselen. Legg til en HTTPS-port for denne oppføringen i Innstillinger, eller vis Drive Info via HTTP i stedet.
+err_admin_only=Kun administratorer
 [settings]
 add_device	=	Legg til en enhet
 back	=	Tilbake

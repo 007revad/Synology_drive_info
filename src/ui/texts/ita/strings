@@ -1,21 +1,21 @@
 [errors]
-err_https_cert	=	"Impossibile connettersi tramite HTTPS a %ip:%port. Se questo NAS utilizza un certificato autofirmato o non attendibile, aprire https://%ip:%port direttamente in questo browser, accettare l'avviso di sicurezza, quindi ricaricare questa pagina (i passaggi esatti variano a seconda del browser; se il browser non consente di ignorare questo avviso, provare un browser diverso o installare un certificato attendibile)."
-err_needs_https_port	=	"Questa pagina è caricata tramite HTTPS, ma non è impostata alcuna porta HTTPS per questo NAS, quindi il browser blocca la richiesta HTTP non sicura. Aggiungere una porta HTTPS per questa voce nelle Impostazioni oppure visualizzare Drive Info tramite HTTP."
-err_noperms_desc	=	"Questo pacchetto richiede autorizzazioni elevate per leggere le informazioni sulle unità."
-err_noperms_reopen	=	"Quindi chiudi e riapri questa finestra."
-err_noperms_ssh	=	"Connettiti al tuo NAS tramite SSH ed esegui:"
-err_noperms_title	=	"Autorizzazioni non configurate"
-err_not_reachable	=	"Drive Info non è installato o non è raggiungibile."
-err_script_missing	=	"drive_info.sh non trovato. Provare a reinstallare il pacchetto."
-err_see_details	=	"Per i dettagli completi, consulta <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a>."
-err_smart_failed	=	"Richiesta fallita."
-err_smart_script_missing	=	"smart_info.sh non trovato."
-err_smart_timeout	=	"Timeout in attesa dei dati S.M.A.R.T. Il NAS potrebbe essere occupato con una verifica dei dati o un controllo di parità. Riprovare più tardi."
-err_sudofail_desc	=	"La voce sudoers esiste, ma sudo non è riuscito. Verifica che la voce sia corretta:"
-err_sudofail_must_contain	=	"Deve contenere esattamente:"
-err_sudofail_title	=	"Autorizzazioni non configurate correttamente"
-err_no_drives	=	"Nessuna unità trovata."
-
+err_noperms_title=Autorizzazioni non configurate
+err_noperms_reopen=Quindi chiudi e riapri questa finestra.
+err_no_drives=Nessuna unità disponibile.
+err_smart_failed=Richiesta fallita.
+err_sudofail_desc=La voce sudoers esiste, ma sudo non è riuscito. Verifica che la voce sia corretta:
+err_not_reachable=Drive Info non è installato o non è raggiungibile.
+err_script_missing=drive_info.sh non trovato. Provare a reinstallare il pacchetto.
+err_noperms_desc=Questo pacchetto richiede autorizzazioni elevate per leggere le informazioni sulle unità.
+err_sudofail_title=Autorizzazioni non configurate correttamente
+err_smart_timeout=Timeout in attesa dei dati S.M.A.R.T. Il NAS potrebbe essere occupato con una verifica dei dati o un controllo di parità. Riprovare più tardi.
+err_see_details=Per i dettagli completi, consulta <a href="https://github.com/007revad/Synology_drive_info/blob/main/set_package_permissions.md" target="_blank">set_package_permissions.md</a>.
+err_smart_script_missing=smart_info.sh non trovato.
+err_noperms_ssh=Connettiti al tuo NAS tramite SSH ed esegui:
+err_https_cert=Impossibile connettersi tramite HTTPS a %ip:%port. Se questo NAS utilizza un certificato autofirmato o non attendibile, aprire https://%ip:%port direttamente in questo browser, accettare l'avviso di sicurezza, quindi ricaricare questa pagina (i passaggi esatti variano a seconda del browser; se il browser non consente di ignorare questo avviso, provare un browser diverso o installare un certificato attendibile).
+err_sudofail_must_contain=Deve contenere esattamente:
+err_needs_https_port=Questa pagina è caricata tramite HTTPS, ma non è impostata alcuna porta HTTPS per questo NAS, quindi il browser blocca la richiesta HTTP non sicura. Aggiungere una porta HTTPS per questa voce nelle Impostazioni oppure visualizzare Drive Info tramite HTTP.
+err_admin_only=Solo amministratori
 [settings]
 add_device	=	Aggiungi dispositivo
 back	=	Indietro
