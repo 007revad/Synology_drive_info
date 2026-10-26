@@ -5,7 +5,7 @@ v2.4.69
   - With the Community section enabled SRM's Security Advisor flags the changed PkgManApp.js as critical.
 - Bug fix for showing "replacing" in black instead of "Replacing n.nn%" in orange.
 - Bug fixes for some USB drives' SMART info showing smartctl errors.
-- Bug fix for users in the administrators group with spaces in their username getting "Unauthorsed" message and unable to open Settings.
+- Bug fix for users in the administrators group with spaces in their username getting "Unauthorised" message and unable to open Settings.
 - Removed DSM Enterprise (PAS7700) package.
   - DSM Enterprise 1.x requests packages for 7.4 so can use the x86_86 DSM-7.x package.
 
