@@ -52,12 +52,13 @@ CONF_FILE="${VAR_DIR}/settings.conf"
 LOG_FILE="${VAR_DIR}/drive_info.log"
 API_LOG_FILE="${VAR_DIR}/api.log"
 
+
 if [[ ! -f "$CONF_FILE" ]]; then
     touch "$CONF_FILE"
     if [[ "$dsm" -gt 6 || "$build" -ge 101188 ]]; then
-        chown drive_info:drive_info "$smart_log"
+        chown drive_info:drive_info "$CONF_FILE"
     fi
-    chmod 660 "$smart_log"
+    chmod 660 "$CONF_FILE"
 fi
 
 
@@ -1043,6 +1044,32 @@ fi
 
 echo ""
 
+# Reads finish= (minutes) and speed= (KiB/s) from /proc/mdstat for the pool's
+# own md devices. $1 = pool id. Prints "<seconds> <KiB/s>" for the first md
+# device that is syncing, or nothing.
+md_progress(){
+    local pool_id="$1" md out
+    while IFS= read -r md; do
+        [[ -z "$md" ]] && continue
+        out=$(awk -v md="$md" '
+            $1 == md && $2 == ":" { inmd = 1; next }
+            inmd && NF == 0       { exit }
+            inmd && /finish=/     {
+                f = $0; s = $0
+                sub(/.*finish=/, "", f); sub(/min.*/, "", f)
+                sub(/.*speed=/, "", s);  sub(/K\/sec.*/, "", s)
+                printf "%d %d", f * 60, s
+                exit
+            }
+        ' /proc/mdstat)
+        if [[ -n "$out" ]]; then
+            echo "$out"
+            return
+        fi
+    done < <(echo "$storage_json" | jq -r --arg id "$1" \
+        '.data.storagePools[] | select(.id == $id) | .raids[]?.raidPath // empty | ltrimstr("/dev/")')
+}
+
 # Volume information table
 get_volume_info(){ 
     local storage_json="$storage_json"
@@ -1057,14 +1084,16 @@ get_volume_info(){
     done < <(echo "$storage_json" | jq -r '.data.disks[]? | "\(.id)|\(.name)"')
 
     # Build pool lookup: pool id -> num_id, pool status, RAID device_type and member disks
-    declare -A pool_num pool_status_map pool_pct_map pool_devtype_map pool_disks_map
-    while IFS='|' read -r pool_id pool_num_id pool_st pool_scrub pool_pct pool_devtype pool_disks_raw; do
+    declare -A pool_num pool_status_map pool_pct_map pool_devtype_map pool_disks_map pool_remain_map pool_step_map
+    while IFS='|' read -r pool_id pool_num_id pool_st pool_scrub pool_pct pool_devtype pool_remain pool_cur pool_total pool_disks_raw; do
         pool_num["$pool_id"]="$pool_num_id"
         local scrub_suffix=""
-        [[ "$pool_scrub" == "scrubbing" ]] && scrub_suffix=" - $(txt common data_scrubbing "Data Scrubbing")"
+        [[ "$pool_scrub" == "scrubbing" ]] && scrub_suffix=" - $(txt common status_data_scrubbing "Data Scrubbing")"
         pool_status_map["$pool_id"]="${pool_st}${scrub_suffix}"
         pool_pct_map["$pool_id"]="$pool_pct"
         pool_devtype_map["$pool_id"]="$pool_devtype"
+        pool_remain_map["$pool_id"]="$pool_remain"
+        pool_step_map["$pool_id"]="${pool_cur}/${pool_total}"
 
         # Translate raw disk ids (e.g. sata1) to friendly names (e.g. Drive 3)
         #local disk_ids=() disk_names=() did joined=""
@@ -1076,10 +1105,11 @@ get_volume_info(){
             joined+="${disk_name_map[$did]:-$did}"
         done
         pool_disks_map["$pool_id"]="$joined"
-    done < <(echo "$storage_json" | jq -r '.data.storagePools[] | "\(.id)|\(.num_id)|\(.status)|\(.scrubbingStatus // "")|\(.progress.percent // "-1")|\(.device_type // "")|\(.disks | join(","))"')
+    done < <(echo "$storage_json" | jq -r '.data.storagePools[] | "\(.id)|\(.num_id)|\(.status)|\(.scrubbingStatus // "")|\(.progress.percent // "-1")|\(.device_type // "")|\(.progress.remaining_time // 0)|\(.progress.cur_step // 0)|\(.progress.total_step // 0)|\(.disks | join(","))"')
 
-    local hdr_vol hdr_pool hdr_raid hdr_size hdr_pct hdr_status hdr_pool_status
+    local hdr_vol hdr_fs hdr_pool hdr_raid hdr_size hdr_pct hdr_status hdr_pool_status
     hdr_vol="$(txt common volume "Volume")"
+    hdr_fs="$(txt common file_system "File System")"
     hdr_pool="$(txt common storage_pool "Storage Pool")"
     hdr_raid="$(txt common raid_type "RAID")"
     hdr_size="$(txt common volume_size "Volume Size")"
@@ -1087,8 +1117,9 @@ get_volume_info(){
     hdr_status="$(txt common status "Status")"
     hdr_pool_status="$(txt common storage_status "Storage Status")"
 
-    local w_vol w_pool w_raid w_size w_pct w_status w_pool_status
+    local w_vol w_fs w_pool w_raid w_size w_pct w_status w_pool_status
     w_vol=${#hdr_vol}
+    w_fs=${#hdr_fs}
     w_pool=${#hdr_pool}
     w_raid=${#hdr_raid}
     w_size=${#hdr_size}
@@ -1096,7 +1127,7 @@ get_volume_info(){
     w_status=${#hdr_status}
     w_pool_status=${#hdr_pool_status}
 
-    local vol_nums=() vol_pools=() vol_raids=() vol_sizes=() vol_pcts=() vol_statuses=() vol_pool_statuses=()
+    local vol_nums=() vol_fss=() vol_pools=() vol_raids=() vol_sizes=() vol_pcts=() vol_statuses=() vol_pool_statuses=()
 
     local label_vol label_pool
     label_vol="$(txt common volume "Volume")"
@@ -1105,6 +1136,12 @@ get_volume_info(){
     while IFS='|' read -r num_id pool_path total used vol_status vol_pct; do
         # Volume name
         vol_label="$label_vol $num_id"
+
+        # File system type (btrfs, ext4 etc) from the volume's mount point.
+        # A volume that is not mounted (e.g. crashed) has no entry, so show "-"
+        local fs_str
+        fs_str=$(awk -v m="/volume${num_id}" '$2 == m {print $3; exit}' /proc/mounts 2>/dev/null)
+        [[ -z "$fs_str" ]] && fs_str="-"
 
         # Storage Pool label
         pool_label="$label_pool ${pool_num[$pool_path]}"
@@ -1213,10 +1250,58 @@ get_volume_info(){
             || "$pool_st" == "background" || "$pool_st" == "background_scrubbing" ]]; then
             local pool_pct_int
             pool_pct_int=$(awk -v p="$pool_pct" 'BEGIN{printf "%.2f", p}')
+            local remain_secs remain_txt step_txt total_min remain_h remain_m unit_h unit_m
+            remain_secs="${pool_remain_map[$pool_path]:-0}"
+
+            local md_secs md_speed speed_txt
+            IFS=' ' read -r md_secs md_speed <<< "$(md_progress "$pool_path")"
+            if [[ "$remain_secs" =~ ^[0-9]+$ ]] && (( remain_secs == 0 )) \
+                && [[ "$dsm" -le 6 && "$build" -le 25556 ]]; then
+                remain_secs="${md_secs:-0}"      # DSM 6 has no remaining_time in the JSON
+            fi
+            speed_txt=""
+            if [[ "$md_speed" =~ ^[0-9]+$ ]] && (( md_speed > 0 )); then
+                speed_txt="$(txt common speed "Speed"): $(( md_speed / 1024 )) MiB/s"
+            fi
+
+            remain_txt=""
+            if [[ "$remain_secs" =~ ^[0-9]+$ ]] && (( remain_secs > 0 )); then
+                total_min=$(( (remain_secs + 59) / 60 ))   # round up to whole minutes
+                remain_h=$(( total_min / 60 ))
+                remain_m=$(( total_min % 60 ))
+                unit_h="$(txt common unit_hour "hr")"
+                unit_m="$(txt common unit_minute "min")"
+                if (( remain_h > 0 )); then
+                    remain_txt="${remain_h} ${unit_h}"
+                    (( remain_m > 0 )) && remain_txt+=" ${remain_m} ${unit_m}"
+                else
+                    remain_txt="${remain_m} ${unit_m}"
+                fi
+            fi
+
+            local pool_total tip_txt _part
+            step_txt=""
+            pool_total="${pool_step_map[$pool_path]#*/}"
+            if [[ "$pool_total" =~ ^[0-9]+$ ]] && (( pool_total > 1 )); then
+                step_txt="$(txt common step "Step") ${pool_step_map[$pool_path]}"
+            fi
+
             pool_status_str="${pool_status_str} (${pool_pct_int}%)"
+            tip_txt=""
+            for _part in "$step_txt" "$remain_txt" "$speed_txt"; do
+                [[ -n "$_part" ]] && tip_txt+="${tip_txt:+. }${_part}"
+            done
+            if [[ -n "$tip_txt" ]]; then
+                if [[ -t 1 ]]; then   # terminal: no hover, so show inline
+                    pool_status_str="${pool_status_str} [${tip_txt}]"
+                else                  # web UI: tooltip
+                    pool_status_str="${pool_status_str}@@${tip_txt}"
+                fi
+            fi
         fi
 
         vol_nums+=("$vol_label")
+        vol_fss+=("$fs_str")
         vol_pools+=("$pool_label")
         vol_raids+=("$raid_str")
         vol_sizes+=("$size_str")
@@ -1225,6 +1310,7 @@ get_volume_info(){
         vol_pool_statuses+=("$pool_status_str")
 
         (( ${#vol_label}        > w_vol         )) && w_vol=${#vol_label}
+        (( ${#fs_str}           > w_fs          )) && w_fs=${#fs_str}
         (( ${#pool_label}       > w_pool        )) && w_pool=${#pool_label}
         (( ${#raid_str}         > w_raid        )) && w_raid=${#raid_str}
         (( ${#size_str}         > w_size        )) && w_size=${#size_str}
@@ -1236,14 +1322,14 @@ get_volume_info(){
 
     if [[ "${#vol_nums[@]}" -gt 0 ]]; then
         local sep_len
-        sep_len=$(( w_vol + 2 + w_pool + 2 + w_raid + 2 + w_size + 2 + w_pct + 2 + w_status + 2 + w_pool_status ))
+        sep_len=$(( w_vol + 2 + w_fs + 2 + w_pool + 2 + w_raid + 2 + w_size + 2 + w_pct + 2 + w_status + 2 + w_pool_status ))
         echo ""
         printf '%*s\n' "$sep_len" '' | tr ' ' '-'
-        print_row "$w_vol" "$hdr_vol" "$w_pool" "$hdr_pool" "$w_raid" "$hdr_raid" "$w_size" "$hdr_size" \
+        print_row "$w_vol" "$hdr_vol" "$w_fs" "$hdr_fs" "$w_pool" "$hdr_pool" "$w_raid" "$hdr_raid" "$w_size" "$hdr_size" \
             "$w_pct" "$hdr_pct" "$w_status" "$hdr_status" "$w_pool_status" "$hdr_pool_status"
         printf '%*s\n' "$sep_len" '' | tr ' ' '-'
         for i in "${!vol_nums[@]}"; do
-            print_row "$w_vol" "${vol_nums[$i]}" "$w_pool" "${vol_pools[$i]}" "$w_raid" "${vol_raids[$i]}" "$w_size" "${vol_sizes[$i]}" \
+            print_row "$w_vol" "${vol_nums[$i]}" "$w_fs" "${vol_fss[$i]}" "$w_pool" "${vol_pools[$i]}" "$w_raid" "${vol_raids[$i]}" "$w_size" "${vol_sizes[$i]}" \
                 "$w_pct" "${vol_pcts[$i]}" "$w_status" "${vol_statuses[$i]}" "$w_pool_status" "${vol_pool_statuses[$i]}"
         done
     fi

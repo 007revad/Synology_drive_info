@@ -1288,7 +1288,7 @@ _txt_reload=$(txt common reload "Reload")
 _txt_slot=$(txt common drive_id "Drive ID")
 _txt_model=$(txt common model "Model")
 _txt_size=$(txt common size "Size")
-_txt_smr=$(txt common size "SMR")
+_txt_smr=$(txt common smr "SMR")
 _txt_raid=$(txt common raid_type "RAID")
 _txt_serial=$(txt common serial_number "Serial Number")
 _txt_fw=$(txt common firmware "Firmware")
@@ -1305,7 +1305,7 @@ _txt_status_unsupported=$(txt common status_unsupported "Not supported")
 _txt_status_data_detected=$(txt common status_data_detected "Detected")
 _txt_status_disabled=$(txt common status_disabled "Disabled")
 _txt_status_unknown=$(txt common status_unknown "Unknown")
-_txt_data_scrubbing=$(txt common data_scrubbing "Data Scrubbing")
+_txt_data_scrubbing=$(txt common status_data_scrubbing "Data Scrubbing")
 _txt_storage_pool=$(txt common storage_pool "Storage Pool")
 _txt_volume_size=$(txt common volume_size "Volume Size")
 _txt_storage_status=$(txt common storage_status "Storage Status")
@@ -1318,6 +1318,7 @@ _txt_temp=$(txt common temperature "Temperature")
 #_txt_temp=$(txt common temperature "°C")
 _txt_status=$(txt common status "Status")
 _txt_volume=$(txt common volume "Volume")
+_txt_file_system=$(txt common file_system "File System")
 _txt_cache=$(txt common cache "Cache")
 _txt_smart_view=$(txt common smart_view "View S.M.A.R.T.")
 _txt_volume_used=$(txt common volume_used "Used")
@@ -1339,6 +1340,10 @@ _txt_smart_timeout=$(txt errors err_smart_timeout "Timed out waiting for SMART d
 _txt_smart_failed=$(txt errors err_smart_failed "Request failed.")
 _txt_lang="$_lang"   # or gui_lang, whatever you settle on
 _txt_settings_admin_only=$(txt errors err_admin_only "Settings are only available to administrators.")
+_txt_status_replacing=$(txt common status_replacing "Replacing")
+_txt_unit_hour=$(txt common unit_hour "hr")
+_txt_unit_minute=$(txt common unit_minute "min")
+_txt_step=$(txt common step "Step")
 
 cat << STYLE
 <style>
@@ -1387,16 +1392,18 @@ td.status-critical { color: #E64040; }
 td.status-failing  { color: #E64040; }
 .vol-table-wrapper { margin-top: 8px; }
 col.vol-name   { width: 12%; min-width: 80px; }
+col.vol-fs     { width: 8%; min-width: 60px; }
 col.vol-pool   { width: 18%; min-width: 110px; }
 col.vol-size   { width: 12%; min-width: 80px; }
 col.vol-used   { width: 10%; min-width: 60px; }
 col.vol-pool-status { width: auto; min-width: 100px; }
 td.vol-name    { color: #057FEB; white-space: nowrap; }
+td.vol-fs      { white-space: nowrap; }
 td.vol-pool    { white-space: nowrap; }
 td.vol-size    { white-space: nowrap; }
 td.vol-used    { white-space: nowrap; }
 td.vol-pool-status { white-space: nowrap; }
-th.vol-name, th.vol-pool, th.vol-size, th.vol-used, th.vol-pool-status { white-space: nowrap; }
+th.vol-name, th.vol-fs, th.vol-pool, th.vol-size, th.vol-used, th.vol-pool-status { white-space: nowrap; }
 .err { color: #c00; }
 a    { color: #0073c0; }
 /* Top bar - shared by both views */
@@ -1808,7 +1815,7 @@ while IFS= read -r line; do
                 # Skip volume table entirely
                 in_table=1; table_type="skip"; headers=(); continue
             fi
-            echo '<div class="vol-table-wrapper"><table class="vol-table"><colgroup><col class="vol-name"><col class="vol-pool"><col class="raid"><col class="vol-size"><col class="vol-used"><col class="status"><col class="vol-pool-status"></colgroup>'
+            echo '<div class="vol-table-wrapper"><table class="vol-table"><colgroup><col class="vol-name"><col class="vol-fs"><col class="vol-pool"><col class="raid"><col class="vol-size"><col class="vol-used"><col class="status"><col class="vol-pool-status"></colgroup>'
         else
             table_type="drive"
             if [[ $HAS_LOCATION -eq 1 && $IS_SMR -eq 1 ]]; then
@@ -1824,7 +1831,7 @@ while IFS= read -r line; do
 
         echo "<thead><tr>"
         if [[ "$table_type" == "volume" ]]; then
-            vol_classes=("vol-name" "vol-pool" "raid" "vol-size" "vol-used" "status" "vol-pool-status")
+            vol_classes=("vol-name" "vol-fs" "vol-pool" "raid" "vol-size" "vol-used" "status" "vol-pool-status")
             for idx in "${!headers[@]}"; do
                 cls="${vol_classes[$idx]:-}"
                 echo "<th class=\"$cls\">$(echo "${headers[$idx]}" | sed 's/</\&lt;/g;s/>/\&gt;/g')</th>"
@@ -1859,7 +1866,8 @@ while IFS= read -r line; do
             if [[ "$table_type" == "volume" ]]; then
                 case $c in
                     0) echo "<td class=\"vol-name\">$val</td>" ;;
-                    1)
+                    1) echo "<td class=\"vol-fs\">$val</td>" ;;
+                    2)
                         if [[ "$val" == *"@@"* ]]; then
                             pool_label="${val%%@@*}"
                             pool_disks="${val#*@@}"
@@ -1869,7 +1877,7 @@ while IFS= read -r line; do
                             echo "<td class=\"vol-pool\">$val</td>"
                         fi
                         ;;
-                    2)
+                    3)
                         if [[ "$val" == *"@@"* ]]; then
                             raid_label="${val%%@@*}"
                             raid_disks="${val#*@@}"
@@ -1879,9 +1887,9 @@ while IFS= read -r line; do
                             echo "<td class=\"raid\">$val</td>"
                         fi
                         ;;
-                    3) echo "<td class=\"vol-size\">$val</td>" ;;
-                    4) echo "<td class=\"vol-used\">$val</td>" ;;
-                    5)
+                    4) echo "<td class=\"vol-size\">$val</td>" ;;
+                    5) echo "<td class=\"vol-used\">$val</td>" ;;
+                    6)
                         case "$val" in
                             healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
                             warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
@@ -1892,7 +1900,7 @@ while IFS= read -r line; do
                         css_class="$css_class status"
                         echo "<td class=\"$css_class\">$val</td>"
                         ;;
-                    6)
+                    7)
                         case "$val" in
                             healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
                             warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
@@ -1901,13 +1909,24 @@ while IFS= read -r line; do
                             *)           css_class="vol-pool-status"                          ;;
                         esac
                         css_class="$css_class vol-pool-status"
+
+                        # Optional hover text after @@ (e.g. "Step 2/2. 4 hours remaining")
+                        status_title=""
+                        if [[ "$val" == *"@@"* ]]; then
+                            status_title="${val#*@@}"
+                            status_title="${status_title//\"/&quot;}"
+                            status_title=" title=\"${status_title}\""
+                            val="${val%%@@*}"
+                        fi
+
                         if [[ "$val" == *" - "* ]]; then
                             val_main="${val%% - *}"
                             val_suffix=" - ${val#* - }"
-                            echo "<td class=\"$css_class\">${val_main}<span style=\"color:var(--text-color,#000)\">${val_suffix}</span></td>"
+                            echo "<td class=\"$css_class\"${status_title}>${val_main}<span style=\"color:var(--text-color,#000)\">${val_suffix}</span></td>"
                         else
-                            echo "<td class=\"$css_class\">$val</td>"
-                        fi                        ;;
+                            echo "<td class=\"$css_class\"${status_title}>$val</td>"
+                        fi
+                        ;;
                     *) echo "<td>$val</td>" ;;
                 esac
             else
@@ -2654,6 +2673,17 @@ function buildHAPassiveTable(disks, diskTooltipMap) {
     return html;
 }
 
+function fmtRemaining(secs) {
+    secs = parseInt(secs, 10);
+    if (isNaN(secs) || secs <= 0) return '';
+    var totalMin = Math.ceil(secs / 60);
+    var h = Math.floor(totalMin / 60), m = totalMin % 60;
+    var out = [];
+    if (h > 0) out.push(h + ' ${_txt_unit_hour}');
+    if (m > 0 || h === 0) out.push(m + ' ${_txt_unit_minute}');
+    return out.join(' ');
+}
+
 function buildHAPassiveVolumeTable(volumes, storagePools, disks, activeVolumes, passiveDataUnsynced) {
     volumes = volumes || [];
     storagePools = storagePools || [];
@@ -2683,6 +2713,7 @@ function buildHAPassiveVolumeTable(volumes, storagePools, disks, activeVolumes, 
         crashed:    {cls: 'status-critical', text: '${_txt_status_crashed}'},
         repairing:  {cls: 'status-warning',  text: '${_txt_status_repairing}'},
         rebuilding: {cls: 'status-warning',  text: '${_txt_status_rebuilding}'},
+        replacing:  {cls: 'status-warning',  text: '${_txt_status_replacing}'},
         read_only:  {cls: 'status-warning',  text: '${_txt_status_read_only}'},
         background: {cls: 'status-healthy',  text: '${_txt_status_healthy}'},
         background_scrubbing: {cls: 'status-healthy', text: '${_txt_status_healthy}'}
@@ -2698,7 +2729,7 @@ function buildHAPassiveVolumeTable(volumes, storagePools, disks, activeVolumes, 
     }
 
     var html = '<table><thead><tr>' +
-        '<th>${_txt_volume}</th><th>${_txt_storage_pool}</th><th>${_txt_raid}</th>' +
+        '<th>${_txt_volume}</th><th>${_txt_file_system}</th><th>${_txt_storage_pool}</th><th>${_txt_raid}</th>' +
         '<th>${_txt_volume_size}</th><th>${_txt_volume_used}</th><th>${_txt_status}</th><th>${_txt_storage_status}</th>' +
         '</tr></thead><tbody>';
 
@@ -2738,7 +2769,7 @@ function buildHAPassiveVolumeTable(volumes, storagePools, disks, activeVolumes, 
         var vStatusKey = v.summary_status || v.status || '';
         var vMapped = STATUS_TEXT_MAP[vStatusKey] || {cls: 'status', text: vStatusKey || '-'};
         var vStatusText = vMapped.text;
-        if ((vStatusKey === 'repairing' || vStatusKey === 'rebuilding') &&
+        if ((vStatusKey === 'repairing' || vStatusKey === 'rebuilding' || vStatusKey === 'replacing') &&
             v.progress && v.progress.percent !== undefined && v.progress.percent !== -1) {
             vStatusText += ' (' + Number(v.progress.percent).toFixed(2) + '%)';
         }
@@ -2748,21 +2779,30 @@ function buildHAPassiveVolumeTable(volumes, storagePools, disks, activeVolumes, 
         var pMapped = STATUS_TEXT_MAP[pStatusKey];
         var pStatusText = pMapped ? pMapped.text : pStatusKey;
         var pCls = pMapped ? pMapped.cls : 'status';
-        if ((pStatusKey === 'repairing' || pStatusKey === 'rebuilding' ||
+        var pTitle = '';
+        if ((pStatusKey === 'repairing' || pStatusKey === 'rebuilding' || pStatusKey === 'replacing' ||
              pStatusKey === 'background' || pStatusKey === 'background_scrubbing') &&
             pool.progress && pool.progress.percent !== undefined && pool.progress.percent !== -1) {
             pStatusText += ' (' + Number(pool.progress.percent).toFixed(2) + '%)';
+            var rem = fmtRemaining(pool.progress.remaining_time);
+            if (rem) {
+                var stepTxt = (pool.progress.total_step > 1)
+                    ? '${_txt_step} ' + pool.progress.cur_step + '/' + pool.progress.total_step + '. '
+                    : '';
+                pTitle = ' title="' + escHtml(stepTxt + rem) + '"';
+            }
         }
 
         html +=
             '<tr>' +
             '<td class="smart-cyan">' + escHtml(volLabel) + '</td>' +
+            '<td>' + escHtml(v.fs_type || '-') + '</td>' +
             '<td>' + escHtml(poolLabel) + '</td>' +
             '<td title="' + escHtml(poolDiskNames) + '">' + escHtml(raidStr) + '</td>' +
             '<td' + sizeAttr + '>' + escHtml(sizeStr) + '</td>' +
             '<td' + usedAttr + '>' + escHtml(usedStr) + '</td>' +
             '<td class="' + vMapped.cls + '">' + escHtml(vStatusText) + '</td>' +
-            '<td class="' + pCls + '">' + escHtml(pStatusText) + '</td>' +
+            '<td class="' + pCls + '"' + pTitle + '>' + escHtml(pStatusText) + '</td>' +
             '</tr>';
     });
 

@@ -137,7 +137,7 @@ jobs:
             kvmx64)    expect_arch="x86-64" ;;
             rtd1296)   expect_arch="ARM aarch64" ;;
             armada38x) expect_arch="ARM" ;;
-            evansport) expect_arch="Intel 80386" ;;
+            evansport) expect_arch="Intel (80386|i386)" ;;
             *) echo "::error::No expected ELF arch mapped for '${{ matrix.arch }}'"; exit 1 ;;
           esac
 
@@ -159,13 +159,12 @@ jobs:
 
           file_out=$(file -b "$helper")
           echo "${HELPER_NAME}-helper: $file_out"
-          case "$file_out" in
-            *"$expect_arch"*) echo "OK: matches expected arch '$expect_arch'" ;;
-            *)
-              echo "::error::${HELPER_NAME}-helper in $spk doesn't look like '$expect_arch' (got: $file_out) - wrong-arch compiler was likely used"
-              exit 1
-              ;;
-          esac
+          if echo "$file_out" | grep -Eq "$expect_arch"; then
+            echo "OK: matches expected arch '$expect_arch'"
+          else
+            echo "::error::${HELPER_NAME}-helper doesn't look like '$expect_arch' (got: $file_out) - wrong binary was selected"
+            exit 1
+          fi
 
           rm -rf "$workdir"
 

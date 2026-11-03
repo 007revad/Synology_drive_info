@@ -103,6 +103,7 @@ if which smartctl7 >/dev/null; then
     smartversion=7
 else
     smartctl=$(which smartctl)
+    smartversion=6
 fi
 
 # Get eunit model and port number
@@ -298,6 +299,8 @@ fi
 increased_txt="$(txt common smart_increased "Increased by")"
 decreased_txt="$(txt common smart_decreased "Deccreased by")"
 
+trim(){ printf '%s' "$*" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//'; }  # trim leading and trailing white space
+
 detect_dtype(){ 
     # Default to SAT
     local dtype="sat" info t
@@ -456,26 +459,32 @@ log_drive(){
 show_drive_model(){ 
     # Get drive model
     # $drive is sata1 or sda or usb1 etc
-    #vendor=$(cat "/sys/block/$drive/device/vendor")
-    #vendor=$(printf "%s" "$vendor" | xargs)  # trim leading and trailing white space
+    ##vendor=$(cat "/sys/block/$drive/device/vendor")
+    ##vendor=$(printf "%s" "$vendor" | xargs)  # trim leading and trailing white space
+    #vendor="$(trim "$(cat "/sys/block/$drive/device/vendor")")"  # trim leading and trailing white space
 
-    model=$(cat "/sys/block/$drive/device/model")
-    model=$(printf "%s" "$model" | xargs)  # trim leading and trailing white space
+    #model=$(cat "/sys/block/$drive/device/model")
+    #model=$(printf "%s" "$model" | xargs)  # trim leading and trailing white space
+    model="$(trim "$(cat "/sys/block/$drive/device/model")")"  # trim leading and trailing white space
 
     # Get drive serial number
     if echo "$drive" | grep nvme >/dev/null ; then
-        serial=$(cat "/sys/block/$drive/device/serial")
+        #serial=$(cat "/sys/block/$drive/device/serial")
+        serial="$(trim "$(cat "/sys/block/$drive/device/serial")")"  # trim leading and trailing white space
     else
-        serial=$(cat "/sys/block/$drive/device/syno_disk_serial")
+        #serial=$(cat "/sys/block/$drive/device/syno_disk_serial")
+        serial="$(trim "$(cat "/sys/block/$drive/device/syno_disk_serial")")"  # trim leading and trailing white space
     fi
-    serial=$(printf "%s" "$serial" | xargs)  # trim leading and trailing white space
+    #serial=$(printf "%s" "$serial" | xargs)  # trim leading and trailing white space
 
     # NVMe drive in a USB enclosure. sysfs only has the bridge chip's model and a fake serial
     if [[ -n $nvme_dtype ]]; then
         local nvme_info nvme_model nvme_serial
         nvme_info="$("$smartctl" -i -d "$nvme_dtype" /dev/"$drive" 2>/dev/null)"
-        nvme_model="$(awk -F: '/^Model Number:/ {print $2; exit}' <<< "$nvme_info" | xargs)"
-        nvme_serial="$(awk -F: '/^Serial Number:/ {print $2; exit}' <<< "$nvme_info" | xargs)"
+        #nvme_model="$(awk -F: '/^Model Number:/ {print $2; exit}' <<< "$nvme_info" | xargs)"
+        nvme_model="$(trim "$(awk -F: '/^Model Number:/ {print $2; exit}' <<< "$nvme_info")")"  # trim leading and trailing white space
+        #nvme_serial="$(awk -F: '/^Serial Number:/ {print $2; exit}' <<< "$nvme_info" | xargs)"
+        nvme_serial="$(trim "$(awk -F: '/^Serial Number:/ {print $2; exit}' <<< "$nvme_info")")"  # trim leading and trailing white space
         [[ -n $nvme_model ]] && model="$nvme_model"
         [[ -n $nvme_serial ]] && serial="$nvme_serial"
     fi
@@ -485,7 +494,8 @@ show_drive_model(){
     if [[ -z "$serial" ]]; then
         local dtype
         dtype=$(detect_dtype)
-        serial=$("$smartctl" -i -d "$dtype" /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
+        #serial=$("$smartctl" -i -d "$dtype" /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
+        serial="$(trim "$("$smartctl" -i -d "$dtype" /dev/"$drive" | grep Serial | cut -d":" -f2)")"  # trim leading and trailing white space
     fi
 
     # Show drive model and serial
@@ -699,7 +709,6 @@ smart_all(){
     fi
 
     # SAT / non-SCSI path
-    print_smart_header
 
     # https://www.virten.net/2016/12/ssd-total-bytes-written-calculator/
     # (Total_LBAs_Written x Sector Size) = Total Bytes Written
@@ -711,7 +720,7 @@ smart_all(){
         readarray -t att_array < <(
             "$smartctl" -A -f brief -d "$drive_type" -T permissive \
                 -v 1,raw48:54 -v 7,raw48:54 -v 188,raw48:54 -v 195,raw48:54 \
-                -v 240,msec24hour32 "/dev/$drive" \
+                -v 240,msec24hour32 "/dev/$drive" 2>/dev/null \
             | tail -n +7 \
             | grep -v '^ID#'
         )
@@ -722,18 +731,24 @@ smart_all(){
                 -v 1,raw48:54,Raw_Read_Error_Rate -v 7,raw48:54,Seek_Error_Rate \
                 -v 188,raw48:54,Command_Timeout_Count \
                 -v 195,raw48:54,Hardware_ECC_Recovered \
-                -v 240,msec24hour32,Head_Flying_Hours "/dev/$drive" \
+                -v 240,msec24hour32,Head_Flying_Hours "/dev/$drive" 2>/dev/null \
             | tail -n +7 \
             | grep -v '^ID#'
         )
     else
         # Same for non-Seagate drives
         readarray -t att_array < <(
-            "$smartctl" -A -f brief -d "$drive_type" -T permissive "/dev/$drive" \
+            "$smartctl" -A -f brief -d "$drive_type" -T permissive "/dev/$drive" 2>/dev/null \
             | tail -n +7 \
             | grep -v '^ID#'
         )
     fi
+
+    if [[ ${#att_array[@]} -eq 0 ]]; then
+        echo "SMART data not available for this device"
+        return
+    fi
+    print_smart_header
 
     for strIn in "${att_array[@]}"; do
         # Remove lines containing ||||||_ to |______
@@ -1467,7 +1482,7 @@ show_nvme_overall_health(){
     # $nvme_dtype is set if it's a NVMe drive in a USB enclosure
     local strIn
     if [[ $smartversion -gt "6" ]]; then
-        strIn=$("$smartctl" -H ${nvme_dtype:+-d $nvme_dtype} /dev/"$drive" | grep 'health')
+        strIn=$("$smartctl" -H ${nvme_dtype:+-d $nvme_dtype} /dev/"$drive" 2>/dev/null | grep 'health')
         if $(echo "$strIn" | grep -qi PASSED); then
             if [[ $increased != "yes" ]]; then
                 echo -e "SMART overall-health self-assessment test result: ${LiteGreen}PASSED${Off}"
@@ -1516,7 +1531,9 @@ is_seagate(){
     # Check if drive is Seagate or Seagate based Synology HAT3300
     local dt
     dt=$(detect_dtype)
-    DEVICE=$("$smartctl" -A -i -d "$dt" -T permissive /dev/"$drive" 2>/dev/null | awk -F ' ' '/Device Model/{print $3}')
+    # "Device Model:     Synology HAT3300-4T" -> "HAT3300-4T"
+    DEVICE=$("$smartctl" -A -i -d "$dt" -T permissive /dev/"$drive" 2>/dev/null | awk -F: '/Device Model/{gsub(/^[ \t]+/,"",$2); print $2; exit}')
+    DEVICE="${DEVICE#Synology }"
     if [[ -z $DEVICE ]]; then
         DEVICE=$("$smartctl" -A -i -d "$dt" -T permissive /dev/"$drive" 2>/dev/null | awk -F ' ' '/Product/{print $2}')
     fi
@@ -1736,9 +1753,11 @@ for d in "${drives_sorted[@]}"; do
         # DSM 7 or newer
 
         # Show SMART test status if SMART test running
-        percentleft=$("$smartctl" -a -d "$drive_type" -T permissive /dev/"$drive" | grep "  Self-test routine in progress" | cut -d " " -f9-13)
+        drive_type=$(detect_dtype)
+        percentleft=$("$smartctl" -a -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | grep "  Self-test routine in progress" | cut -d " " -f9-13)
+
         if [[ $percentleft ]]; then
-            hourselapsed=$("$smartctl" -a -d "$drive_type" -T permissive /dev/"$drive" | grep "  Self-test routine in progress" | cut -d " " -f21)
+            hourselapsed=$("$smartctl" -a -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | grep "  Self-test routine in progress" | cut -d " " -f21)
             if [[ $increased != "yes" ]]; then
                 echo "Drive $model $serial $percentleft remaining, $hourselapsed hours elapsed."
             fi
@@ -1750,9 +1769,10 @@ for d in "${drives_sorted[@]}"; do
         # DSM 6 or older
 
         # Show SMART test status if SMART test running
-        percentdone=$("$smartctl" -a -d "$drive_type" -T permissive /dev/"$drive" | grep "ScanStatus" | cut -d " " -f3-4)
+        drive_type=$(detect_dtype)
+        percentdone=$("$smartctl" -a -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | grep "ScanStatus" | cut -d " " -f3-4)
         if [[ $percentdone ]]; then
-            hourselapsed=$("$smartctl" -a -d "$drive_type" -T permissive /dev/"$drive" | grep "  Self-test routine in progress" | cut -d " " -f21)
+            hourselapsed=$("$smartctl" -a -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | grep "  Self-test routine in progress" | cut -d " " -f21)
             if [[ $increased != "yes" ]]; then
                 echo "Drive $model $serial ${percentdone}% done."
             fi

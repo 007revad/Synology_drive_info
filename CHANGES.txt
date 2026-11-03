@@ -1,3 +1,15 @@
+v2.4.70
+- Added File System column in the Volume table.
+- Added tooltip for Storage Status column to show how long the Repair/Rebuild/Replace has left and the speed.
+  - HA passive nodes don't show the speed for the Repair/Rebuild/Replace tooltip.
+- Added tooltip for Storage Status column to show how long the Data Scrubbing has left and the speed.
+  - HA passive nodes don't show the speed for the Data Scrubbing tooltip.
+- Bug fix for HA passive node showing "replacing" in black instead of "Replacing n.nn%" in orange.
+- Bug fix for HA passive node showing the drive's size instead of SMR for SMR HDDs.
+- Bug fix for "Data Scrubbing" always showing in English (except for HA passive nodes).
+- Bug fix for Synology HAT3300 HDDs not being detected as Seagate HDDs - causing SMART values 1, 7, 188 and 195 to not be decoded.
+- Bug fixes for some USB drives' SMART info showing smartctl errors.
+
 v2.4.69
 - Added Firmware version column.
 - The Repairing/Rebuilding percentage now shows two decimal places (like Storage Manager).
