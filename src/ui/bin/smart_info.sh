@@ -301,6 +301,12 @@ decreased_txt="$(txt common smart_decreased "Deccreased by")"
 
 trim(){ printf '%s' "$*" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//'; }  # trim leading and trailing white space
 
+sat_identifies(){ 
+    # True if -d sat reads a real ATA identity (PATA drives have no "SATA Version is")
+    "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null |\
+        grep -E '^(Device Model|Serial Number):' | grep -vq 'No Information Found'
+}
+
 detect_dtype(){ 
     # Default to SAT
     local dtype="sat" info t
@@ -313,19 +319,31 @@ detect_dtype(){
     # Else if SATA appears at least once, treat as SAT
     elif grep -q SATA <<< "$info"; then
         dtype="sat"
+    # Else if NVMe appears at least once, treat as NVMe
+    elif grep -q NVMe <<< "$info"; then
+        dtype="nvme"
     # Else if a USB drive that is not a real SATA drive, it may be a NVMe drive
     # in a USB enclosure (their bridge chips fake an ATA identity for -d sat).
     # smartctl 7 can read these if told the bridge chip type.
-    elif { [[ $drive == usb* ]] || is_usb "$drive"; } &&\
-        ! "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
-        for t in sntrealtek sntjmicron sntasmedia; do
-            if "$smartctl" -d "$t" -i /dev/"$drive" 2>/dev/null | grep -q '^NVMe Version:'; then
-                dtype="$t"
-                break
-            fi
-        done
+    elif [[ $drive == usb* ]] || is_usb "$drive"; then
+        if ! sat_identifies; then
+            # SATA drive behind a bridge that needs a specific type
+            for t in usbjmicron usbsunplus usbcypress; do
+                if "$smartctl" -d "$t" -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
+                    dtype="$t"; break
+                fi
+            done
+        fi
+        # Otherwise maybe an NVMe drive in a USB enclosure
+        if [[ $dtype == sat ]] &&\
+            ! "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
+            for t in sntrealtek sntjmicron sntasmedia; do
+                if "$smartctl" -d "$t" -i /dev/"$drive" 2>/dev/null | grep -q '^NVMe Version:'; then
+                    dtype="$t"; break
+                fi
+            done
+        fi
     fi
-
     echo "$dtype"
 }
 
@@ -490,12 +508,14 @@ show_drive_model(){
     fi
 
     # Get drive serial number with smartctl for USB drives
+    #[[ $serial =~ ^[A-Za-z0-9._-]+$ ]] || serial=""
+    is_usb "$drive" && { [[ $serial =~ ^[A-Za-z0-9._-]+$ ]] || serial=""; }
 #    if [[ -z "$serial" && "${drive:0:4}" != "nvme" ]]; then
     if [[ -z "$serial" ]]; then
         local dtype
         dtype=$(detect_dtype)
         #serial=$("$smartctl" -i -d "$dtype" /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
-        serial="$(trim "$("$smartctl" -i -d "$dtype" /dev/"$drive" | grep Serial | cut -d":" -f2)")"  # trim leading and trailing white space
+        serial="$(trim "$("$smartctl" -i -d "$dtype" /dev/"$drive" 2>/dev/null | grep Serial | cut -d":" -f2)")"  # trim leading and trailing white space
     fi
 
     # Show drive model and serial
@@ -1503,9 +1523,11 @@ show_usb_nvme_hint(){
     # Without smartctl 7 a NVMe drive in a USB enclosure can't be read, so show a hint
     # below the SMART errors. Real SATA drives show "SATA Version is" with -d sat.
     if { [[ $drive == usb* ]] || is_usb "$drive"; } && [[ $increased != "yes" && ${smartversion:-6} -lt 7 ]]; then
-        if ! "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
-            echo ""
-            echo "$(txt common usb_nvme_hint "This may be an NVMe drive in a USB enclosure. Install SynoCli Disk Tools so Drive Info can read its S.M.A.R.T. data.")"
+        if [[ $(detect_dtype) == sat ]]; then
+            if ! "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
+                echo ""
+                echo "$(txt common usb_nvme_hint "This may be an NVMe drive in a USB enclosure. Install SynoCli Disk Tools so Drive Info can read its S.M.A.R.T. data.")"
+            fi
         fi
     fi
 }

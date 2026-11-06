@@ -1,3 +1,7 @@
+v2.4.71
+- Bug fix for timing out while getting the drive info from slow other local Synology NAS if their drives were asleep.
+- Bug fixes for some USB drives.
+
 v2.4.70
 - Added File System column in the Volume table.
 - Added tooltip for Storage Status column to show how long the Repair/Rebuild/Replace has left and the speed.

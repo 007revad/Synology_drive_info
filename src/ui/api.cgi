@@ -118,26 +118,6 @@ case "$_action" in
 esac
 
 #---------------------------------------------------------------------------
-# Language argument handling
-#---------------------------------------------------------------------------
-_lang=""
-if [[ "${QUERY_STRING:-}" =~ (^|&)lang=([^&]*) ]]; then
-    _lang="${BASH_REMATCH[2]}"
-    # Validate it's a real lang code
-    if [[ ! "$_lang" =~ ^(chs|cht|csy|dan|enu|fre|ger|hun|ita|jpn|krn|nld|nor|plk|ptb|ptg|rus|spn|sve|tha|trk)$ ]]; then
-        _lang=""
-    fi
-fi
-# Fall back to local setting if not supplied
-[[ -z "$_lang" ]] && _lang="$(get_key_value /etc/synoinfo.conf maillang 2>/dev/null)"
-
-source "${TARGET_DIR}/ui/modules/get_text.sh" "$_lang"
-
-# SRM has no Task Scheduler, so scheduled S.M.A.R.T. emails are unavailable
-IS_SRM=false
-[[ "$(/usr/syno/bin/synogetkeyvalue /etc.defaults/synoinfo.conf os_name 2>/dev/null)" == "SRM" ]] && IS_SRM=true
-
-#---------------------------------------------------------------------------
 # action=info
 # Returns JSON identifying this NAS. No sudo needed.
 # Used by remote NAS fetch so the frontend knows who responded.
@@ -185,6 +165,26 @@ if [[ "$_action" == "info" ]]; then
         "$_hostname" "$_model" "$_version" "$_pkg_version"
     exit 0
 fi
+
+#---------------------------------------------------------------------------
+# Language argument handling
+#---------------------------------------------------------------------------
+_lang=""
+if [[ "${QUERY_STRING:-}" =~ (^|&)lang=([^&]*) ]]; then
+    _lang="${BASH_REMATCH[2]}"
+    # Validate it's a real lang code
+    if [[ ! "$_lang" =~ ^(chs|cht|csy|dan|enu|fre|ger|hun|ita|jpn|krn|nld|nor|plk|ptb|ptg|rus|spn|sve|tha|trk)$ ]]; then
+        _lang=""
+    fi
+fi
+# Fall back to local setting if not supplied
+[[ -z "$_lang" ]] && _lang="$(get_key_value /etc/synoinfo.conf maillang 2>/dev/null)"
+
+source "${TARGET_DIR}/ui/modules/get_text.sh" "$_lang"
+
+# SRM has no Task Scheduler, so scheduled S.M.A.R.T. emails are unavailable
+IS_SRM=false
+[[ "$(/usr/syno/bin/synogetkeyvalue /etc.defaults/synoinfo.conf os_name 2>/dev/null)" == "SRM" ]] && IS_SRM=true
 
 #---------------------------------------------------------------------------
 # action=discover
@@ -2943,7 +2943,7 @@ function tryFetchInfo(section, url, protocol, isHttpsPage, httpsAvailable, ip, p
     var ixhr = new XMLHttpRequest();
     var infoDone = false;  // onreadystatechange and onerror can both fire for one failure
     ixhr.open('GET', url + '?action=info', true);
-    ixhr.timeout = 5000;
+    ixhr.timeout = 10000;  // was 5000
 
     function fail() {
         if (fallbackUrl) {
@@ -2987,6 +2987,12 @@ function tryFetchInfo(section, url, protocol, isHttpsPage, httpsAvailable, ip, p
         fail();
     };
     ixhr.send();
+
+    ixhr.ontimeout = function() {
+        if (infoDone) return;
+        infoDone = true;
+        fail();
+    };
 }
 
 // Builds the same contextual error message used whether the failure
@@ -3019,7 +3025,7 @@ function fetchDriveTable(section, url, protocol, isHttpsPage, httpsAvailable, ip
     var fxhr = new XMLHttpRequest();
     var errorShown = false;  // onreadystatechange and onerror can both fire for one failure
     fxhr.open('GET', url + sep + 'lang=' + encodeURIComponent(viewer_lang), true);
-    fxhr.timeout = 15000;
+    fxhr.timeout = 60000;  // was 15000 (matches the SMART panel's 60000)
 
     function showFailure() {
         if (errorShown) return;
@@ -3057,6 +3063,7 @@ function fetchDriveTable(section, url, protocol, isHttpsPage, httpsAvailable, ip
             showFailure();
         }
     };
+    fxhr.ontimeout = showFailure;
     fxhr.onerror = showFailure;
     fxhr.send();
 }

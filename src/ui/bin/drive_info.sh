@@ -523,6 +523,12 @@ get_drive_health6(){
     fi
 }
 
+sat_identifies(){ 
+    # True if -d sat reads a real ATA identity (PATA drives have no "SATA Version is")
+    "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null |\
+        grep -E '^(Device Model|Serial Number):' | grep -vq 'No Information Found'
+}
+
 detect_dtype(){ 
     # Default to SAT
     local dtype="sat" info t
@@ -541,16 +547,25 @@ detect_dtype(){
     # Else if a USB drive that is not a real SATA drive, it may be a NVMe drive
     # in a USB enclosure (their bridge chips fake an ATA identity for -d sat).
     # smartctl 7 can read these if told the bridge chip type.
-    elif { [[ $drive == usb* ]] || is_usb "$drive"; } &&\
-        ! "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
-        for t in sntrealtek sntjmicron sntasmedia; do
-            if "$smartctl" -d "$t" -i /dev/"$drive" 2>/dev/null | grep -q '^NVMe Version:'; then
-                dtype="$t"
-                break
-            fi
-        done
+    elif [[ $drive == usb* ]] || is_usb "$drive"; then
+        if ! sat_identifies; then
+            # SATA drive behind a bridge that needs a specific type
+            for t in usbjmicron usbsunplus usbcypress; do
+                if "$smartctl" -d "$t" -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
+                    dtype="$t"; break
+                fi
+            done
+        fi
+        # Otherwise maybe an NVMe drive in a USB enclosure
+        if [[ $dtype == sat ]] &&\
+            ! "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
+            for t in sntrealtek sntjmicron sntasmedia; do
+                if "$smartctl" -d "$t" -i /dev/"$drive" 2>/dev/null | grep -q '^NVMe Version:'; then
+                    dtype="$t"; break
+                fi
+            done
+        fi
     fi
-
     echo "$dtype"
 }
 
@@ -990,13 +1005,15 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         skip_unused=1  # USB drives are never storage pool members
         append_pool_hover
         get_drive_health usb
+
+        # Decide device type (sat/scsi) via detect_dtype()
+        drive_type=$(detect_dtype)
+
         #model=$(cat "/sys/block/$drive/device/model" | xargs)
-        model=$(smartctl -i -d sat /dev/"$drive" | grep '^Device Model:' | cut -d":" -f2 | xargs)
+        model=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep '^Device Model:' | cut -d":" -f2 | xargs)
         model=$(fixdrivemodel "$model")
 
         serial=$(cat "/sys/block/$drive/device/syno_disk_serial" | xargs)
-        # Decide device type (sat/scsi) via detect_dtype()
-        drive_type=$(detect_dtype)
         if [[ -z "$serial" ]]; then
             serial=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
         fi
