@@ -308,41 +308,76 @@ sat_identifies(){
 }
 
 detect_dtype(){ 
+    # Usage: detect_dtype      Echoes the device type to use with smartctl -d
+    #        detect_dtype log  Same, and with --debug shows on stderr which path was taken
     # Default to SAT
-    local dtype="sat" info t
+    local dtype="sat" info t is_usb_drive="no" show_log=""
+    if [[ $1 == "log" && $debug == "yes" ]]; then show_log="yes"; fi
+
+    # Log to stderr because stdout is the returned device type
+    dt_log(){ 
+        if [[ $show_log == "yes" ]]; then echo "detect_dtype $drive: $*" >&2; fi
+    }
 
     info="$("$smartctl" -i /dev/"$drive" 2>/dev/null)"
+
+    if [[ $show_log == "yes" ]]; then
+        if [[ $drive == usb* ]] || is_usb "$drive"; then is_usb_drive="yes"; fi
+        dt_log "smartctl: $smartctl (smartversion ${smartversion:-unknown}), USB drive: $is_usb_drive"
+        dt_log "smartctl -i says: $("$smartctl" -i /dev/"$drive" 2>&1 |\
+            grep -v -e '^smartctl ' -e '^Copyright' -e '^$' | head -n 3 | tr '\n' '|')"
+    fi
 
     # If SAS appears at least once, treat as SCSI
     if grep -q SAS <<< "$info"; then
         dtype="scsi"
+        dt_log "'SAS' found in smartctl -i output -> $dtype"
     # Else if SATA appears at least once, treat as SAT
     elif grep -q SATA <<< "$info"; then
         dtype="sat"
+        dt_log "'SATA' found in smartctl -i output -> $dtype"
     # Else if NVMe appears at least once, treat as NVMe
     elif grep -q NVMe <<< "$info"; then
         dtype="nvme"
+        dt_log "'NVMe' found in smartctl -i output -> $dtype"
     # Else if a USB drive that is not a real SATA drive, it may be a NVMe drive
     # in a USB enclosure (their bridge chips fake an ATA identity for -d sat).
     # smartctl 7 can read these if told the bridge chip type.
     elif [[ $drive == usb* ]] || is_usb "$drive"; then
-        if ! sat_identifies; then
+        dt_log "no SAS, SATA or NVMe in smartctl -i output, checking USB bridge types"
+        if sat_identifies; then
+            dt_log "-d sat -i shows an ATA identity"
+        else
+            dt_log "-d sat -i shows no ATA identity, trying SATA bridge types"
             # SATA drive behind a bridge that needs a specific type
             for t in usbjmicron usbsunplus usbcypress; do
                 if "$smartctl" -d "$t" -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
-                    dtype="$t"; break
+                    dtype="$t"
+                    dt_log "-d $t shows 'SATA Version is' -> $dtype"
+                    break
                 fi
+                dt_log "-d $t: no 'SATA Version is'"
             done
         fi
         # Otherwise maybe an NVMe drive in a USB enclosure
-        if [[ $dtype == sat ]] &&\
-            ! "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
-            for t in sntrealtek sntjmicron sntasmedia; do
-                if "$smartctl" -d "$t" -i /dev/"$drive" 2>/dev/null | grep -q '^NVMe Version:'; then
-                    dtype="$t"; break
-                fi
-            done
+        if [[ $dtype == sat ]]; then
+            if "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
+                dt_log "-d sat -i shows 'SATA Version is' -> $dtype"
+            else
+                dt_log "-d sat -i has no 'SATA Version is', trying NVMe bridge types"
+                for t in sntrealtek sntjmicron sntasmedia; do
+                    if "$smartctl" -d "$t" -i /dev/"$drive" 2>/dev/null | grep -q '^NVMe Version:'; then
+                        dtype="$t"
+                        dt_log "-d $t shows 'NVMe Version:' -> $dtype"
+                        break
+                    fi
+                    dt_log "-d $t: no 'NVMe Version:'"
+                done
+                [[ $dtype == sat ]] && dt_log "no bridge type worked, using default $dtype"
+            fi
         fi
+    else
+        dt_log "not a USB drive and no SAS, SATA or NVMe in smartctl -i output, using default $dtype"
     fi
     echo "$dtype"
 }
@@ -742,7 +777,10 @@ smart_all(){
                 -v 1,raw48:54 -v 7,raw48:54 -v 188,raw48:54 -v 195,raw48:54 \
                 -v 240,msec24hour32 "/dev/$drive" 2>/dev/null \
             | tail -n +7 \
-            | grep -v '^ID#'
+            | grep -v '^ID#' \
+            | grep -v -e "SMART Status not supported" -e "Warning: This result is based on an Attribute check" \
+            -e 'SMART support is: Ambiguous' -e 'SMART support is: Unknown' \
+            -e 'Checking to be sure by trying SMART RETURN STATUS' -e 'A mandatory SMART command failed'
         )
     elif [[ $seagate == "yes" ]] && [[ $smartversion -lt "7" ]]; then
         # Get all attributes, skip built-in header (first 6 lines), then drop “ID#” header
@@ -753,14 +791,20 @@ smart_all(){
                 -v 195,raw48:54,Hardware_ECC_Recovered \
                 -v 240,msec24hour32,Head_Flying_Hours "/dev/$drive" 2>/dev/null \
             | tail -n +7 \
-            | grep -v '^ID#'
+            | grep -v '^ID#' \
+            | grep -v -e "SMART Status not supported" -e "Warning: This result is based on an Attribute check" \
+            -e 'SMART support is: Ambiguous' -e 'SMART support is: Unknown' \
+            -e 'Checking to be sure by trying SMART RETURN STATUS' -e 'A mandatory SMART command failed'
         )
     else
         # Same for non-Seagate drives
         readarray -t att_array < <(
             "$smartctl" -A -f brief -d "$drive_type" -T permissive "/dev/$drive" 2>/dev/null \
             | tail -n +7 \
-            | grep -v '^ID#'
+            | grep -v '^ID#' \
+            | grep -v -e "SMART Status not supported" -e "Warning: This result is based on an Attribute check" \
+            -e 'SMART support is: Ambiguous' -e 'SMART support is: Unknown' \
+            -e 'Checking to be sure by trying SMART RETURN STATUS' -e 'A mandatory SMART command failed'
         )
     fi
 
@@ -952,7 +996,10 @@ show_health(){
 
     # Show drive overall health
     #readarray -t health_array < <("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | tail -n +5)
-    readarray -t health_array < <("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | tail -n +5 | grep -v -e "SMART Status not supported" -e "Warning: This result is based on an Attribute check")
+    readarray -t health_array < <("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | tail -n +5 | \
+        grep -v -e "SMART Status not supported" -e "Warning: This result is based on an Attribute check" \
+        -e 'SMART support is: Ambiguous' -e 'SMART support is: Unknown' \
+        -e 'Checking to be sure by trying SMART RETURN STATUS' -e 'A mandatory SMART command failed')
     for strIn in "${health_array[@]}"; do
         if echo "$strIn" | awk '{print $1}' | grep -E '[0-9]' >/dev/null ||\
            echo "$strIn" | awk '{print $1}' | grep 'ID#' >/dev/null ; then
@@ -1100,7 +1147,10 @@ show_health(){
         fi
     else  # SATA drive
         #health=$("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | tail -n +5)
-        health=$("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | tail -n +5 | grep -v -e "SMART Status not supported" -e "Warning: This result is based on an Attribute check")
+        health=$("$smartctl" -H -d "$drive_type" -T permissive /dev/"$drive" 2>/dev/null | tail -n +5 | \
+            grep -v -e "SMART Status not supported" -e "Warning: This result is based on an Attribute check" \
+            -e 'SMART support is: Ambiguous' -e 'SMART support is: Unknown' \
+            -e 'Checking to be sure by trying SMART RETURN STATUS' -e 'A mandatory SMART command failed')
         if ! echo "$health" | grep PASSED >/dev/null; then
             if [[ $increased != "yes" ]]; then
                 # Show all SMART attributes
@@ -1526,7 +1576,8 @@ show_usb_nvme_hint(){
         if [[ $(detect_dtype) == sat ]]; then
             if ! "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
                 echo ""
-                echo "$(txt common usb_nvme_hint "This may be an NVMe drive in a USB enclosure. Install SynoCli Disk Tools so Drive Info can read its S.M.A.R.T. data.")"
+                txt common usb_nvme_hint "This may be an NVMe drive in a USB enclosure. Install SynoCli Disk Tools so Drive Info can read its S.M.A.R.T. data."
+                #txt common usb_nvme_hint "S.M.A.R.T. data could not be read. If this an NVMe drive in a USB enclosure, install SynoCli Disk Tools so Drive Info can read it."
             fi
         fi
     fi
@@ -1743,6 +1794,8 @@ for d in "${drives_sorted[@]}"; do
     # Get drive from 'drive num,drive' in $d
     drive="${d#*,}"
 
+    [[ $debug == "yes" ]] && detect_dtype log >/dev/null
+  
     # Empty arrays
     changed_atts=()
     new_atts=()

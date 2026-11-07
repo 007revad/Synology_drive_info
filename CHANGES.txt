@@ -1,3 +1,6 @@
+v2.4.72
+- Bug fixes for USB drives showing SMART errors when smartctl7 is not available.
+
 v2.4.71
 - Bug fix for timing out while getting the drive info from slow other local Synology NAS if their drives were asleep.
 - Bug fixes for some USB drives.

@@ -22,6 +22,8 @@ if [[ $( whoami ) != "root" ]]; then
     exit 1  # Not running as root
 fi
 
+for arg in "$@"; do [[ $arg == "--debug" ]] && debug=yes; done
+
 # Check if script is running in an interactive shell
 if [[ -t 1 ]]; then  # Running in terminal
     echo "Running in an interactive shell (user terminal)."
@@ -224,8 +226,10 @@ export PATH
 if which smartctl7 >/dev/null; then
     # smartmontools 7 from SynoCli Disk Tools is installed
     smartctl=$(which smartctl7)
+    smartversion=7
 else
     smartctl=$(which smartctl)
+    smartversion=6
 fi
 
 # Get eunit model and port number
@@ -530,41 +534,76 @@ sat_identifies(){
 }
 
 detect_dtype(){ 
+    # Usage: detect_dtype      Echoes the device type to use with smartctl -d
+    #        detect_dtype log  Same, and with --debug shows on stderr which path was taken
     # Default to SAT
-    local dtype="sat" info t
+    local dtype="sat" info t is_usb_drive="no" show_log=""
+    if [[ $1 == "log" && $debug == "yes" ]]; then show_log="yes"; fi
+
+    # Log to stderr because stdout is the returned device type
+    dt_log(){ 
+        if [[ $show_log == "yes" ]]; then echo "detect_dtype $drive: $*" >&2; fi
+    }
 
     info="$("$smartctl" -i /dev/"$drive" 2>/dev/null)"
+
+    if [[ $show_log == "yes" ]]; then
+        if [[ $drive == usb* ]] || is_usb "$drive"; then is_usb_drive="yes"; fi
+        dt_log "smartctl: $smartctl (smartversion ${smartversion:-unknown}), USB drive: $is_usb_drive"
+        dt_log "smartctl -i says: $("$smartctl" -i /dev/"$drive" 2>&1 |\
+            grep -v -e '^smartctl ' -e '^Copyright' -e '^$' | head -n 3 | tr '\n' '|')"
+    fi
 
     # If SAS appears at least once, treat as SCSI
     if grep -q SAS <<< "$info"; then
         dtype="scsi"
+        dt_log "'SAS' found in smartctl -i output -> $dtype"
     # Else if SATA appears at least once, treat as SAT
     elif grep -q SATA <<< "$info"; then
         dtype="sat"
+        dt_log "'SATA' found in smartctl -i output -> $dtype"
     # Else if NVMe appears at least once, treat as NVMe
     elif grep -q NVMe <<< "$info"; then
         dtype="nvme"
+        dt_log "'NVMe' found in smartctl -i output -> $dtype"
     # Else if a USB drive that is not a real SATA drive, it may be a NVMe drive
     # in a USB enclosure (their bridge chips fake an ATA identity for -d sat).
     # smartctl 7 can read these if told the bridge chip type.
     elif [[ $drive == usb* ]] || is_usb "$drive"; then
-        if ! sat_identifies; then
+        dt_log "no SAS, SATA or NVMe in smartctl -i output, checking USB bridge types"
+        if sat_identifies; then
+            dt_log "-d sat -i shows an ATA identity"
+        else
+            dt_log "-d sat -i shows no ATA identity, trying SATA bridge types"
             # SATA drive behind a bridge that needs a specific type
             for t in usbjmicron usbsunplus usbcypress; do
                 if "$smartctl" -d "$t" -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
-                    dtype="$t"; break
+                    dtype="$t"
+                    dt_log "-d $t shows 'SATA Version is' -> $dtype"
+                    break
                 fi
+                dt_log "-d $t: no 'SATA Version is'"
             done
         fi
         # Otherwise maybe an NVMe drive in a USB enclosure
-        if [[ $dtype == sat ]] &&\
-            ! "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
-            for t in sntrealtek sntjmicron sntasmedia; do
-                if "$smartctl" -d "$t" -i /dev/"$drive" 2>/dev/null | grep -q '^NVMe Version:'; then
-                    dtype="$t"; break
-                fi
-            done
+        if [[ $dtype == sat ]]; then
+            if "$smartctl" -d sat -i /dev/"$drive" 2>/dev/null | grep -q 'SATA Version is'; then
+                dt_log "-d sat -i shows 'SATA Version is' -> $dtype"
+            else
+                dt_log "-d sat -i has no 'SATA Version is', trying NVMe bridge types"
+                for t in sntrealtek sntjmicron sntasmedia; do
+                    if "$smartctl" -d "$t" -i /dev/"$drive" 2>/dev/null | grep -q '^NVMe Version:'; then
+                        dtype="$t"
+                        dt_log "-d $t shows 'NVMe Version:' -> $dtype"
+                        break
+                    fi
+                    dt_log "-d $t: no 'NVMe Version:'"
+                done
+                [[ $dtype == sat ]] && dt_log "no bridge type worked, using default $dtype"
+            fi
         fi
+    else
+        dt_log "not a USB drive and no SAS, SATA or NVMe in smartctl -i output, using default $dtype"
     fi
     echo "$dtype"
 }
@@ -915,7 +954,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         model=$(cat "/sys/block/$drive/device/model" | xargs)
         serial=$(cat "/sys/block/$drive/device/syno_disk_serial" | xargs)
         # Decide device type (sat/scsi) via detect_dtype()
-        drive_type=$(detect_dtype)
+        drive_type=$(detect_dtype log)
         if [[ -z "$serial" ]]; then
             serial=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep Serial | cut -d":" -f2 | xargs)
         fi
@@ -1007,7 +1046,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         get_drive_health usb
 
         # Decide device type (sat/scsi) via detect_dtype()
-        drive_type=$(detect_dtype)
+        drive_type=$(detect_dtype log)
 
         #model=$(cat "/sys/block/$drive/device/model" | xargs)
         model=$("$smartctl" -i -d "$drive_type" /dev/"$drive" | grep '^Device Model:' | cut -d":" -f2 | xargs)
