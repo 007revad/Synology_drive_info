@@ -324,9 +324,10 @@ jobs:
               cp "$GITHUB_WORKSPACE/srm/bash/$b" "$pkgdir/ui/bin/$b"
               chmod 555 "$pkgdir/ui/bin/$b"
             done
-            # The DSM 6 package it was made from has the x86 smartctl binaries too,
-            # which a router can't use.
-            rm -f "$pkgdir/ui/bin/smartctl-x86_64-static" "$pkgdir/ui/bin/smartctl-i386-static"
+            # The DSM 6 package it was made from already has all four smartctl
+            # binaries (read-only, so cp can't overwrite them). Remove them all,
+            # then add back only the two ARM ones a router can use.
+            rm -f "$pkgdir"/ui/bin/smartctl-*-static
             for b in smartctl-armv7-hf-static smartctl-aarch64-static; do
               cp "$GITHUB_WORKSPACE/srm/smartctl/$b" "$pkgdir/ui/bin/$b"
               chmod 555 "$pkgdir/ui/bin/$b"
