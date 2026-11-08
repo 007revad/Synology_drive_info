@@ -32,10 +32,10 @@ HOW THEY WERE BUILT
     65ce7bf549f392c41789aae6d1fac1c31fec329135eb70cb7e2527ce20b1e25c  smartctl-i386-static
 
   TESTED
-    armv7-hf  RT2600ac (SRM 1.3.2): runs, smartctl 7.5
-    aarch64   DS218 (DSM 7.4.1): reads a USB NVMe drive (RTL9210C) with -d sntrealtek
-    x86_64    runs on x86_64 Linux (--version, option parsing). Not yet tried on a Synology NAS
-    i386      runs on x86_64 Linux (--version, option parsing). Not yet tried on a Synology NAS
+    armv7-hf  RT2600ac (SRM 1.3.2): runs, smartctl 7.5, reads a USB NVMe drive (RTL9210C) with -d sntrealtek
+    aarch64   DS218 (DSM 7.4.1): runs, smartctl 7.5, reads a USB NVMe drive (RTL9210C) with -d sntrealtek
+    x86_64    DS1821+ and DS925+ (DSM 7.4.1), DS1812+ (DSM 6.2.4): runs, smartctl 7.5
+    i386      Not yet tried on a Synology NAS with evansport CPU
 
 LICENCES
   smartmontools: GNU General Public License v2 or later - see COPYING-smartmontools
