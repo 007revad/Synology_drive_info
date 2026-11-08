@@ -563,8 +563,10 @@ detect_dtype(){
     elif grep -q SATA <<< "$info"; then
         dtype="sat"
         dt_log "'SATA' found in smartctl -i output -> $dtype"
-    # Else if NVMe appears at least once, treat as NVMe
-    elif grep -q NVMe <<< "$info"; then
+#    # Else if NVMe appears at least once, treat as NVMe
+#    elif grep -q NVMe <<< "$info"; then
+    # Else if NVMe Version: appears, treat as NVMe
+    elif grep -q '^NVMe Version:' <<< "$info"; then
         dtype="nvme"
         dt_log "'NVMe' found in smartctl -i output -> $dtype"
     # Else if a USB drive that is not a real SATA drive, it may be a NVMe drive

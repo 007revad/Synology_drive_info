@@ -1,6 +1,8 @@
 v2.5.72
 - Now include smartctl 7.5 (smartmontools) binary for DSM 7. And DSM 6 but only for x86_64, armv8, armv7 and i686. 
 - Bug fixes for USB drives showing SMART errors when smartctl7 is not available.
+- Bug fix for USB M.2 SATA drives being detected as USB NVMe drives and showing SMART errors or no info.
+- Bug fix for NVMe drives SMART info showing "N Increased by" in the wrong column.
 
 v2.4.71
 - Bug fix for timing out while getting the drive info from slow other local Synology NAS if their drives were asleep.

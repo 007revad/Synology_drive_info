@@ -336,8 +336,10 @@ detect_dtype(){
     elif grep -q SATA <<< "$info"; then
         dtype="sat"
         dt_log "'SATA' found in smartctl -i output -> $dtype"
-    # Else if NVMe appears at least once, treat as NVMe
-    elif grep -q NVMe <<< "$info"; then
+#    # Else if NVMe appears at least once, treat as NVMe
+#    elif grep -q NVMe <<< "$info"; then
+    # Else if NVMe Version: appears, treat as NVMe
+    elif grep -q '^NVMe Version:' <<< "$info"; then
         dtype="nvme"
         dt_log "'NVMe' found in smartctl -i output -> $dtype"
     # Else if a USB drive that is not a real SATA drive, it may be a NVMe drive
@@ -905,11 +907,15 @@ log_bad_nvme(){
     elif [[ $var2 -gt "$previous_att" ]]; then
         set_section_key_value "$smart_log" "$serial" "$var1_trimmed" "$var2"
         #show_increased=$'\\t'"Increased by $((var2 - previous_att))"
-        show_increased=$'\\t'"$increased_txt $((var2 - previous_att))"
+        #show_increased=$'\\t'"$increased_txt $((var2 - previous_att))"
+        _nbsp=$'\xc2\xa0'
+        show_increased="${_nbsp}${increased_txt// /$_nbsp}${_nbsp}$((var2 - previous_att))"
     elif [[ $var2 -lt "$previous_att" ]]; then
         set_section_key_value "$smart_log" "$serial" "$var1_trimmed" "$var2"
         #show_increased=$'\\t'"Decreased by $((previous_att - var2))"
-        show_increased=$'\\t'"$decreased_txt $((previous_att - var2))"
+        #show_increased=$'\\t'"$decreased_txt $((previous_att - var2))"
+        _nbsp=$'\xc2\xa0'
+        show_increased="${_nbsp}${decreased_txt// /$_nbsp}${_nbsp}$((previous_att - var2))"
     fi
 
     # Don't show "Increased by #" or " Decreased by #" if first time adding the drive to smart.log
