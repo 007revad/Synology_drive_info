@@ -36,6 +36,8 @@ tar -xf "$tmpdir/package.tgz" -C "$pkgdir"
 
 for b in "$@"; do
     [ -f "$src/$b" ] || { echo "::error::$src/$b is missing"; exit 1; }
+    # The DSM 6 package already has this one (from the DSM 7 step) as a read-only file
+    rm -f "$pkgdir/ui/bin/$b"
     cp "$src/$b" "$pkgdir/ui/bin/$b"
     chmod 555 "$pkgdir/ui/bin/$b"
 done
