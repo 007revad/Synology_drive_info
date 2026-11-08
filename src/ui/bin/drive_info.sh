@@ -166,6 +166,7 @@ lock_tree() {
             chown root:"${PKG_NAME}" "$p" 2>/dev/null
             case "$p" in
                 *.sh|*.py|*.cgi) chmod 555 "$p" 2>/dev/null ;;
+                */smartctl7|*/smartctl-*-static) chmod 555 "$p" 2>/dev/null ;;
                 *)               chmod 444 "$p" 2>/dev/null ;;
             esac
         fi

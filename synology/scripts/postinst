@@ -98,35 +98,43 @@ if [ "$os_name" = SRM ]; then
     fi
 fi
 
-# SRM only: SRM has smartctl 6.5, which can't talk to USB NVMe bridges, so the
-# SRM package also bundles static smartctl 7.5 binaries. Same approach as bash:
-# keep the first one that runs, point ui/bin/smartctl7 at it, delete the other.
-# Not fatal if none run, because SATA drives still work with SRM's own smartctl.
-if [ "$os_name" = SRM ]; then
-    if [ -e "$UI_DIR/bin/smartctl-armv7-hf-static" ] || [ -e "$UI_DIR/bin/smartctl-aarch64-static" ]; then
-        case "$(uname -m)" in
-            aarch64|arm64) smartctl_candidates="smartctl-aarch64-static smartctl-armv7-hf-static" ;;
-            *)             smartctl_candidates="smartctl-armv7-hf-static smartctl-aarch64-static" ;;
-        esac
-        bundled_smartctl=""
-        for c in $smartctl_candidates; do
-            [ -f "$UI_DIR/bin/$c" ] || continue
-            chmod 555 "$UI_DIR/bin/$c"
-            if "$UI_DIR/bin/$c" --version >/dev/null 2>&1; then
-                bundled_smartctl="$c"
-                break
-            fi
-        done
-        if [ -n "$bundled_smartctl" ]; then
-            ln -sf "$bundled_smartctl" "$UI_DIR/bin/smartctl7"
-            for c in smartctl-armv7-hf-static smartctl-aarch64-static; do
-                [ "$c" = "$bundled_smartctl" ] || rm -f "$UI_DIR/bin/$c"
-            done
-            log_message "Using bundled smartctl: $bundled_smartctl ($("$UI_DIR/bin/smartctl7" --version | head -n 1))"
-        else
-            ERRORS=1
-            log_message "WARNING: no bundled smartctl runs on this system (uname -m: $(uname -m))"
+# SRM, DSM 6 and DSM 7: the system smartctl is 6.x, which can't talk to USB NVMe
+# bridges, so the packages bundle static smartctl 7.5 binaries. Same approach as
+# bash: keep the first one that runs, point ui/bin/smartctl7 at it, delete the others.
+# SynoCli Disk Tools' smartctl7 in /usr/local/bin is found first, so this one is only
+# used when SynoCli Disk Tools is not installed.
+# A package only contains the binaries for its own CPU family, so missing ones are skipped.
+# Not fatal if none run, because SATA drives still work with the system smartctl.
+smartctl_all="smartctl-armv7-hf-static smartctl-aarch64-static smartctl-x86_64-static smartctl-i386-static"
+smartctl_found=""
+for c in $smartctl_all; do
+    [ -e "$UI_DIR/bin/$c" ] && smartctl_found="yes"
+done
+if [ -n "$smartctl_found" ]; then
+    case "$(uname -m)" in
+        aarch64|arm64) smartctl_candidates="smartctl-aarch64-static smartctl-armv7-hf-static" ;;
+        x86_64)        smartctl_candidates="smartctl-x86_64-static smartctl-i386-static" ;;
+        i?86)          smartctl_candidates="smartctl-i386-static" ;;
+        *)             smartctl_candidates="smartctl-armv7-hf-static smartctl-aarch64-static" ;;
+    esac
+    bundled_smartctl=""
+    for c in $smartctl_candidates; do
+        [ -f "$UI_DIR/bin/$c" ] || continue
+        chmod 555 "$UI_DIR/bin/$c"
+        if "$UI_DIR/bin/$c" --version >/dev/null 2>&1; then
+            bundled_smartctl="$c"
+            break
         fi
+    done
+    if [ -n "$bundled_smartctl" ]; then
+        ln -sf "$bundled_smartctl" "$UI_DIR/bin/smartctl7"
+        for c in $smartctl_all; do
+            [ "$c" = "$bundled_smartctl" ] || rm -f "$UI_DIR/bin/$c"
+        done
+        log_message "Using bundled smartctl: $bundled_smartctl ($("$UI_DIR/bin/smartctl7" --version | head -n 1))"
+    else
+        ERRORS=1
+        log_message "WARNING: no bundled smartctl runs on this system (uname -m: $(uname -m))"
     fi
 fi
 

@@ -117,6 +117,21 @@ jobs:
             fi
           done
 
+      # DSM 6 and 7 also have smartctl 6.x, which can't read USB NVMe drives, so
+      # the DSM packages bundle the matching static smartctl 7.5 as well (also
+      # from srm/smartctl/). Every matrix leg needs its own binary, and the DSM 6
+      # noarch package (made from the kvmx64 leg) needs all four.
+      - name: Check bundled smartctl binaries
+        run: |
+          set -euo pipefail
+          for b in armv7-hf aarch64 x86_64 i386; do
+            f="srm/smartctl/smartctl-${b}-static"
+            if [ ! -f "$f" ]; then
+              echo "::error::$f is missing"
+              exit 1
+            fi
+          done
+
       - name: Synology Package Builder Github Action
         uses: 007revad/synology-package-builder@main
         with:
@@ -177,6 +192,23 @@ jobs:
           done
           ls -l ./dist
 
+      # Each DSM 7 package only gets the smartctl that matches its CPU family.
+      # postinst symlinks ui/bin/smartctl7 to it if it runs.
+      - name: Bundle smartctl 7.5 in DSM 7 package
+        run: |
+          set -euo pipefail
+          case "${{ matrix.arch }}" in
+            kvmx64)    bin="smartctl-x86_64-static" ;;
+            rtd1296)   bin="smartctl-aarch64-static" ;;
+            armada38x) bin="smartctl-armv7-hf-static" ;;
+            evansport) bin="smartctl-i386-static" ;;
+            *) echo "::error::No smartctl binary mapped for '${{ matrix.arch }}'"; exit 1 ;;
+          esac
+          for f in ./dist/*.spk; do
+            bash .github/scripts/add-smartctl.sh "$f" "$bin"
+          done
+          ls -l ./dist
+
       - name: Fix arch field in INFO for non-x86_64 DSM 7 platforms
         if: matrix.arch != 'kvmx64'
         run: |
@@ -231,6 +263,10 @@ jobs:
             rm -rf "$tmpdir/helper"
             tar -cf "$dsm6" -C "$tmpdir" $(ls "$tmpdir")
             rm -rf "$tmpdir"
+            # noarch, so it needs every smartctl. postinst keeps the one that runs.
+            bash .github/scripts/add-smartctl.sh "$dsm6" \
+              smartctl-armv7-hf-static smartctl-aarch64-static \
+              smartctl-x86_64-static smartctl-i386-static
           done
           ls -l ./dist
 
@@ -269,6 +305,9 @@ jobs:
               cp "$GITHUB_WORKSPACE/srm/bash/$b" "$pkgdir/ui/bin/$b"
               chmod 555 "$pkgdir/ui/bin/$b"
             done
+            # The DSM 6 package it was made from has the x86 smartctl binaries too,
+            # which a router can't use.
+            rm -f "$pkgdir/ui/bin/smartctl-x86_64-static" "$pkgdir/ui/bin/smartctl-i386-static"
             for b in smartctl-armv7-hf-static smartctl-aarch64-static; do
               cp "$GITHUB_WORKSPACE/srm/smartctl/$b" "$pkgdir/ui/bin/$b"
               chmod 555 "$pkgdir/ui/bin/$b"

@@ -1,4 +1,5 @@
-v2.4.72
+v2.5.72
+- Now include smartctl 7.5 (smartmontools) binary for DSM 7. And DSM 6 but only for x86_64, armv8, armv7 and i686. 
 - Bug fixes for USB drives showing SMART errors when smartctl7 is not available.
 
 v2.4.71

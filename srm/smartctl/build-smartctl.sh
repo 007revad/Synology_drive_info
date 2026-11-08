@@ -1,7 +1,9 @@
 #!/bin/bash
-# Builds the static smartctl 7.5 binaries bundled in the Synology router (SRM) package:
+# Builds the static smartctl 7.5 binaries bundled in the Synology packages (SRM, DSM 6 and DSM 7):
 #   smartctl-armv7-hf-static   ARMv7-A, Thumb-2, VFPv3-D16, hard-float  (ipq806x, dakota, hawkeye)
 #   smartctl-aarch64-static    AArch64                                   (cypress)
+#   smartctl-x86_64-static     x86-64 baseline (no SSE4/AVX needed)
+#   smartctl-i386-static       32-bit x86, i686 baseline
 # Cross-compiled on x86_64 Linux with Zig's bundled clang + musl libc, statically linked.
 # Needs: python3 (with venv + pip), curl, tar.
 # Usage: ./build-smartctl.sh [work-dir]      Output: <work-dir>/smartctl-*-static
@@ -46,6 +48,22 @@ cat > tools/cxx-aarch64 <<EOT
 #!/bin/sh
 exec $ZIG c++ -target aarch64-linux-musl "\$@"
 EOT
+cat > tools/cc-x86_64 <<EOT
+#!/bin/sh
+exec $ZIG cc -target x86_64-linux-musl "\$@"
+EOT
+cat > tools/cxx-x86_64 <<EOT
+#!/bin/sh
+exec $ZIG c++ -target x86_64-linux-musl "\$@"
+EOT
+cat > tools/cc-i386 <<EOT
+#!/bin/sh
+exec $ZIG cc -target x86-linux-musl -mcpu=i686 "\$@"
+EOT
+cat > tools/cxx-i386 <<EOT
+#!/bin/sh
+exec $ZIG c++ -target x86-linux-musl -mcpu=i686 "\$@"
+EOT
 chmod +x tools/*
 export PATH="$WORK/tools:$PATH"
 
@@ -62,11 +80,13 @@ build() {   # build <output-name> <wrapper-suffix> <host-triple>
     cd "$WORK"
 }
 
-for t in armv7 aarch64; do
+for t in armv7 aarch64 x86_64 i386; do
     printf '#!/bin/sh\nexec %s ar "$@"\n' "$ZIG" > "tools/ar-$t"
     printf '#!/bin/sh\nexec %s ranlib "$@"\n' "$ZIG" > "tools/ranlib-$t"
     chmod +x "tools/ar-$t" "tools/ranlib-$t"
 done
 build smartctl-armv7-hf-static armv7   arm-linux-musleabihf
 build smartctl-aarch64-static  aarch64 aarch64-linux-musl
-sha256sum smartctl-armv7-hf-static smartctl-aarch64-static
+build smartctl-x86_64-static   x86_64  x86_64-linux-musl
+build smartctl-i386-static     i386    i386-linux-musl
+sha256sum smartctl-armv7-hf-static smartctl-aarch64-static smartctl-x86_64-static smartctl-i386-static
