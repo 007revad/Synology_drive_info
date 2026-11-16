@@ -2577,13 +2577,51 @@ function buildDiskTooltipMap(storagePools, volumes, ssdCaches) {
     return map;
 }
 
+// Compares text with its numbers compared as numbers, so "Drive 2" sorts
+// before "Drive 10".
+function naturalCompare(a, b) {
+    var pa = String(a).match(/\d+|\D+/g) || [];
+    var pb = String(b).match(/\d+|\D+/g) || [];
+    for (var i = 0; i < pa.length && i < pb.length; i++) {
+        var x = pa[i], y = pb[i];
+        if (/^\d/.test(x) && /^\d/.test(y)) {
+            var n = parseInt(x, 10) - parseInt(y, 10);
+            if (n !== 0) return n;
+        } else if (x !== y) {
+            return x < y ? -1 : 1;
+        }
+    }
+    return pa.length - pb.length;
+}
+
+// Row order of the passive drive table. Matches the local table's order
+// from drive_info.sh:
+//   1 HDD/SSD with no location (by drive id), then the system drives
+//   2 HDD/SSD with a location, i.e. expansion units (by unit, then drive id)
+//   3 M.2 with no location
+//   4 M.2 with a location
+// System drives are placed by disk_location, not by comparing their name,
+// because the names are translated and don't sort the same in every language.
+function haRowCompare(a, b) {
+    function key(r) {
+        if (r.d.disk_location === 'System') return {g: 1, sys: 1};
+        if (/^nvme/.test(r.d.id || ''))     return {g: r.location ? 4 : 3, sys: 0};
+        return {g: r.location ? 2 : 1, sys: 0};
+    }
+    var ka = key(a), kb = key(b);
+    if (ka.g !== kb.g) return ka.g - kb.g;
+    if (ka.sys !== kb.sys) return ka.sys - kb.sys;
+    var c = naturalCompare(a.location, b.location);  // expansion unit
+    if (c !== 0) return c;
+    c = naturalCompare(a.d.name || a.d.longName || '', b.d.name || b.d.longName || '');
+    if (c !== 0) return c;
+    return naturalIdCompare(a.d.id || '', b.d.id || '');
+}
+
 function buildHAPassiveTable(disks, diskTooltipMap) {
     // The API's own array order is arbitrary (not physical-bay order), so
-    // sort by id the same way drive_info.sh's sort -V "${drives[@]}"
-    // orders the local table.
-    disks = (disks || []).slice().sort(function(a, b) {
-        return naturalIdCompare(a.id || '', b.id || '');
-    });
+    // the rows are sorted with haRowCompare() below.
+    disks = disks || [];
 
     if (disks.length === 0) return '<p class="remote-err">No drive data available.</p>';
 
@@ -2596,6 +2634,7 @@ function buildHAPassiveTable(disks, diskTooltipMap) {
         }
         return {d: d, location: location};
     });
+    rowData.sort(haRowCompare);
     var hasLocation = rowData.some(function(r) { return r.location !== ''; });
 
     var STATUS_MAP = {

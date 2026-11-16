@@ -302,6 +302,7 @@ get_drive_num(){
     disk_cnr=""
     eunit=""
     eunit_num=""
+    system_drive=0  # Set to 1 for HD6500 system drives
     location=""
     skip_unused=0  # Set to 1 for drives that are never storage pool members
     # Get Drive number
@@ -352,6 +353,7 @@ get_drive_num(){
         #location="$system_drive_label"     # Shows 'System Drive' as location
         drive_num="$system_drive_label $disk_id"  # Shows 'System Drive N' as drive id
         location=""                               # Empty location
+        system_drive=1
         skip_unused=1
     else
         # All other drives
@@ -931,14 +933,16 @@ print_row(){
 }
 
 # Row order in the drive table:
-#   1 HDD/SSD with no location (internal drives, by drive id)
+#   1 HDD/SSD with no location (internal drives, by drive id), then HD6500 system drives
 #   2 HDD/SSD with a location (expansion units, by unit number then drive id)
 #   3 M.2 with no location
 #   4 M.2 with a location (M.2 in a PCIe card)
 #   5 eSATA and USB
 # Each row gets a key "<group> <unit> <drive id> <row index>" which sort_v sorts
 # with the numbers compared as numbers. The row index is always the last word.
-# $1 = group, $2 = expansion unit number (only for group 2)
+# $1 = group, $2 = expansion unit number (group 2) or 1 for a system drive (group 1).
+# System drives are placed by this flag, not by comparing "System Drive N" with
+# "Drive N", because the translated names don't sort the same in every language.
 add_sort_key(){
     sortkeys+=("$1 ${2:-0} ${drive_num%%@@*} $(( ${#ids[@]} - 1 ))")
 }
@@ -993,9 +997,9 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         get_drive_temp
 
         ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); sizes+=("$size"); smrs+=("$smr"); fws+=("$firmware"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
-        if   [[ $disk_cnr == "8" ]]; then add_sort_key 5                # eSATA
-        elif [[ -n $location ]];     then add_sort_key 2 "$eunit_num"   # Expansion unit
-        else                              add_sort_key 1                # Internal
+        if   [[ $disk_cnr == "8" ]]; then add_sort_key 5                  # eSATA
+        elif [[ -n $location ]];     then add_sort_key 2 "$eunit_num"     # Expansion unit
+        else                              add_sort_key 1 "$system_drive"  # Internal, then system
         fi
         (( ${#drive}     > w_id       )) && w_id=${#drive}
         (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
