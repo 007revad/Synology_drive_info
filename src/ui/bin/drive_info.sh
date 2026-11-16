@@ -301,6 +301,7 @@ get_drive_num(){
     disk_id=""
     disk_cnr=""
     eunit=""
+    eunit_num=""
     location=""
     skip_unused=0  # Set to 1 for drives that are never storage pool members
     # Get Drive number
@@ -317,8 +318,10 @@ get_drive_num(){
     #  EUnitDisks=/dev/sdja,/dev/sdjb
     for f in /tmp/eunitinfo_*; do
         if [[ -f "$f" ]]; then
-            if grep -q "/dev/$drive" "$f"; then
+            # Match the whole device name so /dev/sata1 doesn't match /dev/sata13
+            if grep -Eq "/dev/${drive}([,[:space:]]|$)" "$f"; then
                 eunit="$(get_key_value "$f" EUnitModel)"
+                eunit_num="${f##*_}"  # N from /tmp/eunitinfo_N
             fi
         fi
     done
@@ -927,6 +930,19 @@ print_row(){
     printf '%s\n' "$_out"
 }
 
+# Row order in the drive table:
+#   1 HDD/SSD with no location (internal drives, by drive id)
+#   2 HDD/SSD with a location (expansion units, by unit number then drive id)
+#   3 M.2 with no location
+#   4 M.2 with a location (M.2 in a PCIe card)
+#   5 eSATA and USB
+# Each row gets a key "<group> <unit> <drive id> <row index>" which sort_v sorts
+# with the numbers compared as numbers. The row index is always the last word.
+# $1 = group, $2 = expansion unit number (only for group 2)
+add_sort_key(){
+    sortkeys+=("$1 ${2:-0} ${drive_num%%@@*} $(( ${#ids[@]} - 1 ))")
+}
+
 # HDDs, SSDs and NVMe drives combined into one table
 if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         [[ "${#nvcs[@]}" -gt 0 ]] || [[ "${#usbs[@]}" -gt 0 ]]; then
@@ -977,6 +993,10 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         get_drive_temp
 
         ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); sizes+=("$size"); smrs+=("$smr"); fws+=("$firmware"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
+        if   [[ $disk_cnr == "8" ]]; then add_sort_key 5                # eSATA
+        elif [[ -n $location ]];     then add_sort_key 2 "$eunit_num"   # Expansion unit
+        else                              add_sort_key 1                # Internal
+        fi
         (( ${#drive}     > w_id       )) && w_id=${#drive}
         (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
         (( ${#location}  > w_location )) && w_location=${#location}
@@ -1007,6 +1027,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         get_drive_temp
 
         ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); sizes+=("$size"); smrs+=("$smr"); fws+=("$firmware"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
+        if [[ -n $location ]]; then add_sort_key 4; else add_sort_key 3; fi  # M.2
         (( ${#drive}     > w_id       )) && w_id=${#drive}
         (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
         (( ${#location}  > w_location )) && w_location=${#location}
@@ -1037,6 +1058,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         get_drive_temp
 
         ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); sizes+=("$size"); smrs+=("$smr"); fws+=("$firmware"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
+        if [[ -n $location ]]; then add_sort_key 4; else add_sort_key 3; fi  # M.2 SATA
         (( ${#drive}     > w_id       )) && w_id=${#drive}
         (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
         (( ${#location}  > w_location )) && w_location=${#location}
@@ -1085,6 +1107,7 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
         get_drive_temp
 
         ids+=("$drive"); nums+=("$drive_num"); locations+=("$location"); models+=("$model"); sizes+=("$size"); smrs+=("$smr"); fws+=("$firmware"); serials+=("$serial"); temps+=("$temp"); statuses+=("$status")
+        add_sort_key 5  # USB
         (( ${#drive}     > w_id       )) && w_id=${#drive}
         (( ${#drive_num} > w_num      )) && w_num=${#drive_num}
         (( ${#location}  > w_location )) && w_location=${#location}
@@ -1103,10 +1126,11 @@ if [[ "${#drives[@]}" -gt 0 ]] || [[ "${#nvmes[@]}" -gt 0 ]] ||\
     print_row "$w_id" "${hdr_id}" "$w_num" "${hdr_num}" "$w_location" "${hdr_location}" "$w_model" "${hdr_model}" \
         "$w_size" "${hdr_size}" "$w_smr" "${hdr_smr}" "$w_fw" "${hdr_fw}" "$w_serial" "${hdr_serial}" "$w_temp" "${hdr_temp}" "$w_status" "${hdr_status}"
     printf '%*s\n' "$sep_len" '' | tr ' ' '-'
-    for i in "${!ids[@]}"; do
+    while IFS= read -r _key; do
+        i="${_key##* }"  # Row index is the last word of the sort key
         print_row "$w_id" "${ids[$i]}" "$w_num" "${nums[$i]}" "$w_location" "${locations[$i]}" "$w_model" "${models[$i]}" \
             "$w_size" "${sizes[$i]}" "$w_smr" "${smrs[$i]}" "$w_fw" "${fws[$i]}" "$w_serial" "${serials[$i]}" "$w_temp" "${temps[$i]}" "$w_status" "${statuses[$i]}"
-    done
+    done < <(printf '%s\n' "${sortkeys[@]}" | sort_v)
 fi
 
 echo ""

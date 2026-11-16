@@ -1,4 +1,10 @@
 v2.5.73
+- Now sorts drives by their "Drive ID" and "Location".
+  - 1. HDD/SSD with no location (internal drives, by drive id).
+  - 2. HDD/SSD with a location (expansion units, by unit number then drive id).
+  - 3. M.2 with no location.
+  - 4. M.2 with a location (M.2 in a PCIe card).
+  - 5. eSATA and USB.
 - Bug fix for storage pool/volume created by a script showing the wrong storage pool number.
 
 v2.5.72
