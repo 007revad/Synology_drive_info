@@ -2554,10 +2554,15 @@ function naturalIdCompare(a, b) {
     return (parseInt(ma[2], 10) || 0) - (parseInt(mb[2], 10) || 0);
 }
 
+function poolNumber(pool) {
+    var m = /_(\d+)$/.exec(pool.id || '');
+    return m ? m[1] : (pool.num_id !== undefined ? pool.num_id : '');
+}
+
 function buildDiskTooltipMap(storagePools, volumes, ssdCaches) {
     var map = {};
     (storagePools || []).forEach(function(pool) {
-        var label = '${_txt_storage_pool} ' + (pool.num_id !== undefined ? pool.num_id : '');
+        var label = '${_txt_storage_pool} ' + poolNumber(pool);
         (pool.disks || []).forEach(function(id) { map[id] = label; });
     });
     var cacheById = {};
@@ -2736,7 +2741,7 @@ function buildHAPassiveVolumeTable(volumes, storagePools, disks, activeVolumes, 
     volumes.slice().sort(function(a, b) { return (a.num_id || 0) - (b.num_id || 0); }).forEach(function(v) {
         var volLabel = '${_txt_volume} ' + v.num_id;
         var pool = poolMap[v.pool_path] || {};
-        var poolLabel = '${_txt_storage_pool} ' + (pool.num_id !== undefined ? pool.num_id : '');
+        var poolLabel = '${_txt_storage_pool} ' + poolNumber(pool);
         var raidStr = RAID_MAP[pool.device_type] || pool.device_type || '';
         var poolDiskNames = (pool.disks || []).map(function(id) { return diskNameMap[id] || id; }).join(', ');
 

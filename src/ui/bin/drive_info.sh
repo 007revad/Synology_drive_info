@@ -768,17 +768,24 @@ if [[ -z "$storage_json" ]] || ! echo "$storage_json" | jq -e '.success' >/dev/n
     storage_json=""
 fi
 
+# Pool number as Storage Manager shows it. Script-created pools (e.g. NVMe)
+# can have a num_id that duplicates another pool's, so prefer the id's reuse_N suffix.
+pool_number(){
+    if [[ "$1" =~ _([0-9]+)$ ]]; then echo "${BASH_REMATCH[1]}"; else echo "$2"; fi
+}
+
 # Build disk id -> storage pool label (e.g. "sata1" -> "Storage Pool 1")
 declare -A disk_pool_map
 if [[ -n "$storage_json" ]]; then
     pool_label_prefix="$(txt common storage_pool "Storage Pool")"
-    while IFS='|' read -r pool_num_id pool_disks_raw; do
+    while IFS='|' read -r pool_id pool_num_id pool_disks_raw; do
+        pool_num_id="$(pool_number "$pool_id" "$pool_num_id")"
         IFS=',' read -ra _pool_disk_ids <<< "$pool_disks_raw"
         for _did in "${_pool_disk_ids[@]}"; do
             [[ -z "$_did" ]] && continue
             disk_pool_map["$_did"]="$pool_label_prefix $pool_num_id"
         done
-    done < <(echo "$storage_json" | jq -r '.data.storagePools[] | "\(.num_id)|\(.disks | join(","))"')
+    done < <(echo "$storage_json" | jq -r '.data.storagePools[] | "\(.id)|\(.num_id)|\(.disks | join(","))"')
 fi
 
 # Also map hot spare disks to the pool they protect (e.g. "sata6" -> "Storage Pool 1 Hot Spare").
@@ -786,14 +793,15 @@ fi
 # (checked on DSM 7; DSM 6 samples only had empty spares arrays).
 if [[ -n "$storage_json" ]]; then
     hotspare_label="$(txt common hotspare "Hot Spare")"
-    while IFS='|' read -r pool_num_id spare_ids_raw; do
+    while IFS='|' read -r pool_id pool_num_id spare_ids_raw; do
+        pool_num_id="$(pool_number "$pool_id" "$pool_num_id")"
         [[ -z "$spare_ids_raw" ]] && continue
         IFS=',' read -ra _spare_ids <<< "$spare_ids_raw"
         for _did in "${_spare_ids[@]}"; do
             [[ -z "$_did" ]] && continue
             disk_pool_map["$_did"]="$pool_label_prefix $pool_num_id $hotspare_label"
         done
-    done < <(echo "$storage_json" | jq -r '.data.storagePools[]? | "\(.num_id)|\((.spares // []) | map(.id) | join(","))"')
+    done < <(echo "$storage_json" | jq -r '.data.storagePools[]? | "\(.id)|\(.num_id)|\((.spares // []) | map(.id) | join(","))"')
 fi
 
 # Also map SSD cache disks to their volume (e.g. "nvme0n1" -> "Volume 1 Cache")
@@ -1145,7 +1153,7 @@ get_volume_info(){
     # Build pool lookup: pool id -> num_id, pool status, RAID device_type and member disks
     declare -A pool_num pool_status_map pool_pct_map pool_devtype_map pool_disks_map pool_remain_map pool_step_map
     while IFS='|' read -r pool_id pool_num_id pool_st pool_scrub pool_pct pool_devtype pool_remain pool_cur pool_total pool_disks_raw; do
-        pool_num["$pool_id"]="$pool_num_id"
+        pool_num["$pool_id"]="$(pool_number "$pool_id" "$pool_num_id")"
         local scrub_suffix=""
         [[ "$pool_scrub" == "scrubbing" ]] && scrub_suffix=" - $(txt common status_data_scrubbing "Data Scrubbing")"
         pool_status_map["$pool_id"]="${pool_st}${scrub_suffix}"
