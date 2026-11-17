@@ -48,7 +48,7 @@ testing	=	"NAS wird überprüft..."
 [common]
 system_drive=Systemlaufwerk
 id=ID
-volume=Volumen
+volume=Volume
 inherited_active=Vom aktiven Knoten geerbt
 size_tb=TiB
 status_data_scrubbing=Datenbereinigung

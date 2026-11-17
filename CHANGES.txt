@@ -5,6 +5,7 @@ v2.5.73
   - 3. M.2 with no location.
   - 4. M.2 with a location (M.2 in a PCIe card).
   - 5. eSATA and USB.
+- Changed "Volumen" to "Volume" for Deutsch.
 - Bug fix for storage pool/volume created by a script showing the wrong storage pool number.
 
 v2.5.72
