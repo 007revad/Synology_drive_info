@@ -84,10 +84,11 @@ if [[ "${QUERY_STRING:-}" =~ (^|&)action=([^&]*) ]]; then
     _action="${BASH_REMATCH[2]}"
 fi
 
-# An XHR/fetch for the default page (an older Drive Info on another NAS fetching
-# this NAS for its remote view) wants the tables, not the page shell. Browsers
-# send Sec-Fetch-Dest: empty for XHR/fetch; the page itself arrives as iframe/document.
-if [[ -z "$_action" && "${HTTP_SEC_FETCH_DEST:-}" == "empty" ]]; then
+# An older Drive Info on another NAS fetches this NAS's default page with a
+# cross-origin XHR to show its drives, and wants only the tables, not the page
+# shell. A cross-origin XHR always sends an Origin header (also over plain HTTP,
+# unlike Sec-Fetch-Dest); the page itself, loaded in the DSM iframe or a tab, does not.
+if [[ -z "$_action" && -n "${HTTP_ORIGIN:-}" ]]; then
     _action="drives"
 fi
 
