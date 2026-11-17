@@ -84,6 +84,13 @@ if [[ "${QUERY_STRING:-}" =~ (^|&)action=([^&]*) ]]; then
     _action="${BASH_REMATCH[2]}"
 fi
 
+# An XHR/fetch for the default page (an older Drive Info on another NAS fetching
+# this NAS for its remote view) wants the tables, not the page shell. Browsers
+# send Sec-Fetch-Dest: empty for XHR/fetch; the page itself arrives as iframe/document.
+if [[ -z "$_action" && "${HTTP_SEC_FETCH_DEST:-}" == "empty" ]]; then
+    _action="drives"
+fi
+
 #---------------------------------------------------------------------------
 # Who may call the settings actions: a logged in DSM administrator.
 # authenticate.cgi prints the user name only if the request has a valid
@@ -1195,6 +1202,455 @@ if [[ "$_action" == "get_ha_passive_smart" ]]; then
 fi
 
 #---------------------------------------------------------------------------
+# action=drives
+# Runs drive_info.sh and returns this NAS's drive and volume tables as an HTML
+# fragment. This is the slow part (every drive and expansion unit is queried).
+# The main page does not wait for it: it is on screen first, with its loading
+# bar, and fetches this action afterwards (loadDrives() in the page's JS).
+# Remote NAS views fetch it the same way. The marker comment on the first line
+# tells a caller this is a fragment and not an older version's whole page.
+# Not admin-only, like the main page and get_smart (the remote view needs that).
+#---------------------------------------------------------------------------
+if [[ "$_action" == "drives" ]]; then
+    printf 'Content-Type: text/html; charset=utf-8\r\n'
+    printf 'Access-Control-Allow-Origin: *\r\n'
+    printf '\r\n'
+    printf '<!--di-drives-->\n'
+
+    # Same defaults the main page uses for these
+    _show_volume_info=$(synogetkeyvalue "$SETTINGS_CONF" show_volume_info 2>/dev/null || echo "true")
+    [[ -z "$_show_volume_info" ]] && _show_volume_info="false"
+    _txt_volume=$(txt common volume "Volume")
+    _txt_smart_view=$(txt common smart_view "View S.M.A.R.T.")
+
+    # Check script exists
+    if [[ ! -f "$SCRIPT" ]]; then
+        echo "<p class=\"err\">$(txt errors err_script_missing "drive_info.sh not found. Try reinstalling the package.")</p>"
+        exit 0
+    fi
+
+    # Check the setuid helper
+    if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
+        if [[ ! -u "$HELPER" ]]; then
+            cat << NOPERMS
+<h2 style="color:#c00;">$(txt errors err_noperms_title "Permissions not configured")</h2>
+<p>$(txt errors err_noperms_desc "This package needs elevated permissions to read drive information.")</p>
+NOPERMS
+            exit 0
+        fi
+    fi
+
+
+    # Run drive_info.sh as root via sudo
+    # SRM has no mktemp command, so make a private temp file without it.
+    # noclobber makes the create fail if the name already exists (symlink safety).
+    STDERR_TMP="/tmp/drive_info.$$.$RANDOM"
+    ( umask 077; set -o noclobber; : > "$STDERR_TMP" ) 2>/dev/null || STDERR_TMP="/dev/null"
+    if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
+        OUTPUT=$("$HELPER" drive_info "$_lang" 2>"$STDERR_TMP")
+    else
+        OUTPUT=$(sudo "${SCRIPT}" "$_lang" 2>"$STDERR_TMP")
+    fi
+
+    EXIT_CODE=$?
+    STDERR_OUT=$(cat "$STDERR_TMP")
+    [[ "$STDERR_TMP" != "/dev/null" ]] && rm -f "$STDERR_TMP"
+
+    if [[ $EXIT_CODE -ne 0 ]]; then
+        echo "<p class=\"err\">drive_info.sh exited with code $EXIT_CODE.</p>"
+        [[ -n "$STDERR_OUT" ]] && echo "<pre>$(echo "$STDERR_OUT" | sed 's/</\&lt;/g;s/>/\&gt;/g')</pre>"
+        # drive_info.sh prints its own error messages to stdout, which was being discarded
+        [[ -n "$OUTPUT" ]] && echo "<pre>$(echo "$OUTPUT" | head -n 20 | sed 's/</\&lt;/g;s/>/\&gt;/g')</pre>"
+        exit 0
+    fi
+
+    # Split a line into columns separated by two or more spaces (single spaces stay
+    # inside a column). Result is in the SPLIT_COLS array. Pure bash: replaces
+    # grep -oP '\S.*?(?=  |\s*$)', because SRM's BusyBox grep has no -P.
+    split_cols() {
+        local s="$1"
+        SPLIT_COLS=()
+        while [[ "$s" =~ ^[[:space:]]*([^[:space:]]([^[:space:]]|\ [^[:space:]])*)(.*)$ ]]; do
+            SPLIT_COLS+=("${BASH_REMATCH[1]}")
+            s="${BASH_REMATCH[3]}"
+            [[ -z "${s//[[:space:]]/}" ]] && break
+        done
+    }
+
+    # Parse drive_info.sh plain-text output into HTML tables
+    #echo "<h2>${_txt_drive_info}</h2>"  # Drive Information heading
+    # Get local NAS identity for the heading
+    _local_hostname=$(cat /proc/sys/kernel/hostname 2>/dev/null || hostname)
+    _local_model=$(synogetkeyvalue /etc.defaults/synoinfo.conf upnpmodelname 2>/dev/null)
+    if [[ -z "$_local_model" && -f /proc/sys/kernel/syno_hw_version ]]; then
+        _local_model=$(cat /proc/sys/kernel/syno_hw_version 2>/dev/null || echo "")
+        if [[ ${_local_model,,} =~ 'pv10-j'$ ]]; then
+            _local_model=${_local_model%??????}+
+        elif [[ ${_local_model} =~ '-j'$ ]]; then
+            _local_model=${_local_model%??}
+        fi
+    fi
+    [[ -z "$_local_model" ]] && _local_model=""
+
+    # Get DSM version for the local NAS heading
+    _local_os_name=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/synoinfo.conf os_name)
+    if [[ -z "$_local_os_name" ]]; then _local_os_name="DSM"; fi
+    _local_productversion=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION productversion)
+    _local_base=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION base)
+    if [[ -n "$_local_base" ]]; then _local_base="-$_local_base"; fi
+    _local_smallfixnumber=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION smallfixnumber)
+    if [[ "$_local_smallfixnumber" -gt "0" ]]; then _local_smallfixnumber="-$_local_smallfixnumber"; fi 
+    _local_dsm_version="$_local_os_name $_local_productversion$_local_base$_local_smallfixnumber"
+
+    # Get local NAS's Drive Info package version for the heading
+    _local_pkg_version=$(synogetkeyvalue /var/packages/drive_info/INFO version 2>/dev/null)
+    if [[ -n $_local_pkg_version ]]; then
+        _local_pkg_version="Drive Info v$_local_pkg_version"
+    fi
+
+    # Get local IP. On SRM the default-route interface is the WAN, so use the
+    # address this page was reached on (the LAN address) instead.
+    _local_ip=""
+    if [[ "$_local_os_name" == "SRM" ]]; then
+        _ipv4_re='^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'
+        if [[ "${SERVER_ADDR:-}" =~ $_ipv4_re && "$SERVER_ADDR" != 127.* ]]; then
+            _local_ip="$SERVER_ADDR"
+        elif [[ "${HTTP_HOST%%:*}" =~ $_ipv4_re ]]; then
+            _local_ip="${HTTP_HOST%%:*}"
+        fi
+    fi
+    # Default: prefer the default-route interface address
+    [[ -z "$_local_ip" ]] && _local_ip=$(ip route get 1.1.1.1 2>/dev/null | grep -o 'src [0-9.]*' | awk '{print $2}')
+    [[ -z "$_local_ip" ]] && _local_ip=$(hostname -i 2>/dev/null | awk '{print $1}')
+
+    _local_subtitle=""
+    if [[ -n "$_local_ip" || -n "$_local_model" || -n "$_local_pkg_version" ]]; then
+        _local_subtitle=" <span style=\"font-weight:normal;font-size:13px;color:#999;\"> &nbsp; ${_local_ip} &nbsp; ${_local_model}"
+        [[ -n "$_local_dsm_version" ]] && _local_subtitle+=" &nbsp; ${_local_dsm_version}"
+        [[ -n "$_local_pkg_version" ]] && _local_subtitle+=" &nbsp; - &nbsp; ${_local_pkg_version}"
+        _local_subtitle+="</span>"
+    fi
+    echo "<h2>${_local_hostname}${_local_subtitle}</h2>"
+
+    in_table=0
+    table_type=""   # "drive" or "volume"
+    headers=()
+    col_count=0
+
+    # Pre-scan to check if any Location column values are non-empty
+    HAS_LOCATION=0
+    IS_SMR=0
+    scan_in_table=0
+    scan_skip=0
+    scan_headers=()
+    scan_col_starts=()
+    scan_col_count=0
+    while IFS= read -r line; do
+        trimmed="${line#"${line%%[![:space:]]*}"}"
+        if [[ "$trimmed" =~ ^-+$ ]]; then
+            scan_in_table=1; continue
+        fi
+
+        # Skip table - silently consume rows until the blank line that ends it.
+        # (Without this, the dashed separator after a skipped header would flip
+        # scan_in_table back on and the next data row would be misread as a
+        # fresh header row.)
+        if [[ $scan_in_table -eq 1 ]] && [[ $scan_skip -eq 1 ]] && [[ -n "$trimmed" ]]; then
+            continue
+        fi
+        if [[ $scan_in_table -eq 1 ]] && [[ $scan_skip -eq 1 ]] && [[ -z "$trimmed" ]]; then
+            scan_in_table=0; scan_skip=0; continue
+        fi
+
+        if [[ $scan_in_table -eq 1 ]] && [[ ${#scan_headers[@]} -eq 0 ]] && [[ -n "$trimmed" ]]; then
+            # SRM's BusyBox grep rejects -P
+            #IFS=$'\n' read -r -d '' -a scan_headers <<< "$(echo "$trimmed" | grep -oP '\S.*?(?=  |\s*$)')" || true
+            split_cols "$trimmed"; scan_headers=("${SPLIT_COLS[@]}")
+            scan_col_count=${#scan_headers[@]}
+            # Only check Location for drive tables (first header is not "Volume")
+            if [[ "${scan_headers[0]}" == "$_txt_volume" ]]; then
+                scan_skip=1; scan_headers=(); continue
+            fi
+            scan_col_starts=()
+            pos=0
+            for h in "${scan_headers[@]}"; do
+                rest="${line:$pos}"
+                prefix="${rest%%"$h"*}"
+                scan_col_starts+=("$(( pos + ${#prefix} ))")
+                pos=$(( pos + ${#prefix} + ${#h} ))
+            done
+            continue
+        fi
+
+        if [[ $scan_in_table -eq 1 ]] && [[ ${#scan_headers[@]} -gt 0 ]] && [[ -n "$trimmed" ]] && (( scan_col_count > 2 )); then
+            if [[ $HAS_LOCATION -eq 0 ]]; then
+                start="${scan_col_starts[2]}"
+                if (( 3 < scan_col_count )); then
+                    len=$(( scan_col_starts[3] - start - 2 ))
+                else
+                    len=$(( ${#line} - start ))
+                fi
+                val="${line:$start:$len}"
+                val="${val%"${val##*[![:space:]]}"}"
+                [[ -n "$val" ]] && HAS_LOCATION=1
+            fi
+
+            if [[ $IS_SMR -eq 0 ]] && (( scan_col_count > 5 )); then
+                start="${scan_col_starts[5]}"
+                if (( 6 < scan_col_count )); then
+                    len=$(( scan_col_starts[6] - start - 2 ))
+                else
+                    len=$(( ${#line} - start ))
+                fi
+                smr_val="${line:$start:$len}"
+                smr_val="${smr_val%"${smr_val##*[![:space:]]}"}"
+                [[ -n "$smr_val" ]] && IS_SMR=1
+            fi
+
+            if [[ $HAS_LOCATION -eq 1 && $IS_SMR -eq 1 ]]; then break; fi
+            continue
+        fi
+
+        if [[ $scan_in_table -eq 1 ]] && [[ ${#scan_headers[@]} -gt 0 ]] && [[ -z "$trimmed" ]]; then
+            scan_in_table=0; scan_headers=(); continue
+        fi
+    done <<< "$OUTPUT"
+
+    while IFS= read -r line; do
+        trimmed="${line#"${line%%[![:space:]]*}"}"
+
+        # Separator line — starts a new table
+        if [[ "$trimmed" =~ ^-+$ ]]; then
+            if [[ $in_table -eq 0 ]]; then
+                in_table=1
+                table_type=""  # determined when we read the header row
+            fi
+            continue
+        fi
+
+        # Skip table - silently consume data rows
+        if [[ $in_table -eq 1 ]] && [[ "$table_type" == "skip" ]] && [[ -n "$trimmed" ]]; then continue; fi
+
+        # Skip table - blank line ends the skip
+        if [[ $in_table -eq 1 ]] && [[ "$table_type" == "skip" ]] && [[ -z "$trimmed" ]]; then
+            in_table=0; table_type=""; continue
+        fi
+
+        # Header row
+        if [[ $in_table -eq 1 ]] && [[ ${#headers[@]} -eq 0 ]] && [[ -n "$trimmed" ]]; then
+            # SRM's BusyBox grep rejects -P
+            #IFS=$'\n' read -r -d '' -a headers <<< "$(echo "$trimmed" | grep -oP '\S.*?(?=  |\s*$)')" || true
+            split_cols "$trimmed"; headers=("${SPLIT_COLS[@]}")
+            col_count=${#headers[@]}
+
+            col_starts=()
+            pos=0
+            for h in "${headers[@]}"; do
+                rest="${line:$pos}"
+                prefix="${rest%%"$h"*}"
+                col_starts+=("$(( pos + ${#prefix} ))")
+                pos=$(( pos + ${#prefix} + ${#h} ))
+            done
+
+            # Detect table type by first header
+            if [[ "${headers[0]}" == "$_txt_volume" ]]; then
+                table_type="volume"
+                if [[ "$_show_volume_info" != "true" ]]; then
+                    # Skip volume table entirely
+                    in_table=1; table_type="skip"; headers=(); continue
+                fi
+                echo '<div class="vol-table-wrapper"><table class="vol-table"><colgroup><col class="vol-name"><col class="vol-fs"><col class="vol-pool"><col class="raid"><col class="vol-size"><col class="vol-used"><col class="status"><col class="vol-pool-status"></colgroup>'
+            else
+                table_type="drive"
+                if [[ $HAS_LOCATION -eq 1 && $IS_SMR -eq 1 ]]; then
+                    echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="size"><col class="smr"><col class="firmware"><col class="serial"><col class="temp"><col class="status"></colgroup>'
+                elif [[ $HAS_LOCATION -eq 1 ]]; then
+                    echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="size"><col class="firmware"><col class="serial"><col class="temp"><col class="status"></colgroup>'
+                elif [[ $IS_SMR -eq 1 ]]; then
+                    echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="size"><col class="smr"><col class="firmware"><col class="serial"><col class="temp"><col class="status"></colgroup>'
+                else
+                    echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="size"><col class="firmware"><col class="serial"><col class="temp"><col class="status"></colgroup>'
+                fi
+            fi
+
+            echo "<thead><tr>"
+            if [[ "$table_type" == "volume" ]]; then
+                vol_classes=("vol-name" "vol-fs" "vol-pool" "raid" "vol-size" "vol-used" "status" "vol-pool-status")
+                for idx in "${!headers[@]}"; do
+                    cls="${vol_classes[$idx]:-}"
+                    echo "<th class=\"$cls\">$(echo "${headers[$idx]}" | sed 's/</\&lt;/g;s/>/\&gt;/g')</th>"
+                done
+            else
+                col_classes=("id" "num" "location" "model" "size" "smr" "firmware" "serial" "temp" "status")
+                for idx in "${!headers[@]}"; do
+                    cls="${col_classes[$idx]:-}"
+                    [[ "$cls" == "location" && $HAS_LOCATION -eq 0 ]] && continue
+                    [[ "$cls" == "smr" && $IS_SMR -eq 0 ]] && continue
+                    echo "<th class=\"$cls\">$(echo "${headers[$idx]}" | sed 's/</\&lt;/g;s/>/\&gt;/g')</th>"
+                done
+            fi
+            echo "</tr></thead><tbody>"
+            continue
+        fi
+
+        # Data row
+        if [[ $in_table -eq 1 ]] && [[ ${#headers[@]} -gt 0 ]] && [[ -n "$trimmed" ]]; then
+            echo "<tr>"
+            for (( c=0; c<col_count; c++ )); do
+                start="${col_starts[$c]}"
+                if (( c + 1 < col_count )); then
+                    len=$(( col_starts[c+1] - start - 2 ))
+                else
+                    len=$(( ${#line} - start ))
+                fi
+                val="${line:$start:$len}"
+                val="${val%"${val##*[![:space:]]}"}"
+                val="$(echo "$val" | sed 's/</\&lt;/g;s/>/\&gt;/g')"
+
+                if [[ "$table_type" == "volume" ]]; then
+                    case $c in
+                        0) echo "<td class=\"vol-name\">$val</td>" ;;
+                        1) echo "<td class=\"vol-fs\">$val</td>" ;;
+                        2)
+                            if [[ "$val" == *"@@"* ]]; then
+                                pool_label="${val%%@@*}"
+                                pool_disks="${val#*@@}"
+                                pool_disks="${pool_disks//\"/&quot;}"
+                                echo "<td class=\"vol-pool\" title=\"${pool_disks}\">${pool_label}</td>"
+                            else
+                                echo "<td class=\"vol-pool\">$val</td>"
+                            fi
+                            ;;
+                        3)
+                            if [[ "$val" == *"@@"* ]]; then
+                                raid_label="${val%%@@*}"
+                                raid_disks="${val#*@@}"
+                                raid_disks="${raid_disks//\"/&quot;}"
+                                echo "<td class=\"raid\" title=\"${raid_disks}\">${raid_label}</td>"
+                            else
+                                echo "<td class=\"raid\">$val</td>"
+                            fi
+                            ;;
+                        4) echo "<td class=\"vol-size\">$val</td>" ;;
+                        5) echo "<td class=\"vol-used\">$val</td>" ;;
+                        6)
+                            case "$val" in
+                                healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
+                                warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
+                                critical::*) css_class="status-critical"; val="${val#critical::}" ;;
+                                failing::*)  css_class="status-failing";  val="${val#failing::}"  ;;
+                                *)           css_class="status"                                   ;;
+                            esac
+                            css_class="$css_class status"
+                            echo "<td class=\"$css_class\">$val</td>"
+                            ;;
+                        7)
+                            case "$val" in
+                                healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
+                                warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
+                                critical::*) css_class="status-critical"; val="${val#critical::}" ;;
+                                failing::*)  css_class="status-failing";  val="${val#failing::}"  ;;
+                                *)           css_class="vol-pool-status"                          ;;
+                            esac
+                            css_class="$css_class vol-pool-status"
+
+                            # Optional hover text after @@ (e.g. "Step 2/2. 4 hours remaining")
+                            status_title=""
+                            if [[ "$val" == *"@@"* ]]; then
+                                status_title="${val#*@@}"
+                                status_title="${status_title//\"/&quot;}"
+                                status_title=" title=\"${status_title}\""
+                                val="${val%%@@*}"
+                            fi
+
+                            if [[ "$val" == *" - "* ]]; then
+                                val_main="${val%% - *}"
+                                val_suffix=" - ${val#* - }"
+                                echo "<td class=\"$css_class\"${status_title}>${val_main}<span style=\"color:var(--text-color,#000)\">${val_suffix}</span></td>"
+                            else
+                                echo "<td class=\"$css_class\"${status_title}>$val</td>"
+                            fi
+                            ;;
+                        *) echo "<td>$val</td>" ;;
+                    esac
+                else
+                    if [[ $c -eq 0 ]]; then
+                        echo "<td class=\"id\">$val</td>"
+                    elif [[ $c -eq 1 ]]; then
+                        if [[ "$val" == *"@@"* ]]; then
+                            num_label="${val%%@@*}"
+                            num_pool="${val#*@@}"
+                            num_pool="${num_pool//\"/&quot;}"
+                            echo "<td class=\"num\" title=\"${num_pool}\">${num_label}</td>"
+                        else
+                            echo "<td class=\"num\">$val</td>"
+                        fi
+                    elif [[ $c -eq 2 ]]; then
+                        [[ $HAS_LOCATION -eq 0 ]] && continue
+                        echo "<td class=\"location\">$val</td>"
+                    elif [[ $c -eq 3 ]]; then
+                        echo "<td class=\"model\">$val</td>"
+                    elif [[ $c -eq 4 ]]; then
+                        echo "<td class=\"size\">$val</td>"
+                    elif [[ $c -eq 5 ]]; then
+                        [[ $IS_SMR -eq 0 ]] && continue
+                        echo "<td class=\"smr\">$val</td>"
+                    elif [[ $c -eq 6 ]]; then
+                        echo "<td class=\"firmware\">$val</td>"
+                    elif [[ $c -eq 7 ]]; then
+                        echo "<td class=\"serial\">$val</td>"
+                    elif [[ $c -eq 8 ]]; then
+                        #echo "<td class=\"temp\">${val}°C</td>"
+                        echo "<td class=\"temp\">${val}</td>"
+                    elif [[ $c -eq 9 ]]; then
+                        case "$val" in
+                            healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
+                            warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
+                            critical::*) css_class="status-critical"; val="${val#critical::}" ;;
+                            failing::*)  css_class="status-failing";  val="${val#failing::}"  ;;
+                            *)           css_class="status"                                   ;;
+                        esac
+                        echo "<td class=\"$css_class\"><button class=\"smart-btn $css_class\" onclick=\"showSmartPanel(this)\" title=\"${_txt_smart_view}\">$val</button></td>"
+                    else
+                        echo "<td>$val</td>"
+                    fi
+                fi
+            done
+            echo "</tr>"
+            continue
+        fi
+
+        # Blank line ends table
+        if [[ $in_table -eq 1 ]] && [[ ${#headers[@]} -gt 0 ]] && [[ -z "$trimmed" ]]; then
+            if [[ "$table_type" == "volume" ]]; then
+                echo "</tbody></table></div>"
+            elif [[ "$table_type" == "drive" ]] && [[ "$_show_volume_info" == "true" ]]; then
+                echo "</tbody></table>"
+            else
+                echo "</tbody></table><br>"
+            fi
+            in_table=0; table_type=""; headers=(); continue
+        fi
+    done <<< "$OUTPUT"
+
+    if [[ $in_table -eq 1 ]]; then
+        if [[ "$table_type" == "volume" ]]; then
+            echo "</tbody></table></div>"
+        else
+            echo "</tbody></table>"
+        fi
+    fi
+
+    # drive_info.sh found no drives or volumes (it prints no table at all), e.g. a
+    # router with no USB drive attached. Say so instead of showing a blank window.
+    if [[ "$OUTPUT" != *"----"* ]]; then
+        echo "<p>$(txt errors err_no_drives "No drives found.")</p>"
+    fi
+
+    exit 0
+fi
+
+#---------------------------------------------------------------------------
 # Default action: render main page HTML
 # Settings are embedded in the same page and shown/hidden via JS.
 #---------------------------------------------------------------------------
@@ -1549,27 +2005,11 @@ cat << MAINVIEW
 <div id="main-view">
 MAINVIEW
 
-# Check script exists
-if [[ ! -f "$SCRIPT" ]]; then
-    echo "<p class=\"err\">$(txt errors err_script_missing "drive_info.sh not found. Try reinstalling the package.")</p>"
-    echo "</div>"
-    exit 0
-fi
-
-# Check sudo permission
-if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
-    if [[ ! -u "$HELPER" ]]; then
-        cat << NOPERMS
-<h2 style="color:#c00;">$(txt errors err_noperms_title "Permissions not configured")</h2>
-<p>$(txt errors err_noperms_desc "This package needs elevated permissions to read drive information.")</p>
-</div>
-<script>document.getElementById("nav-btn").disabled=false;document.getElementById("reload-btn").disabled=false;</script>
-NOPERMS
-        exit 0
-    fi
-fi
-
-# Spinner
+# Loading indicator. The drive tables are not written into this page: the page
+# is complete and on screen straight away, and loadDrives() fetches them with
+# action=drives. (Before, the page was streamed to the browser while
+# drive_info.sh ran, and a browser that held the streamed output back showed a
+# blank window - no Loading..., no Reload or Settings buttons - until it finished.)
 cat << SPINNER
 <div id="loading" style="margin-bottom:8px;">
   <img src="/webman/3rdparty/drive_info/images/wait_triangle_blue_40p.gif" alt="" width="30" height="30" style="vertical-align:middle;margin-right:6px;">
@@ -1577,431 +2017,12 @@ cat << SPINNER
 </div>
 <div id="drive-table"></div>
 <script>
-function showResult(html) {
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('drive-table').innerHTML = html;
-    document.getElementById('nav-btn').disabled = false;
-    document.getElementById('reload-btn').disabled = false;
-}
-
 function reloadPage() {
     window.location.href = '/webman/3rdparty/drive_info/api.cgi?_ts=' + new Date().getTime();
 }
 </script>
 SPINNER
 
-# Flush spinner to browser before running the slow script
-dd if=/dev/zero bs=4096 count=1 2>/dev/null | tr '\0' ' '
-
-# Run drive_info.sh as root via sudo
-# SRM has no mktemp command, so make a private temp file without it.
-# noclobber makes the create fail if the name already exists (symlink safety).
-STDERR_TMP="/tmp/drive_info.$$.$RANDOM"
-( umask 077; set -o noclobber; : > "$STDERR_TMP" ) 2>/dev/null || STDERR_TMP="/dev/null"
-if [[ "$dsm" -ge 7 || "$build" -ge 101188 ]]; then
-    OUTPUT=$("$HELPER" drive_info "$_lang" 2>"$STDERR_TMP")
-else
-    OUTPUT=$(sudo "${SCRIPT}" "$_lang" 2>"$STDERR_TMP")
-fi
-
-EXIT_CODE=$?
-STDERR_OUT=$(cat "$STDERR_TMP")
-[[ "$STDERR_TMP" != "/dev/null" ]] && rm -f "$STDERR_TMP"
-
-# Clear spinner and enable settings button
-echo '<script>document.getElementById("loading").style.display="none";document.getElementById("nav-btn").disabled=false;document.getElementById("reload-btn").disabled=false;</script>'
-
-if [[ $EXIT_CODE -ne 0 ]]; then
-    echo "<p class=\"err\">drive_info.sh exited with code $EXIT_CODE.</p>"
-    [[ -n "$STDERR_OUT" ]] && echo "<pre>$(echo "$STDERR_OUT" | sed 's/</\&lt;/g;s/>/\&gt;/g')</pre>"
-    # drive_info.sh prints its own error messages to stdout, which was being discarded
-    [[ -n "$OUTPUT" ]] && echo "<pre>$(echo "$OUTPUT" | head -n 20 | sed 's/</\&lt;/g;s/>/\&gt;/g')</pre>"
-    echo "</div>"
-    exit 0
-fi
-
-# Split a line into columns separated by two or more spaces (single spaces stay
-# inside a column). Result is in the SPLIT_COLS array. Pure bash: replaces
-# grep -oP '\S.*?(?=  |\s*$)', because SRM's BusyBox grep has no -P.
-split_cols() {
-    local s="$1"
-    SPLIT_COLS=()
-    while [[ "$s" =~ ^[[:space:]]*([^[:space:]]([^[:space:]]|\ [^[:space:]])*)(.*)$ ]]; do
-        SPLIT_COLS+=("${BASH_REMATCH[1]}")
-        s="${BASH_REMATCH[3]}"
-        [[ -z "${s//[[:space:]]/}" ]] && break
-    done
-}
-
-# Parse drive_info.sh plain-text output into HTML tables
-#echo "<h2>${_txt_drive_info}</h2>"  # Drive Information heading
-# Get local NAS identity for the heading
-_local_hostname=$(cat /proc/sys/kernel/hostname 2>/dev/null || hostname)
-_local_model=$(synogetkeyvalue /etc.defaults/synoinfo.conf upnpmodelname 2>/dev/null)
-if [[ -z "$_local_model" && -f /proc/sys/kernel/syno_hw_version ]]; then
-    _local_model=$(cat /proc/sys/kernel/syno_hw_version 2>/dev/null || echo "")
-    if [[ ${_local_model,,} =~ 'pv10-j'$ ]]; then
-        _local_model=${_local_model%??????}+
-    elif [[ ${_local_model} =~ '-j'$ ]]; then
-        _local_model=${_local_model%??}
-    fi
-fi
-[[ -z "$_local_model" ]] && _local_model=""
-
-# Get DSM version for the local NAS heading
-_local_os_name=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/synoinfo.conf os_name)
-if [[ -z "$_local_os_name" ]]; then _local_os_name="DSM"; fi
-_local_productversion=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION productversion)
-_local_base=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION base)
-if [[ -n "$_local_base" ]]; then _local_base="-$_local_base"; fi
-_local_smallfixnumber=$(/usr/syno/bin/synogetkeyvalue /etc.defaults/VERSION smallfixnumber)
-if [[ "$_local_smallfixnumber" -gt "0" ]]; then _local_smallfixnumber="-$_local_smallfixnumber"; fi 
-_local_dsm_version="$_local_os_name $_local_productversion$_local_base$_local_smallfixnumber"
-
-# Get local NAS's Drive Info package version for the heading
-_local_pkg_version=$(synogetkeyvalue /var/packages/drive_info/INFO version 2>/dev/null)
-if [[ -n $_local_pkg_version ]]; then
-    _local_pkg_version="Drive Info v$_local_pkg_version"
-fi
-
-# Get local IP. On SRM the default-route interface is the WAN, so use the
-# address this page was reached on (the LAN address) instead.
-_local_ip=""
-if [[ "$_local_os_name" == "SRM" ]]; then
-    _ipv4_re='^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'
-    if [[ "${SERVER_ADDR:-}" =~ $_ipv4_re && "$SERVER_ADDR" != 127.* ]]; then
-        _local_ip="$SERVER_ADDR"
-    elif [[ "${HTTP_HOST%%:*}" =~ $_ipv4_re ]]; then
-        _local_ip="${HTTP_HOST%%:*}"
-    fi
-fi
-# Default: prefer the default-route interface address
-[[ -z "$_local_ip" ]] && _local_ip=$(ip route get 1.1.1.1 2>/dev/null | grep -o 'src [0-9.]*' | awk '{print $2}')
-[[ -z "$_local_ip" ]] && _local_ip=$(hostname -i 2>/dev/null | awk '{print $1}')
-
-_local_subtitle=""
-if [[ -n "$_local_ip" || -n "$_local_model" || -n "$_local_pkg_version" ]]; then
-    _local_subtitle=" <span style=\"font-weight:normal;font-size:13px;color:#999;\"> &nbsp; ${_local_ip} &nbsp; ${_local_model}"
-    [[ -n "$_local_dsm_version" ]] && _local_subtitle+=" &nbsp; ${_local_dsm_version}"
-    [[ -n "$_local_pkg_version" ]] && _local_subtitle+=" &nbsp; - &nbsp; ${_local_pkg_version}"
-    _local_subtitle+="</span>"
-fi
-echo "<h2>${_local_hostname}${_local_subtitle}</h2>"
-
-in_table=0
-table_type=""   # "drive" or "volume"
-headers=()
-col_count=0
-
-# Pre-scan to check if any Location column values are non-empty
-HAS_LOCATION=0
-IS_SMR=0
-scan_in_table=0
-scan_skip=0
-scan_headers=()
-scan_col_starts=()
-scan_col_count=0
-while IFS= read -r line; do
-    trimmed="${line#"${line%%[![:space:]]*}"}"
-    if [[ "$trimmed" =~ ^-+$ ]]; then
-        scan_in_table=1; continue
-    fi
-
-    # Skip table - silently consume rows until the blank line that ends it.
-    # (Without this, the dashed separator after a skipped header would flip
-    # scan_in_table back on and the next data row would be misread as a
-    # fresh header row.)
-    if [[ $scan_in_table -eq 1 ]] && [[ $scan_skip -eq 1 ]] && [[ -n "$trimmed" ]]; then
-        continue
-    fi
-    if [[ $scan_in_table -eq 1 ]] && [[ $scan_skip -eq 1 ]] && [[ -z "$trimmed" ]]; then
-        scan_in_table=0; scan_skip=0; continue
-    fi
-
-    if [[ $scan_in_table -eq 1 ]] && [[ ${#scan_headers[@]} -eq 0 ]] && [[ -n "$trimmed" ]]; then
-        # SRM's BusyBox grep rejects -P
-        #IFS=$'\n' read -r -d '' -a scan_headers <<< "$(echo "$trimmed" | grep -oP '\S.*?(?=  |\s*$)')" || true
-        split_cols "$trimmed"; scan_headers=("${SPLIT_COLS[@]}")
-        scan_col_count=${#scan_headers[@]}
-        # Only check Location for drive tables (first header is not "Volume")
-        if [[ "${scan_headers[0]}" == "$_txt_volume" ]]; then
-            scan_skip=1; scan_headers=(); continue
-        fi
-        scan_col_starts=()
-        pos=0
-        for h in "${scan_headers[@]}"; do
-            rest="${line:$pos}"
-            prefix="${rest%%"$h"*}"
-            scan_col_starts+=("$(( pos + ${#prefix} ))")
-            pos=$(( pos + ${#prefix} + ${#h} ))
-        done
-        continue
-    fi
-
-    if [[ $scan_in_table -eq 1 ]] && [[ ${#scan_headers[@]} -gt 0 ]] && [[ -n "$trimmed" ]] && (( scan_col_count > 2 )); then
-        if [[ $HAS_LOCATION -eq 0 ]]; then
-            start="${scan_col_starts[2]}"
-            if (( 3 < scan_col_count )); then
-                len=$(( scan_col_starts[3] - start - 2 ))
-            else
-                len=$(( ${#line} - start ))
-            fi
-            val="${line:$start:$len}"
-            val="${val%"${val##*[![:space:]]}"}"
-            [[ -n "$val" ]] && HAS_LOCATION=1
-        fi
-
-        if [[ $IS_SMR -eq 0 ]] && (( scan_col_count > 5 )); then
-            start="${scan_col_starts[5]}"
-            if (( 6 < scan_col_count )); then
-                len=$(( scan_col_starts[6] - start - 2 ))
-            else
-                len=$(( ${#line} - start ))
-            fi
-            smr_val="${line:$start:$len}"
-            smr_val="${smr_val%"${smr_val##*[![:space:]]}"}"
-            [[ -n "$smr_val" ]] && IS_SMR=1
-        fi
-
-        if [[ $HAS_LOCATION -eq 1 && $IS_SMR -eq 1 ]]; then break; fi
-        continue
-    fi
-
-    if [[ $scan_in_table -eq 1 ]] && [[ ${#scan_headers[@]} -gt 0 ]] && [[ -z "$trimmed" ]]; then
-        scan_in_table=0; scan_headers=(); continue
-    fi
-done <<< "$OUTPUT"
-
-while IFS= read -r line; do
-    trimmed="${line#"${line%%[![:space:]]*}"}"
-
-    # Separator line — starts a new table
-    if [[ "$trimmed" =~ ^-+$ ]]; then
-        if [[ $in_table -eq 0 ]]; then
-            in_table=1
-            table_type=""  # determined when we read the header row
-        fi
-        continue
-    fi
-
-    # Skip table - silently consume data rows
-    if [[ $in_table -eq 1 ]] && [[ "$table_type" == "skip" ]] && [[ -n "$trimmed" ]]; then continue; fi
-
-    # Skip table - blank line ends the skip
-    if [[ $in_table -eq 1 ]] && [[ "$table_type" == "skip" ]] && [[ -z "$trimmed" ]]; then
-        in_table=0; table_type=""; continue
-    fi
-
-    # Header row
-    if [[ $in_table -eq 1 ]] && [[ ${#headers[@]} -eq 0 ]] && [[ -n "$trimmed" ]]; then
-        # SRM's BusyBox grep rejects -P
-        #IFS=$'\n' read -r -d '' -a headers <<< "$(echo "$trimmed" | grep -oP '\S.*?(?=  |\s*$)')" || true
-        split_cols "$trimmed"; headers=("${SPLIT_COLS[@]}")
-        col_count=${#headers[@]}
-
-        col_starts=()
-        pos=0
-        for h in "${headers[@]}"; do
-            rest="${line:$pos}"
-            prefix="${rest%%"$h"*}"
-            col_starts+=("$(( pos + ${#prefix} ))")
-            pos=$(( pos + ${#prefix} + ${#h} ))
-        done
-
-        # Detect table type by first header
-        if [[ "${headers[0]}" == "$_txt_volume" ]]; then
-            table_type="volume"
-            if [[ "$_show_volume_info" != "true" ]]; then
-                # Skip volume table entirely
-                in_table=1; table_type="skip"; headers=(); continue
-            fi
-            echo '<div class="vol-table-wrapper"><table class="vol-table"><colgroup><col class="vol-name"><col class="vol-fs"><col class="vol-pool"><col class="raid"><col class="vol-size"><col class="vol-used"><col class="status"><col class="vol-pool-status"></colgroup>'
-        else
-            table_type="drive"
-            if [[ $HAS_LOCATION -eq 1 && $IS_SMR -eq 1 ]]; then
-                echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="size"><col class="smr"><col class="firmware"><col class="serial"><col class="temp"><col class="status"></colgroup>'
-            elif [[ $HAS_LOCATION -eq 1 ]]; then
-                echo '<table><colgroup><col class="id"><col class="num"><col class="location"><col class="model"><col class="size"><col class="firmware"><col class="serial"><col class="temp"><col class="status"></colgroup>'
-            elif [[ $IS_SMR -eq 1 ]]; then
-                echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="size"><col class="smr"><col class="firmware"><col class="serial"><col class="temp"><col class="status"></colgroup>'
-            else
-                echo '<table><colgroup><col class="id"><col class="num"><col class="model"><col class="size"><col class="firmware"><col class="serial"><col class="temp"><col class="status"></colgroup>'
-            fi
-        fi
-
-        echo "<thead><tr>"
-        if [[ "$table_type" == "volume" ]]; then
-            vol_classes=("vol-name" "vol-fs" "vol-pool" "raid" "vol-size" "vol-used" "status" "vol-pool-status")
-            for idx in "${!headers[@]}"; do
-                cls="${vol_classes[$idx]:-}"
-                echo "<th class=\"$cls\">$(echo "${headers[$idx]}" | sed 's/</\&lt;/g;s/>/\&gt;/g')</th>"
-            done
-        else
-            col_classes=("id" "num" "location" "model" "size" "smr" "firmware" "serial" "temp" "status")
-            for idx in "${!headers[@]}"; do
-                cls="${col_classes[$idx]:-}"
-                [[ "$cls" == "location" && $HAS_LOCATION -eq 0 ]] && continue
-                [[ "$cls" == "smr" && $IS_SMR -eq 0 ]] && continue
-                echo "<th class=\"$cls\">$(echo "${headers[$idx]}" | sed 's/</\&lt;/g;s/>/\&gt;/g')</th>"
-            done
-        fi
-        echo "</tr></thead><tbody>"
-        continue
-    fi
-
-    # Data row
-    if [[ $in_table -eq 1 ]] && [[ ${#headers[@]} -gt 0 ]] && [[ -n "$trimmed" ]]; then
-        echo "<tr>"
-        for (( c=0; c<col_count; c++ )); do
-            start="${col_starts[$c]}"
-            if (( c + 1 < col_count )); then
-                len=$(( col_starts[c+1] - start - 2 ))
-            else
-                len=$(( ${#line} - start ))
-            fi
-            val="${line:$start:$len}"
-            val="${val%"${val##*[![:space:]]}"}"
-            val="$(echo "$val" | sed 's/</\&lt;/g;s/>/\&gt;/g')"
-
-            if [[ "$table_type" == "volume" ]]; then
-                case $c in
-                    0) echo "<td class=\"vol-name\">$val</td>" ;;
-                    1) echo "<td class=\"vol-fs\">$val</td>" ;;
-                    2)
-                        if [[ "$val" == *"@@"* ]]; then
-                            pool_label="${val%%@@*}"
-                            pool_disks="${val#*@@}"
-                            pool_disks="${pool_disks//\"/&quot;}"
-                            echo "<td class=\"vol-pool\" title=\"${pool_disks}\">${pool_label}</td>"
-                        else
-                            echo "<td class=\"vol-pool\">$val</td>"
-                        fi
-                        ;;
-                    3)
-                        if [[ "$val" == *"@@"* ]]; then
-                            raid_label="${val%%@@*}"
-                            raid_disks="${val#*@@}"
-                            raid_disks="${raid_disks//\"/&quot;}"
-                            echo "<td class=\"raid\" title=\"${raid_disks}\">${raid_label}</td>"
-                        else
-                            echo "<td class=\"raid\">$val</td>"
-                        fi
-                        ;;
-                    4) echo "<td class=\"vol-size\">$val</td>" ;;
-                    5) echo "<td class=\"vol-used\">$val</td>" ;;
-                    6)
-                        case "$val" in
-                            healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
-                            warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
-                            critical::*) css_class="status-critical"; val="${val#critical::}" ;;
-                            failing::*)  css_class="status-failing";  val="${val#failing::}"  ;;
-                            *)           css_class="status"                                   ;;
-                        esac
-                        css_class="$css_class status"
-                        echo "<td class=\"$css_class\">$val</td>"
-                        ;;
-                    7)
-                        case "$val" in
-                            healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
-                            warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
-                            critical::*) css_class="status-critical"; val="${val#critical::}" ;;
-                            failing::*)  css_class="status-failing";  val="${val#failing::}"  ;;
-                            *)           css_class="vol-pool-status"                          ;;
-                        esac
-                        css_class="$css_class vol-pool-status"
-
-                        # Optional hover text after @@ (e.g. "Step 2/2. 4 hours remaining")
-                        status_title=""
-                        if [[ "$val" == *"@@"* ]]; then
-                            status_title="${val#*@@}"
-                            status_title="${status_title//\"/&quot;}"
-                            status_title=" title=\"${status_title}\""
-                            val="${val%%@@*}"
-                        fi
-
-                        if [[ "$val" == *" - "* ]]; then
-                            val_main="${val%% - *}"
-                            val_suffix=" - ${val#* - }"
-                            echo "<td class=\"$css_class\"${status_title}>${val_main}<span style=\"color:var(--text-color,#000)\">${val_suffix}</span></td>"
-                        else
-                            echo "<td class=\"$css_class\"${status_title}>$val</td>"
-                        fi
-                        ;;
-                    *) echo "<td>$val</td>" ;;
-                esac
-            else
-                if [[ $c -eq 0 ]]; then
-                    echo "<td class=\"id\">$val</td>"
-                elif [[ $c -eq 1 ]]; then
-                    if [[ "$val" == *"@@"* ]]; then
-                        num_label="${val%%@@*}"
-                        num_pool="${val#*@@}"
-                        num_pool="${num_pool//\"/&quot;}"
-                        echo "<td class=\"num\" title=\"${num_pool}\">${num_label}</td>"
-                    else
-                        echo "<td class=\"num\">$val</td>"
-                    fi
-                elif [[ $c -eq 2 ]]; then
-                    [[ $HAS_LOCATION -eq 0 ]] && continue
-                    echo "<td class=\"location\">$val</td>"
-                elif [[ $c -eq 3 ]]; then
-                    echo "<td class=\"model\">$val</td>"
-                elif [[ $c -eq 4 ]]; then
-                    echo "<td class=\"size\">$val</td>"
-                elif [[ $c -eq 5 ]]; then
-                    [[ $IS_SMR -eq 0 ]] && continue
-                    echo "<td class=\"smr\">$val</td>"
-                elif [[ $c -eq 6 ]]; then
-                    echo "<td class=\"firmware\">$val</td>"
-                elif [[ $c -eq 7 ]]; then
-                    echo "<td class=\"serial\">$val</td>"
-                elif [[ $c -eq 8 ]]; then
-                    #echo "<td class=\"temp\">${val}°C</td>"
-                    echo "<td class=\"temp\">${val}</td>"
-                elif [[ $c -eq 9 ]]; then
-                    case "$val" in
-                        healthy::*)  css_class="status-healthy";  val="${val#healthy::}"  ;;
-                        warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
-                        critical::*) css_class="status-critical"; val="${val#critical::}" ;;
-                        failing::*)  css_class="status-failing";  val="${val#failing::}"  ;;
-                        *)           css_class="status"                                   ;;
-                    esac
-                    echo "<td class=\"$css_class\"><button class=\"smart-btn $css_class\" onclick=\"showSmartPanel(this)\" title=\"${_txt_smart_view}\">$val</button></td>"
-                else
-                    echo "<td>$val</td>"
-                fi
-            fi
-        done
-        echo "</tr>"
-        continue
-    fi
-
-    # Blank line ends table
-    if [[ $in_table -eq 1 ]] && [[ ${#headers[@]} -gt 0 ]] && [[ -z "$trimmed" ]]; then
-        if [[ "$table_type" == "volume" ]]; then
-            echo "</tbody></table></div>"
-        elif [[ "$table_type" == "drive" ]] && [[ "$_show_volume_info" == "true" ]]; then
-            echo "</tbody></table>"
-        else
-            echo "</tbody></table><br>"
-        fi
-        in_table=0; table_type=""; headers=(); continue
-    fi
-done <<< "$OUTPUT"
-
-if [[ $in_table -eq 1 ]]; then
-    if [[ "$table_type" == "volume" ]]; then
-        echo "</tbody></table></div>"
-    else
-        echo "</tbody></table>"
-    fi
-fi
-
-# drive_info.sh found no drives or volumes (it prints no table at all), e.g. a
-# router with no USB drive attached. Say so instead of showing a blank window.
-if [[ "$OUTPUT" != *"----"* ]]; then
-    echo "<p>$(txt errors err_no_drives "No drives found.")</p>"
-fi
 
 # Remote NAS container - populated by JS after page load
 echo '<div id="remote-nas-container"></div>'
@@ -2125,6 +2146,7 @@ var txtNeedsHttpsPort = "${_txt_needs_https_port}";
 var viewer_lang = '${_lang}';
 var dirty = false;  // true only after settings have been saved
 var txtSettingsAdminOnly = "${_txt_settings_admin_only}";
+var txtRequestFailed = "${_txt_smart_failed}";
 var settingsLoaded = false;   // the settings are loaded after the page; Save must not run before that
 
 // ---------------------------------------------------------------------------
@@ -3068,7 +3090,7 @@ function fetchDriveTable(section, url, protocol, isHttpsPage, httpsAvailable, ip
     var sep = url.indexOf('?') >= 0 ? '&' : '?';
     var fxhr = new XMLHttpRequest();
     var errorShown = false;  // onreadystatechange and onerror can both fire for one failure
-    fxhr.open('GET', url + sep + 'lang=' + encodeURIComponent(viewer_lang), true);
+    fxhr.open('GET', url + sep + 'action=drives&lang=' + encodeURIComponent(viewer_lang), true);
     fxhr.timeout = 60000;  // was 15000 (matches the SMART panel's 60000)
 
     function showFailure() {
@@ -3091,16 +3113,20 @@ function fetchDriveTable(section, url, protocol, isHttpsPage, httpsAvailable, ip
         if (sp) sp.parentNode.removeChild(sp);
         if (fxhr.status === 200) {
             var html = fxhr.responseText;
-            html = html.replace(/<style[\s\S]*?<\/style>/gi, '');
-            html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
-            html = html.replace(/<div id="loading"[^>]*>[\s\S]*?<\/div>/gi, '');
-            html = html.replace(/<div id="drive-table"[^>]*><\/div>/gi, '');
-            html = html.replace(/<div id="remote-nas-container"[^>]*><\/div>/gi, '');
-            html = html.replace(/<div id="settings-panel"[\s\S]*<\/div>/gi, '');
-            html = html.replace(/<div class="topbar"[\s\S]*?<\/div>/gi, '');
-            html = html.replace(/<div id="main-view"[^>]*>/gi, '');
-            html = html.replace(/<div id="smart-overlay"[^>]*>[\s\S]*?<\/div>/gi, '');
-            html = html.replace(/<div id="smart-panel"[\s\S]*?<\/div>\s*<\/div>/gi, '');
+            if (html.indexOf('<!--di-drives-->') === -1) {
+                // That NAS runs an older Drive Info, which ignores action=drives and sends
+                // its whole page: keep only the tables
+                html = html.replace(/<style[\s\S]*?<\/style>/gi, '');
+                html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
+                html = html.replace(/<div id="loading"[^>]*>[\s\S]*?<\/div>/gi, '');
+                html = html.replace(/<div id="drive-table"[^>]*><\/div>/gi, '');
+                html = html.replace(/<div id="remote-nas-container"[^>]*><\/div>/gi, '');
+                html = html.replace(/<div id="settings-panel"[\s\S]*<\/div>/gi, '');
+                html = html.replace(/<div class="topbar"[\s\S]*?<\/div>/gi, '');
+                html = html.replace(/<div id="main-view"[^>]*>/gi, '');
+                html = html.replace(/<div id="smart-overlay"[^>]*>[\s\S]*?<\/div>/gi, '');
+                html = html.replace(/<div id="smart-panel"[\s\S]*?<\/div>\s*<\/div>/gi, '');
+            }
             html = html.replace(/<h2>[\s\S]*?<\/h2>/gi, '');
             section.innerHTML += html;
         } else {
@@ -3156,7 +3182,38 @@ function closeSmartPanel() {
     document.getElementById('smart-overlay').classList.remove('open');
 }
 
-fetchHAPassive();
-fetchRemoteNAS();
+// ---------------------------------------------------------------------------
+// This NAS's drive tables. Fetched once the page is on screen, so the loading
+// bar shows in every browser however long the NAS and its expansion units take.
+// The remote NAS and HA passive node requests start when this finishes.
+// ---------------------------------------------------------------------------
+function loadDrives() {
+    var xhr = new XMLHttpRequest();
+    var finished = false;   // a timeout or error can end the request more than once
+    function done(html) {
+        if (finished) { return; }
+        finished = true;
+        document.getElementById('drive-table').innerHTML = html;
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('nav-btn').disabled = false;
+        document.getElementById('reload-btn').disabled = false;
+        fetchHAPassive();
+        fetchRemoteNAS();
+    }
+    xhr.open('GET', 'api.cgi?action=drives&lang=' + encodeURIComponent(viewer_lang) + '&_ts=' + new Date().getTime(), true);
+    xhr.timeout = 300000;
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState !== 4) { return; }
+        if (xhr.status === 200) {
+            done(xhr.responseText);
+        } else {
+            // status 0 is a network error or the timeout
+            done('<p class="err">' + escHtml(txtRequestFailed) + (xhr.status ? ' HTTP ' + xhr.status : '') + '</p>');
+        }
+    };
+    xhr.send();
+}
+
+loadDrives();
 </script>
 JAVASCRIPT
