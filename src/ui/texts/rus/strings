@@ -83,6 +83,7 @@ status_data_detected=Обнаружено
 step=Шаг
 esata_drive=eSATA-накопитель
 status_failing=Неисправный
+status_erasing=Выполняется удаление
 unsynced=Синхронизация
 storage_pool=Пул ресурсов хранения
 speed=Скорость

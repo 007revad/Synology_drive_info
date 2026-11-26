@@ -83,6 +83,7 @@ status_data_detected=Algılandı
 step=Adım
 esata_drive=eSATA Sürücü
 status_failing=Arızalanıyor
+status_erasing=Siliniyor
 unsynced=Senkronize ediliyor
 storage_pool=Depolama Havuzu
 speed=Hız

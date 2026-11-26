@@ -83,6 +83,7 @@ status_data_detected=Detectado
 step=Paso
 esata_drive=Unidad eSATA
 status_failing=Con errores
+status_erasing=Borrando
 unsynced=Sincronizando
 storage_pool=Grupo de almacenamiento
 speed=Velocidad

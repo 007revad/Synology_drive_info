@@ -83,6 +83,7 @@ status_data_detected=감지됨
 step=단계
 esata_drive=eSATA 드라이브
 status_failing=실패
+status_erasing=삭제하는 중
 unsynced=동기화 중
 storage_pool=스토리지 풀
 speed=속도

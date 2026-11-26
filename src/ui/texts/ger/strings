@@ -83,6 +83,7 @@ status_data_detected=Erkannt
 step=Schritt
 esata_drive=eSATA-Laufwerk
 status_failing=Schwer fehlerhaft
+status_erasing=Daten werden gelöscht
 unsynced=Synchronisierung läuft
 storage_pool=Speicherpool
 speed=Geschwindigkeit

@@ -1,3 +1,6 @@
+v2.5.75
+- Now shows "Erasing...N%" instead of "Healthy" for drives that are being securely erased.
+
 v2.5.74
 - Bug fix for some browsers not showing the Spinner, Loading..., Refresh button and Settings button while waiting for the drive info to appear.
 

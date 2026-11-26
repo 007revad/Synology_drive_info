@@ -83,6 +83,7 @@ status_data_detected=検出済み
 step=手順
 esata_drive=eSATAドライブ
 status_failing=失敗
+status_erasing=消去中
 unsynced=同期中
 storage_pool=ストレージ プール
 speed=速度

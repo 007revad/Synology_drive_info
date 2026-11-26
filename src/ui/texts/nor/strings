@@ -83,6 +83,7 @@ status_data_detected=Oppdaget
 step=Trinn
 esata_drive=eSATA-stasjon
 status_failing=Sviktende
+status_erasing=Sletter
 unsynced=Synkroniserer
 storage_pool=Lagringsutvalg
 speed=Hastighet

@@ -1609,6 +1609,7 @@ NOPERMS
                             warning::*)  css_class="status-warning";  val="${val#warning::}"  ;;
                             critical::*) css_class="status-critical"; val="${val#critical::}" ;;
                             failing::*)  css_class="status-failing";  val="${val#failing::}"  ;;
+                            processing::*) css_class="status-processing"; val="${val#processing::}" ;;
                             *)           css_class="status"                                   ;;
                         esac
                         echo "<td class=\"$css_class\"><button class=\"smart-btn $css_class\" onclick=\"showSmartPanel(this)\" title=\"${_txt_smart_view}\">$val</button></td>"
@@ -1798,6 +1799,7 @@ _txt_smart_failed=$(txt errors err_smart_failed "Request failed.")
 _txt_lang="$_lang"   # or gui_lang, whatever you settle on
 _txt_settings_admin_only=$(txt errors err_admin_only "Settings are only available to administrators.")
 _txt_status_replacing=$(txt common status_replacing "Replacing")
+_txt_status_erasing=$(txt common status_erasing "Erasing")
 _txt_unit_hour=$(txt common unit_hour "hr")
 _txt_unit_minute=$(txt common unit_minute "min")
 _txt_step=$(txt common step "Step")
@@ -1847,6 +1849,7 @@ td.status-healthy  { color: #1CA600; }
 td.status-warning  { color: #FF7F00; }
 td.status-critical { color: #E64040; }
 td.status-failing  { color: #E64040; }
+td.status-processing { color: #057FEB; }
 .vol-table-wrapper { margin-top: 8px; }
 col.vol-name   { width: 12%; min-width: 80px; }
 col.vol-fs     { width: 8%; min-width: 60px; }
@@ -1950,6 +1953,7 @@ tr.nas-row-disabled td.port-cell input { color: #bbb; }
 .smart-btn.status-warning  { color: #FF7F00; }
 .smart-btn.status-critical { color: #E64040; }
 .smart-btn.status-failing  { color: #E64040; }
+.smart-btn.status-processing { color: #057FEB; }
 .smart-btn.status          { color: #333; }
 #smart-panel { position: fixed; top: 0; right: 0; width: auto; max-width: 100%;
                min-width: 430px;
@@ -2721,6 +2725,13 @@ function buildHAPassiveTable(disks, diskTooltipMap) {
 
         var statusKey = d.drive_status_key || '';
         var mapped = STATUS_MAP[statusKey] || {cls: 'status', text: statusKey || '-'};
+
+        // A drive being securely erased still has drive_status_key "normal",
+        // so show "Erasing...N%" instead of Healthy, like the local table does.
+        if (d.is_erasing === true || (d.action_status && d.action_status.action_name === 'erase')) {
+            var erasePct = d.erase_progress || (d.action_status && d.action_status.action_progress) || '';
+            mapped = {cls: 'status-processing', text: '${_txt_status_erasing}...' + erasePct};
+        }
 
         html +=
             '<tr>' +

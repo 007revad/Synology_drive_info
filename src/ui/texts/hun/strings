@@ -83,6 +83,7 @@ status_data_detected=Észlelve
 step=Lépés
 esata_drive=eSATA-meghajtó
 status_failing=Hibákat produkál
+status_erasing=Törlés
 unsynced=Szinkronizálás
 storage_pool=Tárolókészlet
 speed=Sebesség

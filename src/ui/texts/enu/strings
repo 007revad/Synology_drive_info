@@ -86,6 +86,7 @@ status_data_detected=Detected
 step=Step
 esata_drive=eSATA Drive
 status_failing=Failing
+status_erasing=Erasing
 unsynced=Syncing
 usb_nvme_hint=This may be an NVMe drive in a USB enclosure. Install SynoCli Disk Tools so Drive Info can read its S.M.A.R.T. data.
 storage_pool=Storage Pool

@@ -82,6 +82,7 @@ status_data_detected=Détecté
 step=Étape
 esata_drive=Disque eSATA
 status_failing=Panne
+status_erasing=Effacer
 unsynced=Synchro en cours
 storage_pool=Groupe de stockage
 speed=Vitesse

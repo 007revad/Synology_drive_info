@@ -83,6 +83,7 @@ status_data_detected=已检测到
 step=步骤
 esata_drive=eSATA 驱动器
 status_failing=故障
+status_erasing=清除
 unsynced=同步中
 storage_pool=存储池
 speed=速度

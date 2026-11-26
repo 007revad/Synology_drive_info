@@ -83,6 +83,7 @@ status_data_detected=ตรวจพบแล้ว
 step=ขั้นตอน
 esata_drive=ไดรฟ์ Drive
 status_failing=ล้มเหลว
+status_erasing=กำลังลบ
 unsynced=กำลังซิงค์
 storage_pool=พูลการจัดเก็บข้อมูล
 speed=ความเร็ว

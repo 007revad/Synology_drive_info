@@ -83,6 +83,7 @@ status_data_detected=Zjištěno
 step=Krok
 esata_drive=eSATA disk
 status_failing=Chyba
+status_erasing=Probíhá odstraňování
 unsynced=Probíhá synchronizace
 storage_pool=Fond úložiště
 speed=Rychlost

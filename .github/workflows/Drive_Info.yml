@@ -65,16 +65,10 @@ jobs:
             echo "suffix=DSM-${current}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Check if SPKs already exist in release
-        id: check_assets
-        run: |
-          existing=$(curl -s "https://api.github.com/repos/007revad/${REPO_NAME}/releases/tags/${{ steps.get_latest_tag.outputs.new_tag }}" \
-            | jq -r '.assets[].name' | grep -c '\.spk' || true)
-          echo "spk_count=$existing" >> $GITHUB_OUTPUT
-
       # Synology's own platform codes (kvmx64, rtd1296, ...) aren't
       # meaningful to someone picking a download - map to the arch
       # label people actually recognize.
+      # (Moved above the release check so the check can be per-arch.)
       - name: Map arch to display label
         id: arch_label
         run: |
@@ -86,6 +80,16 @@ jobs:
             *) echo "::error::No display label mapped for arch '${{ matrix.arch }}'"; exit 1 ;;
           esac
           echo "label=$label" >> $GITHUB_OUTPUT
+
+      # Per-arch check: only skip this job's build if the release already
+      # has spk files for THIS arch. That lets a single failed job be
+      # re-run (or the workflow be manually run) and only build what's missing.
+      - name: Check if this arch's SPKs already exist in release
+        id: check_assets
+        run: |
+          existing=$(curl -s "https://api.github.com/repos/007revad/${REPO_NAME}/releases/tags/${{ steps.get_latest_tag.outputs.new_tag }}" \
+            | jq -r '.assets[].name' | grep -c "^${SPK_PREFIX}-${{ steps.arch_label.outputs.label }}-.*\.spk$" || true)
+          echo "spk_count=$existing" >> $GITHUB_OUTPUT
 
       # NEW: what actually goes in INFO's arch= field
       - name: Map arch to INFO install-arch list

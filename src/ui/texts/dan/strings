@@ -83,6 +83,7 @@ status_data_detected=Registreret
 step=Trin
 esata_drive=eSATA-drev
 status_failing=Fejler
+status_erasing=Sletter
 unsynced=Synkroniserer
 storage_pool=Lagerpulje
 speed=Hastighed

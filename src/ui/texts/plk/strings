@@ -83,6 +83,7 @@ status_data_detected=Wykryte
 step=Krok
 esata_drive=Dysk eSATA
 status_failing=Uległ awarii
+status_erasing=Usuwanie
 unsynced=Trwa synchronizacja
 storage_pool=Pula pamięci
 speed=Prędkość

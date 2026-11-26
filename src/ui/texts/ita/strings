@@ -83,6 +83,7 @@ status_data_detected=Rilevato
 step=Passo
 esata_drive=Unità eSATA
 status_failing=Errore
+status_erasing=Cancellazione
 unsynced=Sincronizzazione
 storage_pool=Storage Pool
 speed=Velocità

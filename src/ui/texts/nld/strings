@@ -83,6 +83,7 @@ status_data_detected=Gedetecteerd
 step=Stap
 esata_drive=eSATA-schijf
 status_failing=Mislukt
+status_erasing=Bezig met verwijderen
 unsynced=Bezig met synchroniseren
 storage_pool=Opslagpool
 speed=Snelheid

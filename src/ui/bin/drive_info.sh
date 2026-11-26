@@ -413,9 +413,27 @@ append_pool_hover(){
     fi
 }
 
+# A drive being securely erased still has drive_status_key "normal", so the health
+# lookups below would show it as Healthy. DSM's load_info instead has is_erasing
+# and erase_progress (e.g. "10%") for it, collected into disk_erase_map up front.
+# Sets status to "Erasing..N%" and returns 0 if the drive is being erased.
+get_erase_status(){
+    [[ -z "${disk_erase_map[$drive]+x}" ]] && return 1
+    # processing:: shows in blue, like DSM's own Erasing status
+    status="processing::$(txt common status_erasing "Erasing")...${disk_erase_map[$drive]}"
+    if [[ -t 1 ]]; then         # Running in terminal
+        status="${status#*::}"  # Remove 'processing::'
+    fi
+    return 0
+}
+
 get_drive_health(){ 
     local health_status
     status=""
+
+    # Skips the slow per drive webapi call for a drive being erased
+    if get_erase_status; then return; fi
+
     if [[ $1 == "usb" ]]; then
         health_status=$(synousbdisk -info "$drive" | grep '^Status:' | cut -d" " -f2)
     else
@@ -494,6 +512,9 @@ get_drive_health6(){
     local cache_dir="/run/synostorage/disks/${drive}"
     local smart adv_status health_status
     status=""
+
+    # Skips the slow per drive webapi call for a drive being erased
+    if get_erase_status; then return; fi
 
     if [[ ! -d "$cache_dir" ]]; then
         #status="unknown::$(txt common status_unknown "Unknown")"
@@ -837,6 +858,17 @@ if [[ -n "$storage_json" ]]; then
     while IFS= read -r _did; do
         [[ -n "$_did" ]] && disk_unused_map["$_did"]=1
     done < <(echo "$storage_json" | jq -r '.data.disks[]? | select((.used_by // "") == "") | .id')
+fi
+
+# Build disk id -> erase progress for drives DSM is securely erasing (e.g.
+# "sata3" -> "10%"). load_info has is_erasing true, action_status.action_name
+# "erase" and erase_progress "10%" for such a drive, while its drive_status_key
+# stays "normal". The progress is empty if DSM gives none.
+declare -A disk_erase_map
+if [[ -n "$storage_json" ]]; then
+    while IFS='|' read -r _did _pct; do
+        [[ -n "$_did" ]] && disk_erase_map["$_did"]="$_pct"
+    done < <(echo "$storage_json" | jq -r '.data.disks[]? | select(.is_erasing == true or .action_status.action_name == "erase") | "\(.id)|\(.erase_progress // .action_status.action_progress // "")"')
 fi
 
 # Add drives to drives array
